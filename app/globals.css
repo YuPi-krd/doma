@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html{
+  scroll-behavior:smooth;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  overflow-x:hidden;
+  background:#fff;
+}
+
+.container{
+  width:min(1400px,92%);
+  margin:0 auto;
+}
+
+.hero{
+  min-height:100vh;
+  background:
+      linear-gradient(
+          rgba(0,0,0,.35),
+          rgba(0,0,0,.35)
+      ),
+      url("/images/krasnodar.jpeg");
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+
+.hero-content{
+  padding-top:120px;
+}
+
+.hero-title{
+  max-width:850px;
+  font-size:88px;
+  line-height:.95;
+  font-weight:800;
+  color:white;
+}
+
+.hero-text{
+  margin-top:24px;
+  max-width:650px;
+  font-size:24px;
+  color:white;
+}
+
+.search-box{
+  margin-top:50px;
+  background:white;
+  border-radius:30px;
+  padding:24px;
+  box-shadow:
+      0 20px 60px rgba(0,0,0,.15);
+}
+
+.search-tabs{
+  display:flex;
+  gap:12px;
+  margin-bottom:20px;
+}
+
+.search-tab{
+  padding:14px 24px;
+  border-radius:999px;
+  background:#f3f3f3;
+  font-weight:600;
+}
+
+.search-tab.active{
+  background:#171717;
+  color:white;
+}
+
+.search-grid{
+  display:grid;
+  grid-template-columns:
+      1.2fr
+      1fr
+      1fr
+      1fr
+      2fr;
+  gap:12px;
+}
+
+.search-input{
+  height:56px;
+  border:1px solid #ddd;
+  border-radius:16px;
+  padding:0 16px;
+}
+
+.search-buttons{
+  display:grid;
+  grid-template-columns:
+      1fr
+      1fr
+      1.4fr;
+  gap:12px;
+  margin-top:12px;
+}
+
+.btn{
+  height:56px;
+  border:none;
+  border-radius:16px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.btn-red{
+  background:#ef4444;
+  color:white;
+}
+
+@media(max-width:1200px){
+
+  .hero-title{
+      font-size:64px;
   }
+
+  .search-grid{
+      grid-template-columns:1fr 1fr;
+  }
+
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media(max-width:768px){
+
+  .hero-title{
+      font-size:46px;
+  }
+
+  .search-grid{
+      grid-template-columns:1fr;
+  }
+
+  .search-buttons{
+      grid-template-columns:1fr;
+  }
+
 }
