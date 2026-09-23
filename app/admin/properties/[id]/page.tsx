@@ -198,9 +198,7 @@ export default async function PropertyPage({
           </div>
         </div>
 
-        <PropertyGallery
-          images={images}
-        />
+        <PropertyGallery images={images} />
 
         <div
           style={{

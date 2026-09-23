@@ -229,21 +229,10 @@ export default async function LeadPage({
             flexWrap: "wrap",
           }}
         >
-          {lead.status === "Новая" && (
-            <UpdateLeadStatusButton
-              leadId={lead.id}
-              newStatus="В работе"
-              text="🟢 Взять в работу"
-            />
-          )}
-
-          {lead.status === "В работе" && (
-            <UpdateLeadStatusButton
-              leadId={lead.id}
-              newStatus="Закрыта"
-              text="✅ Закрыть заявку"
-            />
-          )}
+          <UpdateLeadStatusButton
+  leadId={lead.id}
+  currentStatus={lead.status}
+/>
 
           <Link
             href={`/admin/properties/${lead.property_id}`}
