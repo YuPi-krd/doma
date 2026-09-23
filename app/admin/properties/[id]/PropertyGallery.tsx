@@ -7,15 +7,15 @@ interface PropertyImage {
   image_url: string;
 }
 
-export default function PropertyGallery({
-  propertyId,
-  images,
-}: {
-  propertyId: number;
+interface PropertyGalleryProps {
   images: PropertyImage[];
-}) {
+}
+
+export default function PropertyGallery({
+  images,
+}: PropertyGalleryProps) {
   const [currentImage, setCurrentImage] =
-    useState(
+    useState<string | null>(
       images.length > 0
         ? images[0].image_url
         : null
@@ -39,9 +39,7 @@ export default function PropertyGallery({
       );
 
       if (!res.ok) {
-        alert(
-          "Ошибка удаления"
-        );
+        alert("Ошибка удаления");
         return;
       }
 
@@ -66,7 +64,7 @@ export default function PropertyGallery({
         {currentImage ? (
           <img
             src={`http://127.0.0.1:8000${currentImage}`}
-            alt=""
+            alt="Фото объекта"
             style={{
               width: "100%",
               height: "550px",
@@ -77,13 +75,13 @@ export default function PropertyGallery({
         ) : (
           <div
             style={{
-              height: "500px",
+              height: "550px",
               display: "flex",
               alignItems: "center",
-              justifyContent:
-                "center",
-              background:
-                "#f1f5f9",
+              justifyContent: "center",
+              background: "#f1f5f9",
+              color: "#64748b",
+              fontSize: "18px",
             }}
           >
             Нет фотографий
@@ -102,7 +100,12 @@ export default function PropertyGallery({
               "0 10px 30px rgba(0,0,0,.05)",
           }}
         >
-          <h3>
+          <h3
+            style={{
+              marginTop: 0,
+              marginBottom: "20px",
+            }}
+          >
             Галерея объекта
           </h3>
 
@@ -117,13 +120,12 @@ export default function PropertyGallery({
               <div
                 key={img.id}
                 style={{
-                  position:
-                    "relative",
+                  position: "relative",
                 }}
               >
                 <img
                   src={`http://127.0.0.1:8000${img.image_url}`}
-                  alt=""
+                  alt="Миниатюра"
                   onClick={() =>
                     setCurrentImage(
                       img.image_url
@@ -132,12 +134,9 @@ export default function PropertyGallery({
                   style={{
                     width: "180px",
                     height: "120px",
-                    objectFit:
-                      "cover",
-                    borderRadius:
-                      "12px",
-                    cursor:
-                      "pointer",
+                    objectFit: "cover",
+                    borderRadius: "12px",
+                    cursor: "pointer",
                     border:
                       currentImage ===
                       img.image_url
@@ -148,25 +147,19 @@ export default function PropertyGallery({
 
                 <button
                   onClick={() =>
-                    deleteImage(
-                      img.id
-                    )
+                    deleteImage(img.id)
                   }
                   style={{
-                    position:
-                      "absolute",
+                    position: "absolute",
                     top: "8px",
                     right: "8px",
                     width: "28px",
                     height: "28px",
-                    borderRadius:
-                      "50%",
+                    borderRadius: "50%",
                     border: "none",
-                    background:
-                      "#ef4444",
+                    background: "#ef4444",
                     color: "white",
-                    cursor:
-                      "pointer",
+                    cursor: "pointer",
                     fontWeight: 700,
                   }}
                 >
