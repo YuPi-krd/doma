@@ -98,7 +98,11 @@ app.mount(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://doma-fawn.vercel.app",
+        "https://doma-lu0sdscvv-yu-pi.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
