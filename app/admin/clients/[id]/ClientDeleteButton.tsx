@@ -17,7 +17,7 @@ export default function ClientDeleteButton({
     if (!confirmed) return;
 
     const res = await fetch(
-      `http://127.0.0.1:8000/clients/${clientId}`,
+      `https://doma-nq4u.onrender.com/clients/${clientId}`,
       {
         method: "DELETE",
       }

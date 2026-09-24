@@ -32,7 +32,7 @@ export default function PropertyGallery({
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/property-images/${imageId}`,
+        `https://doma-nq4u.onrender.com/property-images/${imageId}`,
         {
           method: "DELETE",
         }
@@ -63,7 +63,7 @@ export default function PropertyGallery({
       >
         {currentImage ? (
           <img
-            src={`http://127.0.0.1:8000${currentImage}`}
+            src={`https://doma-nq4u.onrender.com${currentImage}`}
             alt="Фото объекта"
             style={{
               width: "100%",
@@ -124,7 +124,7 @@ export default function PropertyGallery({
                 }}
               >
                 <img
-                  src={`http://127.0.0.1:8000${img.image_url}`}
+                  src={`https://doma-nq4u.onrender.com${img.image_url}`}
                   alt="Миниатюра"
                   onClick={() =>
                     setCurrentImage(

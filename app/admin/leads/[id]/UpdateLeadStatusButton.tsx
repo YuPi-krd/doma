@@ -18,7 +18,7 @@ export default function UpdateLeadStatusButton({
   ) {
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/leads/${leadId}`,
+        `https://doma-nq4u.onrender.com/leads/${leadId}`,
         {
           method: "PUT",
           headers: {

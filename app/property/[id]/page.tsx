@@ -19,7 +19,7 @@ async function getProperty(
   id: string
 ): Promise<Property> {
   const res = await fetch(
-    `http://127.0.0.1:8000/properties/${id}`,
+    `https://doma-nq4u.onrender.com/properties/${id}`,
     {
       cache: "no-store",
     }
@@ -48,7 +48,7 @@ export default async function PropertyPage({
 
   const imageUrl =
     property.image_url
-      ? `http://127.0.0.1:8000${property.image_url}`
+      ? `https://doma-nq4u.onrender.com${property.image_url}`
       : "/images/test-flat.jpg";
 
   return (

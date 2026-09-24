@@ -15,7 +15,7 @@ async function getLead(
 ): Promise<Lead | null> {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/leads/${id}`,
+      `https://doma-nq4u.onrender.com/leads/${id}`,
       {
         cache: "no-store",
       }

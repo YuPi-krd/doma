@@ -33,7 +33,7 @@ export default function PropertyPhotosPage() {
       );
 
       const res = await fetch(
-        `http://127.0.0.1:8000/properties/${propertyId}/images`,
+        `https://doma-nq4u.onrender.com/properties/${propertyId}/images`,
         {
           method: "POST",
           body: formData,

@@ -31,7 +31,7 @@ export default function CreateSaleForm({
       };
 
       const res = await fetch(
-        "http://127.0.0.1:8000/sales",
+        "https://doma-nq4u.onrender.com/sales",
         {
           method: "POST",
           headers: {

@@ -11,7 +11,7 @@ export default function CompleteSaleButton({
 
   async function completeSale() {
     const res = await fetch(
-      `http://127.0.0.1:8000/sales/${saleId}/complete`,
+      `https://doma-nq4u.onrender.com/sales/${saleId}/complete`,
       {
         method: "PATCH",
       }

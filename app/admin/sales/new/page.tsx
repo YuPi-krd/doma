@@ -32,11 +32,11 @@ export default function NewSalePage() {
   async function loadData() {
     try {
       const clientsRes = await fetch(
-        "http://127.0.0.1:8000/clients"
+        "https://doma-nq4u.onrender.com/clients"
       );
 
       const propertiesRes = await fetch(
-        "http://127.0.0.1:8000/properties"
+        "https://doma-nq4u.onrender.com/properties"
       );
 
       const clientsData =
@@ -59,7 +59,7 @@ export default function NewSalePage() {
 
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/sales",
+        "https://doma-nq4u.onrender.com/sales",
         {
           method: "POST",
           headers: {

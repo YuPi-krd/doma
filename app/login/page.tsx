@@ -22,7 +22,7 @@ export default function LoginPage() {
     console.log("Отправляем запрос");
 
     const res = await fetch(
-      "http://127.0.0.1:8000/login",
+      "https://doma-nq4u.onrender.com/login",
       {
         method: "POST",
         headers: {

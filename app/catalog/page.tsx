@@ -45,7 +45,7 @@ export default function CatalogPage() {
 
   useEffect(() => {
     fetch(
-      "http://127.0.0.1:8000/properties"
+      "https://doma-nq4u.onrender.com/properties"
     )
       .then((res) => res.json())
       .then(setProperties)
@@ -382,8 +382,8 @@ export default function CatalogPage() {
   <img
     src={
       item.image_url
-        ? `http://127.0.0.1:8000${item.image_url}`
-        : "http://127.0.0.1:8000/images/test-flat.jpg"
+        ? `https://doma-nq4u.onrender.com${item.image_url}`
+        : "https://doma-nq4u.onrender.com/images/test-flat.jpg"
     }
     alt={item.title}
     style={{
@@ -396,7 +396,7 @@ export default function CatalogPage() {
     }}
     onError={(e) => {
       e.currentTarget.src =
-        "http://127.0.0.1:8000/images/test-flat.jpg";
+        "https://doma-nq4u.onrender.com/images/test-flat.jpg";
     }}
   />
 

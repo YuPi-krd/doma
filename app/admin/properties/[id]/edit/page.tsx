@@ -48,7 +48,7 @@ export default function EditPropertyPage() {
   async function loadProperty() {
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/properties/${id}`
+        `https://doma-nq4u.onrender.com/properties/${id}`
       );
 
       if (!res.ok) {
@@ -135,7 +135,7 @@ export default function EditPropertyPage() {
       }
 
       const res = await fetch(
-        `http://127.0.0.1:8000/properties/${id}`,
+        `https://doma-nq4u.onrender.com/properties/${id}`,
         {
           method: "PUT",
           body: formData,

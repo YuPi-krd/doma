@@ -30,7 +30,7 @@ export default function EditSaleForm({
     };
 
     const res = await fetch(
-      `http://127.0.0.1:8000/sales/${sale.id}`,
+      `https://doma-nq4u.onrender.com/sales/${sale.id}`,
       {
         method: "PUT",
         headers: {

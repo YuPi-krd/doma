@@ -11,9 +11,11 @@ interface Property {
   image_url: string;
 }
 
+const API_URL = "https://doma-nq4u.onrender.com";
+
 async function getProperties(): Promise<Property[]> {
   const res = await fetch(
-    "http://127.0.0.1:8000/properties",
+    `${API_URL}/properties`,
     {
       cache: "no-store",
     }
@@ -111,14 +113,14 @@ export default async function ExclusiveProperties() {
                 }}
               >
                 <img
-                  src={`http://127.0.0.1:8000${property.image_url}`}
-                  alt={property.title}
-                  style={{
-                    width: "100%",
-                    height: "260px",
-                    objectFit: "cover",
-                  }}
-                />
+  src={`${API_URL}${property.image_url}`}
+  alt={property.title}
+  style={{
+    width: "100%",
+    height: "260px",
+    objectFit: "cover",
+  }}
+/>
 
                 <div
                   style={{

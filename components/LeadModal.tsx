@@ -15,7 +15,7 @@ export default function LeadModal({
 
   async function sendLead() {
     const res = await fetch(
-      "http://127.0.0.1:8000/leads",
+      "https://doma-nq4u.onrender.com/leads",
       {
         method: "POST",
         headers: {

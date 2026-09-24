@@ -14,11 +14,13 @@ export default function PropertyGallery({
     (img) => img && img !== "null"
   );
 
-  const [activeImage, setActiveImage] =
-    useState(
-      validImages[0] ||
-        "http://127.0.0.1:8000/images/test-flat.jpg"
-    );
+  const API_URL = "https://doma-nq4u.onrender.com";
+
+const [activeImage, setActiveImage] =
+  useState(
+    validImages[0] ||
+      `${API_URL}/images/test-flat.jpg`
+  );
 
   return (
     <div>

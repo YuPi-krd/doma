@@ -21,7 +21,7 @@ export default function DeletePropertyButton({
     }
 
     const res = await fetch(
-      `http://127.0.0.1:8000/properties/${id}`,
+      `https://doma-nq4u.onrender.com/properties/${id}`,
       {
         method: "DELETE",
       }

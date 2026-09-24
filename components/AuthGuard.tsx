@@ -44,7 +44,7 @@ export default function AuthGuard({
         );
 
         const res = await fetch(
-          "http://127.0.0.1:8000/me",
+          "https://doma-nq4u.onrender.com/me",
           {
             method: "GET",
             headers: {

@@ -24,7 +24,7 @@ async function getProperty(
 ): Promise<Property | null> {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/properties/${id}`,
+      `https://doma-nq4u.onrender.com/properties/${id}`,
       {
         cache: "no-store",
       }
@@ -45,7 +45,7 @@ async function getImages(
 ): Promise<PropertyImage[]> {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/properties/${propertyId}/images`,
+      `https://doma-nq4u.onrender.com/properties/${propertyId}/images`,
       {
         cache: "no-store",
       }

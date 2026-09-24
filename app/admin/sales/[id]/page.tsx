@@ -16,7 +16,7 @@ async function getSale(
 ): Promise<Sale | null> {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/sales/${id}`,
+      `https://doma-nq4u.onrender.com/sales/${id}`,
       {
         cache: "no-store",
       }

@@ -27,7 +27,7 @@ interface Sale {
 async function getLatestSales(): Promise<Sale[]> {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/sales/latest",
+      "https://doma-nq4u.onrender.com/sales/latest",
       {
         cache: "no-store",
       }
@@ -46,7 +46,7 @@ async function getLatestSales(): Promise<Sale[]> {
 async function getStats(): Promise<Stats> {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/stats",
+      "https://doma-nq4u.onrender.com/stats",
       {
         cache: "no-store",
       }
@@ -71,7 +71,7 @@ async function getStats(): Promise<Stats> {
 async function getLeads(): Promise<Lead[]> {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/leads",
+      "https://doma-nq4u.onrender.com/leads",
       {
         cache: "no-store",
       }

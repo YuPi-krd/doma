@@ -15,7 +15,7 @@ export default function CreateClientForm() {
     };
 
     const res = await fetch(
-      "http://127.0.0.1:8000/clients",
+      "https://doma-nq4u.onrender.com/clients",
       {
         method: "POST",
         headers: {

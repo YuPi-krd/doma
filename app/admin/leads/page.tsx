@@ -11,7 +11,7 @@ interface Lead {
 async function getLeads(): Promise<Lead[]> {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/leads",
+      "https://doma-nq4u.onrender.com/leads",
       {
         cache: "no-store",
       }

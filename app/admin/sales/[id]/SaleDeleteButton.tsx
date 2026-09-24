@@ -17,7 +17,7 @@ export default function SaleDeleteButton({
     if (!confirmed) return;
 
     const res = await fetch(
-      `http://127.0.0.1:8000/sales/${saleId}`,
+      `https://doma-nq4u.onrender.com/sales/${saleId}`,
       {
         method: "DELETE",
       }

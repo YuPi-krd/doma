@@ -11,7 +11,7 @@ interface Property {
 async function getProperties(): Promise<Property[]> {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/properties",
+      "https://doma-nq4u.onrender.com/properties",
       {
         cache: "no-store",
       }

@@ -21,7 +21,7 @@ async function getClient(
   id: string
 ): Promise<Client> {
   const res = await fetch(
-    `http://127.0.0.1:8000/clients/${id}`,
+    `https://doma-nq4u.onrender.com/clients/${id}`,
     {
       cache: "no-store",
     }
@@ -39,7 +39,7 @@ async function getClientSales(
 ): Promise<ClientSale[]> {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/clients/${id}/sales`,
+      `https://doma-nq4u.onrender.com/clients/${id}/sales`,
       {
         cache: "no-store",
       }

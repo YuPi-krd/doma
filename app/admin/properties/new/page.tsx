@@ -22,7 +22,7 @@ export default function NewPropertyPage() {
     e.preventDefault();
 
     const res = await fetch(
-      "http://127.0.0.1:8000/properties",
+      "https://doma-nq4u.onrender.com/properties",
       {
         method: "POST",
         headers: {
@@ -235,7 +235,7 @@ export default function NewPropertyPage() {
                   }}
                 >
                   <img
-                    src={`http://127.0.0.1:8000${imageUrl}`}
+                    src={`https://doma-nq4u.onrender.com${imageUrl}`}
                     alt="preview"
                     style={{
                       width: "100%",
