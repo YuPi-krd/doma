@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
+
 import CallbackModal from "@/components/CallbackModal";
+
+// ============================================================
+// Категории недвижимости
+// ============================================================
 
 const propertyCategories = [
   {
@@ -44,8 +50,30 @@ const propertyCategories = [
 ];
 
 export default function Header() {
+  const pathname = usePathname();
+
   const [propertyMenuOpen, setPropertyMenuOpen] =
     useState(false);
+
+  // ============================================================
+  // Скрываем Header:
+  // /login
+  // /admin
+  // /admin/*
+  // ============================================================
+
+  const hideHeader =
+    pathname === "/login" ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
+
+  if (hideHeader) {
+    return null;
+  }
+
+  // ============================================================
+  // Header
+  // ============================================================
 
   return (
     <>
@@ -53,7 +81,8 @@ export default function Header() {
         style={{
           height: "80px",
           background: "#ffffff",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom:
+            "1px solid #e5e7eb",
           position: "sticky",
           top: 0,
           zIndex: 1000,
@@ -66,39 +95,63 @@ export default function Header() {
             height: "100%",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent:
+              "space-between",
             padding: "0 30px",
+            gap: "30px",
           }}
         >
+          {/* ================================================== */}
           {/* ЛОГО */}
+          {/* ================================================== */}
+
           <Link
             href="/"
+            onClick={() =>
+              setPropertyMenuOpen(false)
+            }
             style={{
               fontSize: "40px",
               fontWeight: 800,
               textDecoration: "none",
               color: "#111827",
               letterSpacing: "-2px",
+              flexShrink: 0,
             }}
           >
-            DO<span style={{ color: "#ef4444" }}>MA</span>
+            DO
+            <span
+              style={{
+                color: "#ef4444",
+              }}
+            >
+              MA
+            </span>
           </Link>
 
+          {/* ================================================== */}
           {/* НАВИГАЦИЯ */}
+          {/* ================================================== */}
+
           <nav
             style={{
               display: "flex",
               gap: "40px",
               alignItems: "center",
               height: "100%",
+              flex: 1,
             }}
           >
+            {/* ================================================ */}
             {/* НЕДВИЖИМОСТЬ */}
+            {/* ================================================ */}
+
             <div
               style={{
                 height: "100%",
                 display: "flex",
                 alignItems: "center",
+                position: "relative",
               }}
               onMouseEnter={() =>
                 setPropertyMenuOpen(true)
@@ -116,7 +169,8 @@ export default function Header() {
                 }
                 style={{
                   border: "none",
-                  background: "transparent",
+                  background:
+                    "transparent",
                   color: "#111827",
                   fontWeight: 500,
                   fontSize: "16px",
@@ -127,39 +181,57 @@ export default function Header() {
                 Недвижимость
               </button>
 
+              {/* ============================================== */}
               {/* МЕГА-МЕНЮ */}
+              {/* ============================================== */}
+
               {propertyMenuOpen && (
                 <div
+                  onMouseEnter={() =>
+                    setPropertyMenuOpen(true)
+                  }
                   style={{
-                    position: "absolute",
+                    position:
+                      "fixed",
                     top: "92px",
                     left: "50%",
                     transform:
                       "translateX(-50%)",
-                    width: "calc(100% - 40px)",
-                    maxWidth: "1240px",
-                    background: "#ffffff",
-                    borderRadius: "30px",
-                    padding: "28px",
+                    width:
+                      "calc(100vw - 40px)",
+                    maxWidth:
+                      "1240px",
+                    background:
+                      "#ffffff",
+                    borderRadius:
+                      "30px",
+                    padding:
+                      "28px",
                     boxShadow:
                       "0 25px 70px rgba(0,0,0,.18)",
-                    zIndex: 1002,
+                    zIndex:
+                      1002,
                   }}
                 >
                   {/* Верхняя строка */}
+
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
+                      alignItems:
+                        "center",
                       gap: "12px",
-                      marginBottom: "28px",
+                      marginBottom:
+                        "28px",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: "18px",
+                        fontSize:
+                          "18px",
                         fontWeight: 700,
-                        color: "#5f6671",
+                        color:
+                          "#5f6671",
                       }}
                     >
                       Недвижимость
@@ -167,15 +239,18 @@ export default function Header() {
 
                     <div
                       style={{
-                        fontSize: "15px",
-                        color: "#7a818c",
+                        fontSize:
+                          "15px",
+                        color:
+                          "#7a818c",
                       }}
                     >
-                      36 062 объявления
+                      Категории
                     </div>
                   </div>
 
-                  {/* КАРТОЧКИ */}
+                  {/* Карточки категорий */}
+
                   <div
                     style={{
                       display: "grid",
@@ -185,9 +260,13 @@ export default function Header() {
                     }}
                   >
                     {propertyCategories.map(
-                      (category) => (
+                      (
+                        category
+                      ) => (
                         <Link
-                          key={category.type}
+                          key={
+                            category.type
+                          }
                           href={`/catalog?type=${category.type}`}
                           onClick={() =>
                             setPropertyMenuOpen(
@@ -197,36 +276,43 @@ export default function Header() {
                           style={{
                             position:
                               "relative",
-                            height: "184px",
-                            borderRadius: "20px",
-                            overflow: "hidden",
+                            height:
+                              "184px",
+                            borderRadius:
+                              "20px",
+                            overflow:
+                              "hidden",
                             textDecoration:
                               "none",
-                            color: "#202328",
+                            color:
+                              "#202328",
                             background:
                               "#eef0f4",
-                            display: "block",
+                            display:
+                              "block",
                           }}
                         >
-                          {/* ФОТО */}
+                          {/* Фото */}
+
                           <div
                             style={{
                               position:
                                 "absolute",
                               inset: 0,
-                              backgroundImage:
-                                `url("${category.image}")`,
+                              backgroundImage: `url("${category.image}")`,
                               backgroundSize:
                                 "cover",
                               backgroundPosition:
                                 "center",
                               filter:
                                 "grayscale(100%)",
-                              opacity: 0.72,
+                              opacity:
+                                0.72,
                             }}
                           />
 
-                          {/* ГРАДИЕНТ */}
+                          {/* Градиент */}
+
                           <div
                             style={{
                               position:
@@ -237,43 +323,61 @@ export default function Header() {
                             }}
                           />
 
-                          {/* НАЗВАНИЕ */}
+                          {/* Название */}
+
                           <div
                             style={{
                               position:
                                 "absolute",
-                              top: "32px",
-                              left: "32px",
-                              right: "20px",
-                              fontSize: "17px",
-                              fontWeight: 700,
-                              zIndex: 2,
+                              top:
+                                "32px",
+                              left:
+                                "32px",
+                              right:
+                                "20px",
+                              fontSize:
+                                "17px",
+                              fontWeight:
+                                700,
+                              zIndex:
+                                2,
                             }}
                           >
-                            {category.title}
+                            {
+                              category.title
+                            }
                           </div>
 
-                          {/* СТРЕЛКА */}
+                          {/* Стрелка */}
+
                           <div
                             style={{
                               position:
                                 "absolute",
-                              left: "32px",
-                              bottom: "32px",
-                              width: "40px",
-                              height: "40px",
+                              left:
+                                "32px",
+                              bottom:
+                                "32px",
+                              width:
+                                "40px",
+                              height:
+                                "40px",
                               borderRadius:
                                 "50%",
                               border:
                                 "1px solid #d5dbe2",
-                              display: "flex",
+                              display:
+                                "flex",
                               alignItems:
                                 "center",
                               justifyContent:
                                 "center",
-                              color: "#66707c",
-                              fontSize: "18px",
-                              zIndex: 2,
+                              color:
+                                "#66707c",
+                              fontSize:
+                                "18px",
+                              zIndex:
+                                2,
                               background:
                                 "rgba(255,255,255,.2)",
                               backdropFilter:
@@ -290,65 +394,107 @@ export default function Header() {
               )}
             </div>
 
+            {/* ================================================= */}
             {/* УСЛУГИ */}
+            {/* ================================================= */}
+
             <Link
               href="/services"
+              onClick={() =>
+                setPropertyMenuOpen(false)
+              }
               style={{
-                textDecoration: "none",
+                textDecoration:
+                  "none",
                 color: "#111827",
                 fontWeight: 500,
                 fontSize: "16px",
+                whiteSpace:
+                  "nowrap",
               }}
             >
               Услуги
             </Link>
 
+            {/* ================================================= */}
             {/* О КОМПАНИИ */}
+            {/* ================================================= */}
+
             <Link
               href="/about"
+              onClick={() =>
+                setPropertyMenuOpen(false)
+              }
               style={{
-                textDecoration: "none",
+                textDecoration:
+                  "none",
                 color: "#111827",
                 fontWeight: 500,
                 fontSize: "16px",
+                whiteSpace:
+                  "nowrap",
               }}
             >
               О компании
             </Link>
 
+            {/* ================================================= */}
             {/* КОНТАКТЫ */}
+            {/* ================================================= */}
+
             <Link
               href="/contacts"
+              onClick={() =>
+                setPropertyMenuOpen(false)
+              }
               style={{
-                textDecoration: "none",
+                textDecoration:
+                  "none",
                 color: "#111827",
                 fontWeight: 500,
                 fontSize: "16px",
+                whiteSpace:
+                  "nowrap",
               }}
             >
               Контакты
             </Link>
           </nav>
 
+          {/* ================================================== */}
           {/* ПРАВАЯ ЧАСТЬ */}
+          {/* ================================================== */}
+
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "12px",
+              flexShrink: 0,
             }}
           >
             <button
               type="button"
+              aria-label="Избранное"
               style={{
                 width: "48px",
                 height: "48px",
-                borderRadius: "12px",
+                borderRadius:
+                  "12px",
                 border:
                   "1px solid #e5e7eb",
-                background: "#ffffff",
-                cursor: "pointer",
-                fontSize: "20px",
+                background:
+                  "#ffffff",
+                cursor:
+                  "pointer",
+                fontSize:
+                  "20px",
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "center",
               }}
             >
               ♡
@@ -359,24 +505,84 @@ export default function Header() {
         </div>
       </header>
 
+      {/* ====================================================== */}
       {/* ЗАТЕМНЕНИЕ ФОНА */}
+      {/* ====================================================== */}
+
       {propertyMenuOpen && (
         <div
           onMouseEnter={() =>
-            setPropertyMenuOpen(true)
+            setPropertyMenuOpen(
+              true
+            )
           }
           onClick={() =>
-            setPropertyMenuOpen(false)
+            setPropertyMenuOpen(
+              false
+            )
           }
           style={{
-            position: "fixed",
-            inset: "80px 0 0 0",
+            position:
+              "fixed",
+            inset:
+              "80px 0 0 0",
             background:
               "rgba(20, 22, 26, 0.48)",
-            zIndex: 999,
+            zIndex:
+              999,
           }}
         />
       )}
+
+      {/* ====================================================== */}
+      {/* АДАПТИВ */}
+      {/* ====================================================== */}
+
+      <style jsx>{`
+        @media (max-width: 1050px) {
+          nav {
+            gap: 20px !important;
+          }
+
+          nav a,
+          nav button {
+            font-size: 14px !important;
+          }
+        }
+
+        @media (max-width: 850px) {
+          nav {
+            display: none !important;
+          }
+
+          header > div {
+            padding: 0 18px !important;
+          }
+
+          header > div > a {
+            font-size: 34px !important;
+          }
+        }
+
+        @media (max-width: 600px) {
+          header {
+            height: 70px !important;
+          }
+
+          header > div {
+            padding: 0 14px !important;
+          }
+
+          header > div > a {
+            font-size: 32px !important;
+          }
+
+          header button {
+            width: 44px !important;
+            height: 44px !important;
+          }
+        }
+      `}</style>
     </>
   );
 }
