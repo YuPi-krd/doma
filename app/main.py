@@ -1202,38 +1202,29 @@ def delete_property(
 # ============================================================
 
 @app.post("/leads")
-def create_lead(
-    lead: LeadCreate,
-):
-
+def create_lead(lead: LeadCreate):
     db = SessionLocal()
 
     try:
-
         new_lead = Lead(
-            property_id=(
-                lead.property_id
-            ),
+            property_id=lead.property_id,
             name=lead.name,
             phone=lead.phone,
             comment=lead.comment,
+            status="Новый",
         )
 
-        db.add(
-            new_lead
-        )
+        db.add(new_lead)
 
         existing_client = (
             db.query(Client)
             .filter(
-                Client.phone
-                == lead.phone
+                Client.phone == lead.phone
             )
             .first()
         )
 
         if not existing_client:
-
             db.add(
                 Client(
                     name=lead.name,
@@ -1243,10 +1234,7 @@ def create_lead(
             )
 
         db.commit()
-
-        db.refresh(
-            new_lead
-        )
+        db.refresh(new_lead)
 
         return {
             "status": "success",
@@ -1254,7 +1242,6 @@ def create_lead(
         }
 
     finally:
-
         db.close()
 
 
