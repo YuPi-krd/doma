@@ -1210,7 +1210,8 @@ def create_lead(lead: LeadCreate):
             property_id=lead.property_id,
             name=lead.name,
             phone=lead.phone,
-            comment=lead.comment,
+            comment=lead.comment
+                or "Заявка на обратный звонок",
             status="Новый",
         )
 
@@ -1240,6 +1241,14 @@ def create_lead(lead: LeadCreate):
             "status": "success",
             "id": new_lead.id,
         }
+
+    except SQLAlchemyError as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка сохранения заявки",
+        )
 
     finally:
         db.close()

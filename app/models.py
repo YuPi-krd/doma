@@ -211,7 +211,8 @@ class Lead(Base):
 
     property_id = Column(
         Integer,
-        nullable=True,
+        ForeignKey("properties.id"),
+        nullable=True
     )
 
     name = Column(

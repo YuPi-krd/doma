@@ -80,11 +80,9 @@ class PropertyResponse(BaseModel):
 # --------------------
 
 class LeadCreate(BaseModel):
-    property_id: int
-
+    property_id: int | None = None
     name: str = Field(..., min_length=2)
     phone: str = Field(..., min_length=6)
-
     comment: str | None = None
 
 
