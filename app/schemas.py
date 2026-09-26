@@ -1,4 +1,20 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+
+# --------------------
+# Property types
+# --------------------
+
+PropertyType = Literal[
+    "apartment",
+    "new_building",
+    "house",
+    "land",
+    "commercial",
+    "garage",
+]
 
 
 # --------------------
@@ -8,11 +24,16 @@ from pydantic import BaseModel, Field
 class PropertyCreate(BaseModel):
     title: str
     description: str
+
     price: int
+    area: float
     rooms: int
+
     city: str
     district: str
     address: str
+
+    property_type: PropertyType = "apartment"
     image_url: str | None = None
 
 
@@ -28,18 +49,27 @@ class PropertyUpdate(BaseModel):
     district: str
     address: str
 
-    status: str
+    property_type: PropertyType = "apartment"
+    status: str = "Свободен"
 
 
 class PropertyResponse(BaseModel):
     id: int
+
     title: str
     description: str | None = None
+
     price: int
+    area: float | None = None
     rooms: int | None = None
+
     city: str | None = None
     district: str | None = None
     address: str | None = None
+
+    property_type: PropertyType = "apartment"
+    status: str | None = None
+    image_url: str | None = None
 
     class Config:
         from_attributes = True
@@ -56,6 +86,13 @@ class LeadCreate(BaseModel):
     phone: str = Field(..., min_length=6)
 
     comment: str | None = None
+
+
+class LeadUpdate(BaseModel):
+    name: str
+    phone: str
+    comment: str | None = None
+    status: str
 
 
 # --------------------
@@ -85,15 +122,3 @@ class SaleUpdate(BaseModel):
     property_id: int
     amount: int
     status: str
-
-class LeadUpdate(BaseModel):
-    name: str
-    phone: str
-    comment: str | None = None
-    status: str
-
-class LeadCreate(BaseModel):
-    property_id: int
-    name: str
-    phone: str
-    comment: str | None = None
