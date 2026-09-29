@@ -3,132 +3,78 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 
+const API_URL = "https://doma-nq4u.onrender.com";
+
 type Category = {
   title: string;
-  items: string[];
+  items: {
+    title: string;
+    slug: string;
+  }[];
 };
 
-const buyCategories: Category[] = [
-  {
-    title: "Квартиры",
-    items: [
-      "Студии",
-      "1 комнатные",
-      "2 комнатные",
-      "3 комнатные",
-      "4 комнатные",
-      "5 комнатные",
-      "Пентхаусы",
-      "От застройщика",
-    ],
-  },
-  {
-    title: "Дома",
-    items: [
-      "Дачи",
-      "Таунхаусы",
-      "Дуплексы",
-      "Части домов",
-    ],
-  },
-  {
-    title: "Коммерция",
-    items: [
-      "Торговые площади",
-      "Коммерческая земля",
-      "Офисы",
-      "Бизнес",
-      "Склады",
-    ],
-  },
-  {
-    title: "Земельные участки",
-    items: [
-      "Участки",
-      "Под ИЖС",
-      "Садоводство",
-    ],
-  },
+type ApplicationType = "Продать" | "Снять" | "Сдать";
+
+type PropertyType =
+  | "Квартиры"
+  | "Дома"
+  | "Земельные участки"
+  | "Коммерция"
+  | "Гаражи";
+
+const propertyTypes: PropertyType[] = [
+  "Квартиры",
+  "Дома",
+  "Земельные участки",
+  "Коммерция",
+  "Гаражи",
 ];
 
-const rentCategories: Category[] = [
-  {
-    title: "Квартиры",
-    items: [
-      "1-комнатная",
-      "2-комнатная",
-      "3-комнатная",
-      "4-комнатная",
-      "Квартиры-студии",
-      "Комнаты",
-    ],
-  },
-  {
-    title: "Загородная недвижимость",
-    items: [
-      "Дома",
-      "Дачи",
-      "Таунхаусы",
-      "Участки",
-    ],
-  },
-  {
-    title: "Коммерческая",
-    items: [
-      "Офисы",
-      "Склады",
-      "Готовый бизнес",
-      "Торговые площади",
-    ],
-  },
-];
-
-const leaseCategories: Category[] = [
-  {
-    title: "Квартиры",
-    items: [
-      "Студии",
-      "1-комнатные",
-      "2-комнатные",
-      "3-комнатные",
-      "4-комнатные",
-    ],
-  },
-  {
-    title: "Дома",
-    items: [
-      "Дома",
-      "Дачи",
-      "Таунхаусы",
-      "Коттеджи",
-    ],
-  },
-  {
-    title: "Коммерция",
-    items: [
-      "Офисы",
-      "Торговые площади",
-      "Склады",
-      "Готовый бизнес",
-    ],
-  },
-  {
-    title: "Гаражи",
-    items: [
-      "Гаражи",
-      "Машино-места",
-    ],
-  },
-];
-
-const propertyTypes = [
-  "Квартира",
-  "Квартира в новостройке",
-  "Дом",
-  "Земельный участок",
-  "Коммерческая недвижимость",
-  "Гараж",
-];
+const subTypes: Record<PropertyType, string[]> = {
+  Квартиры: [
+    "Квартиры",
+    "Квартиры во вторичке",
+    "Квартиры в новостройке",
+    "Квартиры от застройщика",
+    "Студии",
+    "1-комнатные",
+    "2-комнатные",
+    "3-комнатные",
+    "4-комнатные",
+    "5-комнатные",
+    "Пентхаусы",
+  ],
+  Дома: [
+    "Дом",
+    "Часть дома",
+    "Таунхаус",
+    "Дуплекс",
+    "Коттедж",
+    "Дача",
+  ],
+  "Земельные участки": [
+    "ИЖС",
+    "Садоводство",
+    "Коммерческое",
+    "Личное подсобное хозяйство",
+    "ДНП",
+  ],
+  Коммерция: [
+    "Офисное",
+    "Готовый бизнес",
+    "Отдельное здание",
+    "Производственное",
+    "Складское",
+    "Торговое помещение",
+  ],
+  Гаражи: [
+    "Бокс в гаражном кооперативе",
+    "Внутри жилого комплекса",
+    "Крытая стоянка",
+    "Отдельно стоящий гараж",
+    "Отдельно стоящий паркинг",
+  ],
+};
 
 const roomOptions = [
   "Не важно",
@@ -168,67 +114,333 @@ const locationOptions = [
   "ККБ",
 ];
 
-const API_URL =
-  "https://doma-nq4u.onrender.com";
+const typeMap: Record<PropertyType, string> = {
+  Квартиры: "apartment",
+  Дома: "house",
+  "Земельные участки": "land",
+  Коммерция: "commercial",
+  Гаражи: "garage",
+};
 
-// ============================================================
-// Форма заявки
-// ============================================================
+const subtypeSlugMap: Record<string, string> = {
+  Квартиры: "apartments",
+  "Квартиры во вторичке": "secondary",
+  "Квартиры в новостройке": "new-buildings",
+  "Квартиры от застройщика": "from-developer",
+  Студии: "studios",
+  "1-комнатные": "1-room",
+  "2-комнатные": "2-room",
+  "3-комнатные": "3-room",
+  "4-комнатные": "4-room",
+  "5-комнатные": "5-room",
+  Пентхаусы: "penthouses",
+
+  Дом: "houses",
+  "Часть дома": "part-of-house",
+  Таунхаус: "townhouses",
+  Дуплекс: "duplexes",
+  Коттедж: "cottages",
+  Дача: "dachas",
+
+  ИЖС: "izhs",
+  Садоводство: "gardening",
+  Коммерческое: "commercial-land",
+  "Личное подсобное хозяйство": "lph",
+  ДНП: "dnp",
+
+  Офисное: "offices",
+  "Готовый бизнес": "business",
+  "Отдельное здание": "separate-building",
+  Производственное: "production",
+  Складское: "warehouses",
+  "Торговое помещение": "retail",
+
+  "Бокс в гаражном кооперативе": "garage-box",
+  "Внутри жилого комплекса": "residential-complex",
+  "Крытая стоянка": "covered-parking",
+  "Отдельно стоящий гараж": "separate-garage",
+  "Отдельно стоящий паркинг": "parking",
+};
+
+const buyCategories: Category[] = [
+  {
+    title: "Квартиры",
+    items: [
+      { title: "Студии", slug: "studios" },
+      { title: "1 комнатные", slug: "1-room" },
+      { title: "2 комнатные", slug: "2-room" },
+      { title: "3 комнатные", slug: "3-room" },
+      { title: "4 комнатные", slug: "4-room" },
+      { title: "5 комнатные", slug: "5-room" },
+      { title: "Пентхаусы", slug: "penthouses" },
+      { title: "От застройщика", slug: "new-buildings" },
+    ],
+  },
+  {
+    title: "Дома",
+    items: [
+      { title: "Дачи", slug: "dachas" },
+      { title: "Таунхаусы", slug: "townhouses" },
+      { title: "Дуплексы", slug: "duplexes" },
+      { title: "Части домов", slug: "part-of-house" },
+    ],
+  },
+  {
+    title: "Коммерция",
+    items: [
+      { title: "Торговые площади", slug: "retail" },
+      { title: "Коммерческая земля", slug: "commercial-land" },
+      { title: "Офисы", slug: "offices" },
+      { title: "Бизнес", slug: "business" },
+      { title: "Склады", slug: "warehouses" },
+    ],
+  },
+  {
+    title: "Земельные участки",
+    items: [
+      { title: "Участки", slug: "izhs" },
+      { title: "Под ИЖС", slug: "izhs" },
+      { title: "Садоводство", slug: "gardening" },
+    ],
+  },
+];
+
+const rentCategories: Category[] = [
+  {
+    title: "Квартиры",
+    items: [
+      { title: "1-комнатная", slug: "1-room" },
+      { title: "2-комнатная", slug: "2-room" },
+      { title: "3-комнатная", slug: "3-room" },
+      { title: "4-комнатная", slug: "4-room" },
+      { title: "Квартиры-студии", slug: "studios" },
+      { title: "Комнаты", slug: "rooms" },
+    ],
+  },
+  {
+    title: "Загородная недвижимость",
+    items: [
+      { title: "Коттеджи", slug: "cottages" },
+      { title: "Дома", slug: "houses" },
+      { title: "Дачи", slug: "dachas" },
+      { title: "Таунхаусы", slug: "townhouses" },
+      { title: "Участки", slug: "izhs" },
+    ],
+  },
+  {
+    title: "Коммерческая",
+    items: [
+      { title: "Офисы", slug: "offices" },
+      { title: "Склады", slug: "warehouses" },
+      { title: "Готовый бизнес", slug: "business" },
+      { title: "Торговые площади", slug: "retail" },
+    ],
+  },
+];
+
+const leaseCategories: Category[] = [
+  {
+    title: "Квартиры",
+    items: [
+      { title: "Студии", slug: "studios" },
+      { title: "1-комнатные", slug: "1-room" },
+      { title: "2-комнатные", slug: "2-room" },
+      { title: "3-комнатные", slug: "3-room" },
+      { title: "4-комнатные", slug: "4-room" },
+    ],
+  },
+  {
+    title: "Дома",
+    items: [
+      { title: "Дома", slug: "houses" },
+      { title: "Дачи", slug: "dachas" },
+      { title: "Таунхаусы", slug: "townhouses" },
+      { title: "Коттеджи", slug: "cottages" },
+    ],
+  },
+  {
+    title: "Коммерция",
+    items: [
+      { title: "Офисы", slug: "offices" },
+      { title: "Торговые площади", slug: "retail" },
+      { title: "Склады", slug: "warehouses" },
+      { title: "Готовый бизнес", slug: "business" },
+    ],
+  },
+  {
+    title: "Гаражи",
+    items: [
+      { title: "Гаражи", slug: "garage-box" },
+      { title: "Машино-места", slug: "parking" },
+    ],
+  },
+];
+
+type DropdownProps = {
+  label: string;
+  value: string;
+  options: string[];
+  open: boolean;
+  onOpen: () => void;
+  onChange: (value: string) => void;
+};
+
+function CustomDropdown({
+  label,
+  value,
+  options,
+  open,
+  onOpen,
+  onChange,
+}: DropdownProps) {
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="search-input"
+        style={{
+          width: "100%",
+          minHeight: "56px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "10px",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          padding: "0 16px",
+        }}
+      >
+        <span
+          style={{
+            color: value ? "#111827" : "#9ca3af",
+            fontWeight: value ? 600 : 400,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {value || label}
+        </span>
+
+        <span style={{ color: "#9ca3af", fontSize: "15px" }}>
+          {open ? "⌃" : "⌄"}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            right: 0,
+            background: "#f1f3f7",
+            borderRadius: "18px",
+            padding: "8px",
+            boxShadow: "0 15px 35px rgba(0,0,0,.12)",
+            zIndex: 1000,
+            maxHeight: "280px",
+            overflowY: "auto",
+          }}
+        >
+          {options.length === 0 ? (
+            <div
+              style={{
+                padding: "12px 10px",
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              Нет вариантов
+            </div>
+          ) : (
+            options.map((option) => {
+              const selected = option === value;
+
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onChange(option)}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    background: "transparent",
+                    borderRadius: "12px",
+                    padding: "11px 10px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    color: "#111827",
+                    fontSize: "14px",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "14px",
+                      height: "14px",
+                      minWidth: "14px",
+                      border: "1.5px solid #ef3340",
+                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: selected ? "#ef3340" : "transparent",
+                      color: "white",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {selected ? "✓" : ""}
+                  </span>
+
+                  <span style={{ fontWeight: selected ? 600 : 400 }}>
+                    {option}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type ApplicationFormProps = {
-  applicationType:
-    | "Продать"
-    | "Снять"
-    | "Сдать";
-
+  applicationType: ApplicationType;
   title: string;
-
-  submitText?: string;
 };
 
 function ApplicationForm({
   applicationType,
   title,
-  submitText = "Оставить заявку",
 }: ApplicationFormProps) {
-  const [propertyType, setPropertyType] =
-    useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [subType, setSubType] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [comment, setComment] = useState("");
+  const [agreement, setAgreement] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  const [rooms, setRooms] =
-    useState("");
+  const [openType, setOpenType] = useState(false);
+  const [openSubType, setOpenSubType] = useState(false);
+  const [openRooms, setOpenRooms] = useState(false);
 
-  const [name, setName] =
-    useState("");
+  const availableSubTypes = propertyType
+    ? subTypes[propertyType as PropertyType] || []
+    : [];
 
-  const [phone, setPhone] =
-    useState("");
-
-  const [comment, setComment] =
-    useState("");
-
-  const [agreement, setAgreement] =
-    useState(false);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [success, setSuccess] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  async function handleSubmit(
-    e: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    if (!agreement) {
-      setError(
-        "Подтвердите согласие на обработку персональных данных."
-      );
-      return;
-    }
 
     if (!name.trim()) {
       setError("Введите имя.");
@@ -240,6 +452,13 @@ function ApplicationForm({
       return;
     }
 
+    if (!agreement) {
+      setError(
+        "Подтвердите согласие на обработку персональных данных."
+      );
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccess(false);
@@ -247,93 +466,59 @@ function ApplicationForm({
     try {
       const commentParts = [
         `Заявка: ${applicationType}`,
-        propertyType
-          ? `Тип: ${propertyType}`
-          : "",
-        rooms
-          ? `Комнатность: ${rooms}`
-          : "",
-        comment.trim()
-          ? `Комментарий: ${comment.trim()}`
-          : "",
+        propertyType ? `Тип недвижимости: ${propertyType}` : "",
+        subType ? `Подтип: ${subType}` : "",
+        rooms ? `Комнатность: ${rooms}` : "",
+        comment.trim() ? `Комментарий: ${comment.trim()}` : "",
       ].filter(Boolean);
 
-      const response = await fetch(
-        `${API_URL}/leads`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            name: name.trim(),
-            phone: phone.trim(),
-            comment:
-              commentParts.join(". "),
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/leads`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          comment: commentParts.join(". "),
+        }),
+      });
 
-      const data =
-        await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        let message =
-          "Не удалось отправить заявку.";
+        let message = "Не удалось отправить заявку.";
 
-        if (
-          Array.isArray(
-            data?.detail
-          )
-        ) {
-          message =
-            data.detail
-              .map(
-                (item: any) =>
-                  typeof item ===
-                  "string"
-                    ? item
-                    : item?.msg ||
-                      item?.message ||
-                      JSON.stringify(
-                        item
-                      )
-              )
-              .join(", ");
-        } else if (
-          typeof data?.detail ===
-          "string"
-        ) {
-          message =
-            data.detail;
-        } else if (
-          data?.detail
-        ) {
+        if (Array.isArray(data?.detail)) {
+          message = data.detail
+            .map((item: any) =>
+              typeof item === "string"
+                ? item
+                : item?.msg || item?.message || JSON.stringify(item)
+            )
+            .join(", ");
+        } else if (typeof data?.detail === "string") {
+          message = data.detail;
+        } else if (data?.detail) {
           message =
             data.detail.msg ||
             data.detail.message ||
-            JSON.stringify(
-              data.detail
-            );
+            JSON.stringify(data.detail);
         }
 
-        throw new Error(
-          message
-        );
+        throw new Error(message);
       }
 
       setSuccess(true);
-
       setName("");
       setPhone("");
       setComment("");
       setPropertyType("");
+      setSubType("");
       setRooms("");
       setAgreement(false);
     } catch (err) {
       console.error(err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -345,89 +530,75 @@ function ApplicationForm({
   }
 
   return (
-    <form
-      onSubmit={
-        handleSubmit
-      }
-    >
+    <form onSubmit={handleSubmit}>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns:
-            "repeat(2, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap: "12px",
         }}
       >
-        {/* Тип */}
-
-        <select
-          className="search-input"
-          required
+        <CustomDropdown
+          label="Тип недвижимости"
           value={propertyType}
-          onChange={(e) =>
-            setPropertyType(
-              e.target.value
-            )
+          options={propertyTypes}
+          open={openType}
+          onOpen={() => {
+            setOpenType((v) => !v);
+            setOpenSubType(false);
+            setOpenRooms(false);
+          }}
+          onChange={(value) => {
+            setPropertyType(value);
+            setSubType("");
+            setOpenType(false);
+          }}
+        />
+
+        <CustomDropdown
+          label={
+            propertyType
+              ? "Тип"
+              : "Сначала выберите недвижимость"
           }
-        >
-          <option value="">
-            Тип недвижимости
-          </option>
+          value={subType}
+          options={availableSubTypes}
+          open={openSubType}
+          onOpen={() => {
+            if (!availableSubTypes.length) return;
+            setOpenSubType((v) => !v);
+            setOpenType(false);
+            setOpenRooms(false);
+          }}
+          onChange={(value) => {
+            setSubType(value);
+            setOpenSubType(false);
+          }}
+        />
 
-          {propertyTypes.map(
-            (item) => (
-              <option
-                key={item}
-                value={item}
-              >
-                {item}
-              </option>
-            )
-          )}
-        </select>
-
-        {/* Комнаты */}
-
-        <select
-          className="search-input"
+        <CustomDropdown
+          label="Количество комнат"
           value={rooms}
-          onChange={(e) =>
-            setRooms(
-              e.target.value
-            )
-          }
-        >
-          <option value="">
-            Количество комнат
-          </option>
-
-          {roomOptions.map(
-            (item) => (
-              <option
-                key={item}
-                value={item}
-              >
-                {item}
-              </option>
-            )
-          )}
-        </select>
-
-        {/* Имя */}
+          options={roomOptions}
+          open={openRooms}
+          onOpen={() => {
+            setOpenRooms((v) => !v);
+            setOpenType(false);
+            setOpenSubType(false);
+          }}
+          onChange={(value) => {
+            setRooms(value);
+            setOpenRooms(false);
+          }}
+        />
 
         <input
           className="search-input"
           required
           placeholder="Имя"
           value={name}
-          onChange={(e) =>
-            setName(
-              e.target.value
-            )
-          }
+          onChange={(e) => setName(e.target.value)}
         />
-
-        {/* Телефон */}
 
         <input
           className="search-input"
@@ -435,27 +606,15 @@ function ApplicationForm({
           type="tel"
           placeholder="+7 (999) 999-99-99"
           value={phone}
-          onChange={(e) =>
-            setPhone(
-              e.target.value
-            )
-          }
+          onChange={(e) => setPhone(e.target.value)}
         />
-
-        {/* Комментарий */}
 
         <input
           className="search-input"
           placeholder="Комментарий"
           value={comment}
-          onChange={(e) =>
-            setComment(
-              e.target.value
-            )
-          }
+          onChange={(e) => setComment(e.target.value)}
         />
-
-        {/* Кнопка */}
 
         <button
           type="submit"
@@ -463,27 +622,20 @@ function ApplicationForm({
           disabled={loading}
           style={{
             border: "none",
-            opacity:
-              loading ? 0.7 : 1,
+            opacity: loading ? 0.7 : 1,
           }}
         >
-          {loading
-            ? "Отправляем..."
-            : submitText}
+          {loading ? "Отправляем..." : "Оставить заявку"}
         </button>
       </div>
-
-      {/* Согласие */}
 
       <label
         style={{
           display: "flex",
-          alignItems:
-            "flex-start",
+          alignItems: "flex-start",
           gap: "10px",
           marginTop: "12px",
-          color:
-            "rgba(255,255,255,.9)",
+          color: "rgba(255,255,255,.9)",
           fontSize: "12px",
           lineHeight: 1.5,
         }}
@@ -491,41 +643,27 @@ function ApplicationForm({
         <input
           type="checkbox"
           checked={agreement}
-          onChange={(e) =>
-            setAgreement(
-              e.target.checked
-            )
-          }
+          onChange={(e) => setAgreement(e.target.checked)}
           style={{
             marginTop: "2px",
-            accentColor:
-              "#ef4444",
+            accentColor: "#ef4444",
           }}
         />
 
         <span>
-          Нажимая кнопку
-          «{submitText}», я
-          даю согласие на
-          обработку
+          Нажимая кнопку «Оставить заявку», я даю согласие на обработку
           персональных данных.
         </span>
       </label>
-
-      {/* Ошибка */}
 
       {error && (
         <div
           style={{
             marginTop: "12px",
-            padding:
-              "12px 14px",
-            borderRadius:
-              "12px",
-            background:
-              "rgba(254,226,226,.95)",
-            color:
-              "#991b1b",
+            padding: "12px 14px",
+            borderRadius: "12px",
+            background: "rgba(254,226,226,.95)",
+            color: "#991b1b",
             fontSize: "13px",
           }}
         >
@@ -533,27 +671,19 @@ function ApplicationForm({
         </div>
       )}
 
-      {/* Успех */}
-
       {success && (
         <div
           style={{
             marginTop: "12px",
-            padding:
-              "12px 14px",
-            borderRadius:
-              "12px",
-            background:
-              "rgba(220,252,231,.95)",
-            color:
-              "#166534",
+            padding: "12px 14px",
+            borderRadius: "12px",
+            background: "rgba(220,252,231,.95)",
+            color: "#166534",
             fontSize: "13px",
             fontWeight: 600,
           }}
         >
-          {title} отправлена.
-          Менеджер свяжется с
-          вами.
+          {title} отправлена. Менеджер свяжется с вами.
         </div>
       )}
     </form>
@@ -561,147 +691,98 @@ function ApplicationForm({
 }
 
 export default function Hero() {
-  const [activeTab, setActiveTab] =
-    useState("Купить");
+  const [activeTab, setActiveTab] = useState("Купить");
 
-  const [propertyType, setPropertyType] =
-    useState("");
+  const [propertyType, setPropertyType] = useState<PropertyType | "">("");
+  const [subType, setSubType] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [price, setPrice] = useState("");
+  const [area, setArea] = useState("");
+  const [location, setLocation] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const [rooms, setRooms] =
-    useState("");
+  const [openPropertyType, setOpenPropertyType] = useState(false);
+  const [openSubType, setOpenSubType] = useState(false);
+  const [openRooms, setOpenRooms] = useState(false);
+  const [openPrice, setOpenPrice] = useState(false);
+  const [openArea, setOpenArea] = useState(false);
+  const [openLocation, setOpenLocation] = useState(false);
 
-  const [price, setPrice] =
-    useState("");
+  const currentSubTypes = propertyType ? subTypes[propertyType] : [];
 
-  const [area, setArea] =
-    useState("");
+  let categories: Category[] = [];
+  if (activeTab === "Купить") categories = buyCategories;
+  if (activeTab === "Снять") categories = rentCategories;
+  if (activeTab === "Сдать") categories = leaseCategories;
 
-  const [location, setLocation] =
-    useState("");
-
-  const [showFilters, setShowFilters] =
-    useState(false);
-
-  const [selectedCategory, setSelectedCategory] =
-    useState<string | null>(null);
-
-  const handleTabChange = (
-    tab: string
-  ) => {
-    setActiveTab(tab);
-    setShowFilters(false);
-    setSelectedCategory(null);
+  const closeDropdowns = () => {
+    setOpenPropertyType(false);
+    setOpenSubType(false);
+    setOpenRooms(false);
+    setOpenPrice(false);
+    setOpenArea(false);
+    setOpenLocation(false);
   };
 
-  const typeMap: Record<
-    string,
-    string
-  > = {
-    "Квартира": "apartment",
-    "Квартира в новостройке":
-      "new_building",
-    "Дом": "house",
-    "Земельный участок":
-      "land",
-    "Коммерческая недвижимость":
-      "commercial",
-    "Гараж": "garage",
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    closeDropdowns();
+    setSelectedCategory(null);
+    setShowFilters(false);
   };
 
   const handleSearch = () => {
-    const params =
-      new URLSearchParams();
+    const params = new URLSearchParams();
 
     if (propertyType) {
-      const type =
-        typeMap[propertyType];
-
-      if (type) {
-        params.set(
-          "type",
-          type
-        );
-      }
+      params.set("type", typeMap[propertyType]);
     }
 
-    if (rooms) {
-      params.set(
-        "rooms",
-        rooms
-      );
+    if (subType) {
+      params.set("subtype", subType);
     }
 
-    if (price) {
-      params.set(
-        "price",
-        price
-      );
+    if (rooms) params.set("rooms", rooms);
+    if (price) params.set("price", price);
+    if (area) params.set("area", area);
+    if (location) params.set("location", location);
+
+    const deal = activeTab === "Снять" ? "rent" : "sale";
+    const type = propertyType ? typeMap[propertyType] : "";
+    const categorySlug =
+      type === "apartment"
+        ? "apartments"
+        : type === "house"
+        ? "houses"
+        : type === "land"
+        ? "land"
+        : type === "commercial"
+        ? "commercial"
+        : type === "garage"
+        ? "garages"
+        : "apartments";
+
+    const subtypeSlug = subType ? subtypeSlugMap[subType] : "";
+
+    let url = `/catalog/${deal}/${categorySlug}`;
+    if (subtypeSlug && subtypeSlug !== categorySlug) {
+      url += `/${subtypeSlug}`;
     }
 
-    if (area) {
-      params.set(
-        "area",
-        area
-      );
-    }
-
-    if (location) {
-      params.set(
-        "location",
-        location
-      );
-    }
-
-    const query =
-      params.toString();
-
-    window.location.href =
-      query
-        ? `/catalog?${query}`
-        : "/catalog";
+    const query = params.toString();
+    window.location.href = query ? `${url}?${query}` : url;
   };
-
-  let categories: Category[] = [];
-
-  if (
-    activeTab === "Купить"
-  ) {
-    categories =
-      buyCategories;
-  }
-
-  if (
-    activeTab === "Снять"
-  ) {
-    categories =
-      rentCategories;
-  }
-
-  if (
-    activeTab === "Сдать"
-  ) {
-    categories =
-      leaseCategories;
-  }
 
   return (
     <section className="hero">
       <div className="container hero-content">
-
-        {/* ================================================== */}
-        {/* Заголовок */}
-        {/* ================================================== */}
-
         <div
           style={{
-            color:
-              "white",
-            fontWeight:
-              700,
-            letterSpacing:
-              "2px",
-            marginBottom:
-              "20px",
+            color: "white",
+            fontWeight: 700,
+            letterSpacing: "2px",
+            marginBottom: "20px",
           }}
         >
           НЕДВИЖИМОСТЬ • КРАСНОДАР
@@ -716,134 +797,58 @@ export default function Hero() {
         </h1>
 
         <p className="hero-text">
-          Покупка, продажа и аренда
-          недвижимости в Краснодаре.
-          Полное сопровождение сделки
-          и персональный подход
-          к каждому клиенту.
+          Покупка, продажа и аренда недвижимости в Краснодаре. Полное
+          сопровождение сделки и персональный подход к каждому клиенту.
         </p>
-
-        {/* ================================================== */}
-        {/* Статистика */}
-        {/* ================================================== */}
 
         <div
           style={{
-            display:
-              "flex",
-            gap:
-              "50px",
-            marginTop:
-              "35px",
-            marginBottom:
-              "40px",
-            color:
-              "white",
-            flexWrap:
-              "wrap",
+            display: "flex",
+            gap: "50px",
+            marginTop: "35px",
+            marginBottom: "40px",
+            color: "white",
+            flexWrap: "wrap",
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize:
-                  "36px",
-                fontWeight:
-                  700,
-              }}
-            >
-              500+
-            </div>
-
-            <div>
-              Объектов
-            </div>
+            <div style={{ fontSize: "36px", fontWeight: 700 }}>500+</div>
+            <div>Объектов</div>
           </div>
-
           <div>
-            <div
-              style={{
-                fontSize:
-                  "36px",
-                fontWeight:
-                  700,
-              }}
-            >
-              150+
-            </div>
-
-            <div>
-              Сделок
-            </div>
+            <div style={{ fontSize: "36px", fontWeight: 700 }}>150+</div>
+            <div>Сделок</div>
           </div>
-
           <div>
-            <div
-              style={{
-                fontSize:
-                  "36px",
-                fontWeight:
-                  700,
-              }}
-            >
-              98%
-            </div>
-
-            <div>
-              Довольных клиентов
-            </div>
+            <div style={{ fontSize: "36px", fontWeight: 700 }}>98%</div>
+            <div>Довольных клиентов</div>
           </div>
         </div>
-
-        {/* ================================================== */}
-        {/* SEARCH BOX */}
-        {/* ================================================== */}
 
         <div
           className="search-box"
           style={{
-            position:
-              "relative",
+            position: "relative",
             zIndex: 20,
           }}
         >
-          {/* ================================================= */}
-          {/* ТАБЫ */}
-          {/* ================================================= */}
-
           <div
             className="search-tabs"
             style={{
               display: "flex",
               gap: "8px",
-              flexWrap:
-                "wrap",
-              marginBottom:
-                "18px",
+              flexWrap: "wrap",
+              marginBottom: "18px",
             }}
           >
-            {[
-              "Купить",
-              "Продать",
-              "Ипотека",
-              "Оценить",
-              "Снять",
-              "Сдать",
-            ].map(
+            {["Купить", "Продать", "Ипотека", "Оценить", "Снять", "Сдать"].map(
               (tab) => (
                 <button
                   key={tab}
                   type="button"
-                  onClick={() =>
-                    handleTabChange(
-                      tab
-                    )
-                  }
+                  onClick={() => handleTabChange(tab)}
                   className={
-                    activeTab ===
-                    tab
-                      ? "search-tab active"
-                      : "search-tab"
+                    activeTab === tab ? "search-tab active" : "search-tab"
                   }
                 >
                   {tab}
@@ -852,168 +857,132 @@ export default function Hero() {
             )}
           </div>
 
-          {/* ================================================= */}
-          {/* КУПИТЬ */}
-          {/* ================================================= */}
-
-          {activeTab ===
-            "Купить" && (
+          {activeTab === "Купить" && (
             <>
               <div
                 className="search-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns:
-                    "repeat(4, minmax(0, 1fr))",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                   gap: "12px",
                 }}
               >
-                <select
-                  className="search-input"
-                  value={
+                <CustomDropdown
+                  label="Тип недвижимости"
+                  value={propertyType}
+                  options={propertyTypes}
+                  open={openPropertyType}
+                  onOpen={() => {
+                    setOpenPropertyType((v) => !v);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenPrice(false);
+                    setOpenArea(false);
+                    setOpenLocation(false);
+                  }}
+                  onChange={(value) => {
+                    const nextType = value as PropertyType;
+                    setPropertyType(nextType);
+                    setSubType("");
+                    setOpenPropertyType(false);
+                  }}
+                />
+
+                <CustomDropdown
+                  label={
                     propertyType
+                      ? "Тип"
+                      : "Выберите недвижимость"
                   }
-                  onChange={(e) =>
-                    setPropertyType(
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Тип недвижимости
-                  </option>
+                  value={subType}
+                  options={currentSubTypes}
+                  open={openSubType}
+                  onOpen={() => {
+                    if (!currentSubTypes.length) return;
+                    setOpenSubType((v) => !v);
+                    setOpenPropertyType(false);
+                    setOpenRooms(false);
+                    setOpenPrice(false);
+                    setOpenArea(false);
+                    setOpenLocation(false);
+                  }}
+                  onChange={(value) => {
+                    setSubType(value);
+                    setOpenSubType(false);
+                  }}
+                />
 
-                  {propertyTypes.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <select
-                  className="search-input"
+                <CustomDropdown
+                  label="Количество комнат"
                   value={rooms}
-                  onChange={(e) =>
-                    setRooms(
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Количество комнат
-                  </option>
+                  options={roomOptions}
+                  open={openRooms}
+                  onOpen={() => {
+                    setOpenRooms((v) => !v);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenPrice(false);
+                    setOpenArea(false);
+                    setOpenLocation(false);
+                  }}
+                  onChange={(value) => {
+                    setRooms(value);
+                    setOpenRooms(false);
+                  }}
+                />
 
-                  {roomOptions.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <select
-                  className="search-input"
+                <CustomDropdown
+                  label="Цена"
                   value={price}
-                  onChange={(e) =>
-                    setPrice(
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Цена
-                  </option>
-
-                  {priceOptions.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <select
-                  className="search-input"
-                  value={area}
-                  onChange={(e) =>
-                    setArea(
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Площадь
-                  </option>
-
-                  {areaOptions.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    )
-                  )}
-                </select>
+                  options={priceOptions}
+                  open={openPrice}
+                  onOpen={() => {
+                    setOpenPrice((v) => !v);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenArea(false);
+                    setOpenLocation(false);
+                  }}
+                  onChange={(value) => {
+                    setPrice(value);
+                    setOpenPrice(false);
+                  }}
+                />
               </div>
 
               <div
+                className="search-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns:
-                    "1fr auto auto auto",
+                  gridTemplateColumns: "1fr auto auto auto",
                   gap: "12px",
-                  marginTop:
-                    "12px",
+                  marginTop: "12px",
                 }}
               >
-                <select
-                  className="search-input"
-                  value={location}
-                  onChange={(e) =>
-                    setLocation(
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Город, район
-                  </option>
-
-                  {locationOptions.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    )
-                  )}
-                </select>
+                <CustomDropdown
+                  label="Площадь"
+                  value={area}
+                  options={areaOptions}
+                  open={openArea}
+                  onOpen={() => {
+                    setOpenArea((v) => !v);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenPrice(false);
+                    setOpenLocation(false);
+                  }}
+                  onChange={(value) => {
+                    setArea(value);
+                    setOpenArea(false);
+                  }}
+                />
 
                 <button
                   type="button"
                   className="btn"
-                  onClick={() =>
-                    setShowFilters(
-                      !showFilters
-                    )
-                  }
+                  onClick={() => setShowFilters((v) => !v)}
                 >
                   ☷ Все фильтры
                 </button>
@@ -1022,13 +991,10 @@ export default function Hero() {
                   href="/map"
                   className="btn"
                   style={{
-                    textDecoration:
-                      "none",
+                    textDecoration: "none",
                     display: "flex",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "center",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   ◉ На карте
@@ -1037,152 +1003,97 @@ export default function Hero() {
                 <button
                   type="button"
                   className="btn btn-red"
-                  onClick={
-                    handleSearch
-                  }
+                  onClick={handleSearch}
                 >
                   Поиск объявлений
                 </button>
               </div>
 
+              <div style={{ marginTop: "12px", position: "relative", zIndex: 30 }}>
+                <CustomDropdown
+                  label="Город, район"
+                  value={location}
+                  options={locationOptions}
+                  open={openLocation}
+                  onOpen={() => {
+                    setOpenLocation((v) => !v);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenPrice(false);
+                    setOpenArea(false);
+                  }}
+                  onChange={(value) => {
+                    setLocation(value);
+                    setOpenLocation(false);
+                  }}
+                />
+              </div>
+
               {showFilters && (
                 <div
                   style={{
-                    marginTop:
-                      "14px",
-                    padding:
-                      "18px",
-                    borderRadius:
-                      "18px",
-                    background:
-                      "#f8fafc",
-                    border:
-                      "1px solid #e5e7eb",
+                    marginTop: "14px",
+                    padding: "18px",
+                    borderRadius: "18px",
+                    background: "#f8fafc",
+                    border: "1px solid #e5e7eb",
                     display: "grid",
-                    gridTemplateColumns:
-                      "repeat(3, 1fr)",
+                    gridTemplateColumns: "repeat(3, 1fr)",
                     gap: "12px",
+                    position: "relative",
+                    zIndex: 20,
                   }}
                 >
-                  <select
-                    className="search-input"
-                    value={
-                      propertyType
-                    }
-                    onChange={(e) =>
-                      setPropertyType(
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">
-                      Тип недвижимости
-                    </option>
-
-                    {propertyTypes.map(
-                      (item) => (
-                        <option
-                          key={item}
-                          value={item}
-                        >
-                          {item}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  <select
-                    className="search-input"
-                    value={rooms}
-                    onChange={(e) =>
-                      setRooms(
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">
-                      Количество комнат
-                    </option>
-
-                    {roomOptions.map(
-                      (item) => (
-                        <option
-                          key={item}
-                          value={item}
-                        >
-                          {item}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  <select
-                    className="search-input"
+                  <CustomDropdown
+                    label="Тип недвижимости"
+                    value={propertyType}
+                    options={propertyTypes}
+                    open={false}
+                    onOpen={() => undefined}
+                    onChange={() => undefined}
+                  />
+                  <CustomDropdown
+                    label="Тип"
+                    value={subType}
+                    options={currentSubTypes}
+                    open={false}
+                    onOpen={() => undefined}
+                    onChange={() => undefined}
+                  />
+                  <CustomDropdown
+                    label="Район"
                     value={location}
-                    onChange={(e) =>
-                      setLocation(
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="">
-                      Район
-                    </option>
-
-                    {locationOptions.map(
-                      (item) => (
-                        <option
-                          key={item}
-                          value={item}
-                        >
-                          {item}
-                        </option>
-                      )
-                    )}
-                  </select>
+                    options={locationOptions}
+                    open={false}
+                    onOpen={() => undefined}
+                    onChange={() => undefined}
+                  />
                 </div>
               )}
 
-              {/* Категории */}
-
               <div
                 style={{
-                  marginTop:
-                    "22px",
-                  background:
-                    "#ffffff",
-                  borderRadius:
-                    "28px",
-                  padding:
-                    "22px",
-                  boxShadow:
-                    "0 20px 50px rgba(0,0,0,.12)",
-                  color:
-                    "#111827",
+                  marginTop: "22px",
+                  background: "#ffffff",
+                  borderRadius: "28px",
+                  padding: "22px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,.12)",
+                  color: "#111827",
                 }}
               >
                 <CategoryBlock
                   title="Купить недвижимость"
-                  categories={
-                    buyCategories
-                  }
-                  selectedCategory={
-                    selectedCategory
-                  }
-                  setSelectedCategory={
-                    setSelectedCategory
-                  }
+                  categories={buyCategories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  dealType="sale"
                 />
               </div>
             </>
           )}
 
-          {/* ================================================= */}
-          {/* ПРОДАТЬ */}
-          {/* ================================================= */}
-
-          {activeTab ===
-            "Продать" && (
+          {activeTab === "Продать" && (
             <div>
               <ApplicationForm
                 applicationType="Продать"
@@ -1191,111 +1102,67 @@ export default function Hero() {
             </div>
           )}
 
-          {/* ================================================= */}
-          {/* СНЯТЬ */}
-          {/* ================================================= */}
-
-          {activeTab ===
-            "Снять" && (
+          {activeTab === "Снять" && (
             <>
-              <div>
-                <ApplicationForm
-                  applicationType="Снять"
-                  title="Заявка на аренду недвижимости"
-                />
-              </div>
+              <ApplicationForm
+                applicationType="Снять"
+                title="Заявка на аренду недвижимости"
+              />
 
               <div
                 style={{
-                  marginTop:
-                    "22px",
-                  background:
-                    "#ffffff",
-                  borderRadius:
-                    "28px",
-                  padding:
-                    "22px",
-                  boxShadow:
-                    "0 20px 50px rgba(0,0,0,.12)",
-                  color:
-                    "#111827",
+                  marginTop: "22px",
+                  background: "#ffffff",
+                  borderRadius: "28px",
+                  padding: "22px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,.12)",
+                  color: "#111827",
                 }}
               >
                 <CategoryBlock
                   title="Снять недвижимость"
-                  categories={
-                    rentCategories
-                  }
-                  selectedCategory={
-                    selectedCategory
-                  }
-                  setSelectedCategory={
-                    setSelectedCategory
-                  }
+                  categories={rentCategories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  dealType="rent"
                 />
               </div>
             </>
           )}
 
-          {/* ================================================= */}
-          {/* СДАТЬ */}
-          {/* ================================================= */}
-
-          {activeTab ===
-            "Сдать" && (
+          {activeTab === "Сдать" && (
             <>
-              <div>
-                <ApplicationForm
-                  applicationType="Сдать"
-                  title="Заявка на сдачу недвижимости"
-                />
-              </div>
+              <ApplicationForm
+                applicationType="Сдать"
+                title="Заявка на сдачу недвижимости"
+              />
 
               <div
                 style={{
-                  marginTop:
-                    "22px",
-                  background:
-                    "#ffffff",
-                  borderRadius:
-                    "28px",
-                  padding:
-                    "22px",
-                  boxShadow:
-                    "0 20px 50px rgba(0,0,0,.12)",
-                  color:
-                    "#111827",
+                  marginTop: "22px",
+                  background: "#ffffff",
+                  borderRadius: "28px",
+                  padding: "22px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,.12)",
+                  color: "#111827",
                 }}
               >
                 <CategoryBlock
                   title="Сдать недвижимость"
-                  categories={
-                    leaseCategories
-                  }
-                  selectedCategory={
-                    selectedCategory
-                  }
-                  setSelectedCategory={
-                    setSelectedCategory
-                  }
+                  categories={leaseCategories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  dealType="lease"
                 />
               </div>
             </>
           )}
 
-          {/* ================================================= */}
-          {/* ИПОТЕКА / ОЦЕНИТЬ */}
-          {/* ================================================= */}
-
-          {(activeTab ===
-            "Ипотека" ||
-            activeTab ===
-              "Оценить") && (
+          {(activeTab === "Ипотека" || activeTab === "Оценить") && (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "repeat(2, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "12px",
               }}
             >
@@ -1303,59 +1170,34 @@ export default function Hero() {
                 className="search-input"
                 defaultValue=""
               >
-                <option value="">
-                  Тип недвижимости
-                </option>
-
-                {propertyTypes.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
+                <option value="">Тип недвижимости</option>
+                {propertyTypes.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
 
               <select
                 className="search-input"
                 defaultValue=""
               >
-                <option value="">
-                  Количество комнат
-                </option>
-
-                {roomOptions.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
+                <option value="">Количество комнат</option>
+                {roomOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
 
-              <input
-                className="search-input"
-                placeholder="Имя"
-              />
-
-              <input
-                className="search-input"
-                placeholder="Телефон"
-              />
+              <input className="search-input" placeholder="Имя" />
+              <input className="search-input" placeholder="Телефон" />
 
               <button
                 type="button"
                 className="btn btn-red"
                 onClick={() =>
-                  alert(
-                    "Оставьте контакты для связи с менеджером."
-                  )
+                  alert("Оставьте контакты для связи с менеджером.")
                 }
               >
                 Оставить заявку
@@ -1364,53 +1206,16 @@ export default function Hero() {
           )}
         </div>
       </div>
-
-      {/* ==================================================== */}
-      {/* АДАПТИВ */}
-      {/* ==================================================== */}
-
-      <style jsx>{`
-        @media (max-width: 1000px) {
-          .search-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-
-          .search-box form > div:first-child {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-
-        @media (max-width: 800px) {
-          .search-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          .search-box > div {
-            overflow-x: visible;
-          }
-        }
-
-        @media (max-width: 700px) {
-          .category-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }
-
-// ============================================================
-// Блок категорий
-// ============================================================
 
 type CategoryBlockProps = {
   title: string;
   categories: Category[];
   selectedCategory: string | null;
-  setSelectedCategory: (
-    category: string | null
-  ) => void;
+  setSelectedCategory: (category: string | null) => void;
+  dealType: "sale" | "rent" | "lease";
 };
 
 function CategoryBlock({
@@ -1418,29 +1223,25 @@ function CategoryBlock({
   categories,
   selectedCategory,
   setSelectedCategory,
+  dealType,
 }: CategoryBlockProps) {
   return (
     <>
       <div
         style={{
           display: "flex",
-          justifyContent:
-            "space-between",
+          justifyContent: "space-between",
           alignItems: "center",
           gap: "20px",
-          marginBottom:
-            "20px",
+          marginBottom: "20px",
         }}
       >
         <div>
           <div
             style={{
-              color:
-                "#6b7280",
-              fontSize:
-                "14px",
-              marginBottom:
-                "5px",
+              color: "#6b7280",
+              fontSize: "14px",
+              marginBottom: "5px",
             }}
           >
             Категории
@@ -1449,10 +1250,8 @@ function CategoryBlock({
           <h2
             style={{
               margin: 0,
-              fontSize:
-                "26px",
-              fontWeight:
-                700,
+              fontSize: "26px",
+              fontWeight: 700,
             }}
           >
             {title}
@@ -1462,13 +1261,10 @@ function CategoryBlock({
         <Link
           href="/catalog"
           style={{
-            color:
-              "#111827",
-            textDecoration:
-              "none",
+            color: "#111827",
+            textDecoration: "none",
             fontWeight: 600,
-            whiteSpace:
-              "nowrap",
+            whiteSpace: "nowrap",
           }}
         >
           Все объявления →
@@ -1479,150 +1275,113 @@ function CategoryBlock({
         className="category-grid"
         style={{
           display: "grid",
-          gridTemplateColumns:
-            `repeat(${Math.min(
-              categories.length,
-              4
-            )}, 1fr)`,
+          gridTemplateColumns: `repeat(${Math.min(categories.length, 4)}, 1fr)`,
           gap: "12px",
         }}
       >
-        {categories.map(
-          (category) => (
-            <div
-              key={
-                category.title
+        {categories.map((category) => (
+          <div
+            key={category.title}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "18px",
+              padding: "18px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedCategory(
+                  selectedCategory === category.title ? null : category.title
+                )
               }
               style={{
-                border:
-                  "1px solid #e5e7eb",
-                borderRadius:
-                  "18px",
-                padding:
-                  "18px",
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                textAlign: "left",
+                color:
+                  category.title === "Земельные участки"
+                    ? "#ef4444"
+                    : "#111827",
+                fontSize: "17px",
+                fontWeight: 700,
               }}
             >
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedCategory(
-                    selectedCategory ===
-                      category.title
-                      ? null
-                      : category.title
-                  )
-                }
+              <span>{category.title}</span>
+              <span>→</span>
+            </button>
+
+            <div
+              style={{
+                height: "1px",
+                background: "#e5e7eb",
+                margin: "14px 0 8px",
+              }}
+            />
+
+            {category.items.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/catalog/${dealType}/${categorySlugFromTitle(
+                  category.title
+                )}/${item.slug}`}
                 style={{
-                  width: "100%",
-                  display:
-                    "flex",
-                  justifyContent:
-                    "space-between",
-                  alignItems:
-                    "center",
-                  background:
-                    "transparent",
-                  border:
-                    "none",
-                  padding: 0,
-                  cursor:
-                    "pointer",
-                  textAlign:
-                    "left",
-                  color:
-                    category.title ===
-                    "Земельные участки"
-                      ? "#ef4444"
-                      : "#111827",
-                  fontSize:
-                    "17px",
-                  fontWeight:
-                    700,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "7px 0",
+                  color: "#374151",
+                  textDecoration: "none",
+                  fontSize: "14px",
                 }}
               >
-                <span>
-                  {
-                    category.title
-                  }
-                </span>
+                <span>{item.title}</span>
+                <span style={{ color: "#9ca3af" }}>›</span>
+              </Link>
+            ))}
 
-                <span>
-                  →
-                </span>
-              </button>
-
+            {selectedCategory === category.title && (
               <div
                 style={{
-                  height:
-                    "1px",
-                  background:
-                    "#e5e7eb",
-                  margin:
-                    "14px 0 8px",
+                  marginTop: "10px",
+                  paddingTop: "10px",
+                  borderTop: "1px solid #e5e7eb",
+                  color: "#ef4444",
+                  fontSize: "13px",
+                  fontWeight: 600,
                 }}
-              />
-
-              {category.items.map(
-                (item) => (
-                  <Link
-                    key={item}
-                    href="/catalog"
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      padding:
-                        "7px 0",
-                      color:
-                        "#374151",
-                      textDecoration:
-                        "none",
-                      fontSize:
-                        "14px",
-                    }}
-                  >
-                    <span>
-                      {item}
-                    </span>
-
-                    <span
-                      style={{
-                        color:
-                          "#9ca3af",
-                      }}
-                    >
-                      ›
-                    </span>
-                  </Link>
-                )
-              )}
-
-              {selectedCategory ===
-                category.title && (
-                <div
-                  style={{
-                    marginTop:
-                      "10px",
-                    paddingTop:
-                      "10px",
-                    borderTop:
-                      "1px solid #e5e7eb",
-                    color:
-                      "#ef4444",
-                    fontSize:
-                      "13px",
-                    fontWeight:
-                      600,
-                  }}
-                >
-                  Категория выбрана
-                </div>
-              )}
-            </div>
-          )
-        )}
+              >
+                ✓ Категория выбрана
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </>
   );
+}
+
+function categorySlugFromTitle(title: string) {
+  switch (title) {
+    case "Квартиры":
+      return "apartments";
+    case "Дома":
+      return "houses";
+    case "Земельные участки":
+      return "land";
+    case "Коммерция":
+    case "Коммерческая":
+      return "commercial";
+    case "Гаражи":
+      return "garages";
+    case "Загородная недвижимость":
+      return "houses";
+    default:
+      return "apartments";
+  }
 }
