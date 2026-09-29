@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -88,20 +89,69 @@ class Property(Base):
     )
 
     # -----------------------------------------------------
-    # Тип недвижимости
+    # Основной тип недвижимости
     #
-    # apartment      = Квартира
-    # new_building   = Квартира в новостройке
-    # house          = Дом
-    # land           = Земельный участок
-    # commercial     = Коммерческая недвижимость
-    # garage         = Гараж
+    # apartment   = Квартира
+    # house       = Дом
+    # land        = Земельный участок
+    # commercial  = Коммерческая недвижимость
+    # garage      = Гараж
     # -----------------------------------------------------
 
     property_type = Column(
         String(50),
         nullable=False,
         default="apartment",
+    )
+
+    # -----------------------------------------------------
+    # Подтип недвижимости
+    #
+    # secondary
+    # new_building
+    # studio
+    # 1_room
+    # 2_room
+    # 3_room
+    # townhouse
+    # duplex
+    # cottage
+    # izhs
+    # gardening
+    # office
+    # warehouse
+    # parking
+    # и т.д.
+    # -----------------------------------------------------
+
+    property_subtype = Column(
+        String(80),
+        nullable=False,
+        default="secondary",
+    )
+
+    # -----------------------------------------------------
+    # Тип сделки
+    #
+    # sale  = Продать
+    # rent  = Снять
+    # lease = Сдать
+    # -----------------------------------------------------
+
+    deal_type = Column(
+        String(20),
+        nullable=False,
+        default="sale",
+    )
+
+    latitude = Column(
+        Float,
+        nullable=True,
+    )
+
+    longitude = Column(
+        Float,
+        nullable=True,
     )
 
     status = Column(
@@ -212,7 +262,7 @@ class Lead(Base):
     property_id = Column(
         Integer,
         ForeignKey("properties.id"),
-        nullable=True
+        nullable=True,
     )
 
     name = Column(

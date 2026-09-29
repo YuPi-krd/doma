@@ -1,9 +1,14 @@
 from datetime import datetime, timedelta
+import json
 import os
 import shutil
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest
+from urllib.request import urlopen
 
 from fastapi import (
     FastAPI,
@@ -18,13 +23,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .database import Base, SessionLocal, engine
-from .models import Client, Lead, Property, PropertyImage, Sale, User
-from .schemas import ClientUpdate, LeadCreate, SaleCreate, SaleUpdate
+from .models import (
+    Client,
+    Lead,
+    Property,
+    PropertyImage,
+    Sale,
+    User,
+)
+from .schemas import (
+    ClientUpdate,
+    LeadCreate,
+    LeadStatusUpdate,
+    SaleCreate,
+    SaleUpdate,
+)
 
 
 # ============================================================
@@ -33,11 +51,14 @@ from .schemas import ClientUpdate, LeadCreate, SaleCreate, SaleUpdate
 
 ALGORITHM = "HS256"
 
-# В Render желательно добавить SECRET_KEY в Environment Variables.
-# Fallback оставлен для локального запуска.
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "doma-development-secret-change-in-render",
+)
+
+YANDEX_GEOCODER_API_KEY = os.getenv(
+    "YANDEX_GEOCODER_API_KEY",
+    "",
 )
 
 CORS_ORIGINS = [
@@ -48,32 +69,87 @@ CORS_ORIGINS = [
 
 
 # ============================================================
-# ТИПЫ НЕДВИЖИМОСТИ
+# PROPERTY TYPES
 # ============================================================
 
 PROPERTY_TYPES = {
     "apartment": "Квартира",
-    "new_building": "Квартира в новостройке",
     "house": "Дом",
     "land": "Земельный участок",
     "commercial": "Коммерческая недвижимость",
     "garage": "Гараж",
 }
 
-# Совместимость со старыми ссылками
 PROPERTY_TYPE_ALIASES = {
     "flat": "apartment",
-    "new": "new_building",
-
     "apartment": "apartment",
-    "new_building": "new_building",
+    "new_building": "apartment",
     "house": "house",
     "land": "land",
     "commercial": "commercial",
     "garage": "garage",
 }
 
+PROPERTY_SUBTYPES = {
+    # Квартиры
+    "secondary": "Вторичка",
+    "new_building": "Новостройка",
+    "studio": "Студия",
+    "1_room": "1-комнатная",
+    "2_room": "2-комнатная",
+    "3_room": "3-комнатная",
+    "4_room": "4-комнатная",
+    "5_room": "5-комнатная",
+    "penthouse": "Пентхаус",
+
+    # Дома
+    "house": "Дом",
+    "part_of_house": "Часть дома",
+    "townhouse": "Таунхаус",
+    "duplex": "Дуплекс",
+    "cottage": "Коттедж",
+    "dacha": "Дача",
+
+    # Земля
+    "izhs": "ИЖС",
+    "gardening": "Садоводство",
+    "commercial_land": "Коммерческая",
+    "lph": "ЛПХ",
+    "dnp": "ДНП",
+
+    # Коммерция
+    "office": "Офисное",
+    "business": "Готовый бизнес",
+    "separate_building": "Отдельное здание",
+    "production": "Производственное",
+    "warehouse": "Складское",
+    "retail": "Торговое помещение",
+
+    # Гаражи
+    "garage_box": "Бокс в гаражном кооперативе",
+    "residential_complex": "Внутри жилого комплекса",
+    "covered_parking": "Крытая стоянка",
+    "separate_garage": "Отдельно стоящий гараж",
+    "parking": "Отдельно стоящий паркинг",
+}
+
+DEAL_TYPES = {
+    "sale": "Продажа",
+    "rent": "Аренда",
+    "lease": "Сдача",
+}
+
+DEAL_TYPE_ALIASES = {
+    "buy": "sale",
+    "sale": "sale",
+    "sell": "sale",
+    "rent": "rent",
+    "lease": "lease",
+}
+
 DEFAULT_PROPERTY_TYPE = "apartment"
+DEFAULT_PROPERTY_SUBTYPE = "secondary"
+DEFAULT_DEAL_TYPE = "sale"
 DEFAULT_STATUS = "Свободен"
 DEFAULT_IMAGE = "/images/test-flat.jpg"
 
@@ -99,12 +175,60 @@ app.add_middleware(
 
 
 # ============================================================
+# ENSURE MAP COLUMNS
+# ============================================================
+
+def ensure_property_coordinates() -> None:
+    """
+    Добавляет latitude/longitude в существующую таблицу,
+    если их ещё нет.
+
+    Это не заменяет поля в SQLAlchemy-модели.
+    Поля также должны быть добавлены в models.py.
+    """
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE properties
+                    ADD COLUMN IF NOT EXISTS
+                    latitude DOUBLE PRECISION
+                    """
+                )
+            )
+
+            connection.execute(
+                text(
+                    """
+                    ALTER TABLE properties
+                    ADD COLUMN IF NOT EXISTS
+                    longitude DOUBLE PRECISION
+                    """
+                )
+            )
+
+    except Exception as exc:
+        print(
+            "Не удалось проверить координаты properties:",
+            exc,
+        )
+
+
+ensure_property_coordinates()
+
+
+# ============================================================
 # IMAGES
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = (
+    Path(__file__).resolve().parent.parent
+)
 
 IMAGE_DIR = BASE_DIR / "images"
+
 IMAGE_DIR.mkdir(
     parents=True,
     exist_ok=True,
@@ -112,7 +236,9 @@ IMAGE_DIR.mkdir(
 
 app.mount(
     "/images",
-    StaticFiles(directory=IMAGE_DIR),
+    StaticFiles(
+        directory=IMAGE_DIR
+    ),
     name="images",
 )
 
@@ -127,16 +253,16 @@ pwd_context = CryptContext(
 )
 
 
-class LoginSchema(BaseModel):
+class LoginSchema(
+    __import__("pydantic").BaseModel
+):
     username: str
     password: str
 
 
-class SaleStatusUpdate(BaseModel):
-    status: str
-
-
-class LeadStatusUpdate(BaseModel):
+class SaleStatusUpdate(
+    __import__("pydantic").BaseModel
+):
     status: str
 
 
@@ -182,88 +308,74 @@ def normalize_property_type(
         or DEFAULT_PROPERTY_TYPE
     ).strip().lower()
 
-    normalized = PROPERTY_TYPE_ALIASES.get(
+    result = PROPERTY_TYPE_ALIASES.get(
         value
     )
 
-    if normalized is None:
+    if result is None:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Неизвестный тип недвижимости. "
-                f"Допустимые значения: "
-                f"{', '.join(PROPERTY_TYPES)}"
+                "Неизвестный тип недвижимости."
             ),
         )
 
-    return normalized
+    return result
 
 
-def property_to_dict(
-    item: Property,
-) -> dict[str, Any]:
+def normalize_deal_type(
+    value: str | None,
+) -> str:
 
-    property_type = (
-        item.property_type
-        if item.property_type in PROPERTY_TYPES
-        else DEFAULT_PROPERTY_TYPE
+    value = (
+        value
+        or DEFAULT_DEAL_TYPE
+    ).strip().lower()
+
+    result = DEAL_TYPE_ALIASES.get(
+        value
     )
 
-    return {
-        "id": item.id,
+    if result is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Неизвестный тип сделки."
+            ),
+        )
 
-        "title": item.title or "",
+    return result
 
-        "description": (
-            item.description
-            or ""
-        ),
 
-        "price": int(
-            item.price or 0
-        ),
+def normalize_property_subtype(
+    value: str | None,
+) -> str:
 
-        "area": float(
-            item.area or 0
-        ),
+    value = (
+        value
+        or DEFAULT_PROPERTY_SUBTYPE
+    ).strip().lower()
 
-        "rooms": int(
-            item.rooms or 0
-        ),
+    if value not in PROPERTY_SUBTYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Неизвестный подтип недвижимости."
+            ),
+        )
 
-        "city": (
-            item.city
-            or ""
-        ),
+    return value
 
-        "district": (
-            item.district
-            or ""
-        ),
 
-        "address": (
-            item.address
-            or ""
-        ),
+def text_value(
+    value: Any,
+    default: str = "",
+) -> str:
 
-        "property_type": property_type,
+    if value is None:
+        return default
 
-        "property_type_label": (
-            PROPERTY_TYPES[
-                property_type
-            ]
-        ),
-
-        "status": (
-            item.status
-            or DEFAULT_STATUS
-        ),
-
-        "image_url": (
-            item.image_url
-            or DEFAULT_IMAGE
-        ),
-    }
+    return str(value).strip()
 
 
 def to_int(
@@ -273,7 +385,6 @@ def to_int(
 ) -> int:
 
     if value is None or value == "":
-
         if default is not None:
             return default
 
@@ -292,7 +403,6 @@ def to_int(
         TypeError,
         ValueError,
     ):
-
         raise HTTPException(
             status_code=400,
             detail=(
@@ -318,7 +428,6 @@ def to_float(
         TypeError,
         ValueError,
     ):
-
         raise HTTPException(
             status_code=400,
             detail=(
@@ -328,15 +437,31 @@ def to_float(
         )
 
 
-def text_value(
+def optional_float(
     value: Any,
-    default: str = "",
-) -> str:
+    field_name: str,
+) -> float | None:
 
     if value is None:
-        return default
+        return None
 
-    return str(value).strip()
+    if value == "":
+        return None
+
+    try:
+        return float(value)
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Поле '{field_name}' "
+                "должно быть числом."
+            ),
+        )
 
 
 def delete_local_file(
@@ -353,17 +478,14 @@ def delete_local_file(
     if not filename:
         return
 
-    file_path = (
-        IMAGE_DIR / filename
-    )
+    path = IMAGE_DIR / filename
 
     try:
-
         if (
-            file_path.exists()
-            and file_path.is_file()
+            path.exists()
+            and path.is_file()
         ):
-            file_path.unlink()
+            path.unlink()
 
     except OSError:
         pass
@@ -399,12 +521,11 @@ async def save_upload(
         f"{extension}"
     )
 
-    file_path = (
+    path = (
         IMAGE_DIR / filename
     )
 
-    with file_path.open("wb") as buffer:
-
+    with path.open("wb") as buffer:
         shutil.copyfileobj(
             file.file,
             buffer,
@@ -415,6 +536,127 @@ async def save_upload(
     )
 
 
+# ============================================================
+# PROPERTY SERIALIZATION
+# ============================================================
+
+def property_to_dict(
+    item: Property,
+) -> dict[str, Any]:
+
+    property_type = (
+        item.property_type
+        if item.property_type
+        in PROPERTY_TYPES
+        else DEFAULT_PROPERTY_TYPE
+    )
+
+    property_subtype = (
+        item.property_subtype
+        if item.property_subtype
+        in PROPERTY_SUBTYPES
+        else DEFAULT_PROPERTY_SUBTYPE
+    )
+
+    deal_type = (
+        item.deal_type
+        if item.deal_type
+        in DEAL_TYPES
+        else DEFAULT_DEAL_TYPE
+    )
+
+    latitude = getattr(
+        item,
+        "latitude",
+        None,
+    )
+
+    longitude = getattr(
+        item,
+        "longitude",
+        None,
+    )
+
+    return {
+        "id":
+            item.id,
+
+        "title":
+            item.title or "",
+
+        "description":
+            item.description or "",
+
+        "price":
+            int(item.price or 0),
+
+        "area":
+            float(item.area or 0),
+
+        "rooms":
+            int(item.rooms or 0),
+
+        "city":
+            item.city or "",
+
+        "district":
+            item.district or "",
+
+        "address":
+            item.address or "",
+
+        "property_type":
+            property_type,
+
+        "property_type_label":
+            PROPERTY_TYPES[
+                property_type
+            ],
+
+        "property_subtype":
+            property_subtype,
+
+        "property_subtype_label":
+            PROPERTY_SUBTYPES[
+                property_subtype
+            ],
+
+        "deal_type":
+            deal_type,
+
+        "deal_type_label":
+            DEAL_TYPES[
+                deal_type
+            ],
+
+        "status":
+            item.status
+            or DEFAULT_STATUS,
+
+        "image_url":
+            item.image_url
+            or DEFAULT_IMAGE,
+
+        "latitude":
+            (
+                float(latitude)
+                if latitude is not None
+                else None
+            ),
+
+        "longitude":
+            (
+                float(longitude)
+                if longitude is not None
+                else None
+            ),
+    }
+
+
+# ============================================================
+# PROPERTY REQUEST PARSER
+# ============================================================
+
 async def read_property_request(
     request: Request,
 ) -> tuple[
@@ -424,13 +666,12 @@ async def read_property_request(
 
     content_type = (
         request.headers
-        .get("content-type", "")
+        .get(
+            "content-type",
+            "",
+        )
         .lower()
     )
-
-    # --------------------------------------------------------
-    # multipart/form-data
-    # --------------------------------------------------------
 
     if (
         "multipart/form-data"
@@ -443,45 +684,53 @@ async def read_property_request(
         form = await request.form()
 
         payload = {
-            "title": form.get(
-                "title"
-            ),
+            "title":
+                form.get(
+                    "title"
+                ),
 
-            "description": form.get(
-                "description",
-                "",
-            ),
+            "description":
+                form.get(
+                    "description",
+                    "",
+                ),
 
-            "price": form.get(
-                "price"
-            ),
+            "price":
+                form.get(
+                    "price"
+                ),
 
-            "area": form.get(
-                "area",
-                0,
-            ),
+            "area":
+                form.get(
+                    "area",
+                    0,
+                ),
 
-            "rooms": form.get(
-                "rooms",
-                0,
-            ),
+            "rooms":
+                form.get(
+                    "rooms",
+                    0,
+                ),
 
-            "city": form.get(
-                "city",
-                "",
-            ),
+            "city":
+                form.get(
+                    "city",
+                    "",
+                ),
 
-            "district": form.get(
-                "district",
-                "",
-            ),
+            "district":
+                form.get(
+                    "district",
+                    "",
+                ),
 
-            "address": form.get(
-                "address",
-                "",
-            ),
+            "address":
+                form.get(
+                    "address",
+                    "",
+                ),
 
-            "property_type": (
+            "property_type":
                 form.get(
                     "property_type",
                     form.get(
@@ -491,17 +740,52 @@ async def read_property_request(
                             DEFAULT_PROPERTY_TYPE,
                         ),
                     ),
-                )
-            ),
+                ),
 
-            "status": form.get(
-                "status",
-                DEFAULT_STATUS,
-            ),
+            "property_subtype":
+                form.get(
+                    "property_subtype",
+                    form.get(
+                        "propertySubtype",
+                        form.get(
+                            "subtype",
+                            DEFAULT_PROPERTY_SUBTYPE,
+                        ),
+                    ),
+                ),
 
-            "image_url": form.get(
-                "image_url"
-            ),
+            "deal_type":
+                form.get(
+                    "deal_type",
+                    form.get(
+                        "dealType",
+                        form.get(
+                            "operation",
+                            DEFAULT_DEAL_TYPE,
+                        ),
+                    ),
+                ),
+
+            "latitude":
+                form.get(
+                    "latitude"
+                ),
+
+            "longitude":
+                form.get(
+                    "longitude"
+                ),
+
+            "status":
+                form.get(
+                    "status",
+                    DEFAULT_STATUS,
+                ),
+
+            "image_url":
+                form.get(
+                    "image_url"
+                ),
         }
 
         image = form.get(
@@ -525,23 +809,16 @@ async def read_property_request(
             None,
         )
 
-    # --------------------------------------------------------
-    # JSON
-    # --------------------------------------------------------
-
     try:
-
         payload = await request.json()
 
     except Exception:
-
         payload = {}
 
     if not isinstance(
         payload,
         dict,
     ):
-
         raise HTTPException(
             status_code=400,
             detail=(
@@ -555,24 +832,27 @@ async def read_property_request(
     )
 
 
+# ============================================================
+# PROPERTY VALIDATION
+# ============================================================
+
 def validate_property_payload(
     payload: dict[str, Any],
     existing: Property | None = None,
 ) -> dict[str, Any]:
 
-    get = payload.get
-
     title = text_value(
-        get(
+        payload.get(
             "title",
-            existing.title
-            if existing
-            else None,
+            (
+                existing.title
+                if existing
+                else None
+            ),
         )
     )
 
     if not title:
-
         raise HTTPException(
             status_code=400,
             detail=(
@@ -580,140 +860,289 @@ def validate_property_payload(
             ),
         )
 
-    property_type_value = get(
-        "property_type",
-        get(
-            "propertyType",
-            get(
-                "type",
+    property_type = (
+        normalize_property_type(
+            payload.get(
+                "property_type",
                 (
                     existing.property_type
                     if existing
                     else DEFAULT_PROPERTY_TYPE
                 ),
+            )
+        )
+    )
+
+    property_subtype = (
+        normalize_property_subtype(
+            payload.get(
+                "property_subtype",
+                (
+                    existing.property_subtype
+                    if existing
+                    else DEFAULT_PROPERTY_SUBTYPE
+                ),
+            )
+        )
+    )
+
+    deal_type = (
+        normalize_deal_type(
+            payload.get(
+                "deal_type",
+                (
+                    existing.deal_type
+                    if existing
+                    else DEFAULT_DEAL_TYPE
+                ),
+            )
+        )
+    )
+
+    if property_type == "apartment":
+
+        allowed = {
+            "secondary",
+            "new_building",
+            "studio",
+            "1_room",
+            "2_room",
+            "3_room",
+            "4_room",
+            "5_room",
+            "penthouse",
+        }
+
+        if property_subtype not in allowed:
+            property_subtype = (
+                DEFAULT_PROPERTY_SUBTYPE
+            )
+
+    elif property_type == "house":
+
+        allowed = {
+            "house",
+            "part_of_house",
+            "townhouse",
+            "duplex",
+            "cottage",
+            "dacha",
+        }
+
+        if property_subtype not in allowed:
+            property_subtype = "house"
+
+    elif property_type == "land":
+
+        allowed = {
+            "izhs",
+            "gardening",
+            "commercial_land",
+            "lph",
+            "dnp",
+        }
+
+        if property_subtype not in allowed:
+            property_subtype = "izhs"
+
+    elif property_type == "commercial":
+
+        allowed = {
+            "office",
+            "business",
+            "separate_building",
+            "production",
+            "warehouse",
+            "retail",
+        }
+
+        if property_subtype not in allowed:
+            property_subtype = "office"
+
+    elif property_type == "garage":
+
+        allowed = {
+            "garage_box",
+            "residential_complex",
+            "covered_parking",
+            "separate_garage",
+            "parking",
+        }
+
+        if property_subtype not in allowed:
+            property_subtype = "garage_box"
+
+    latitude = optional_float(
+        payload.get(
+            "latitude",
+            (
+                getattr(
+                    existing,
+                    "latitude",
+                    None,
+                )
+                if existing
+                else None
             ),
         ),
+        "latitude",
+    )
+
+    longitude = optional_float(
+        payload.get(
+            "longitude",
+            (
+                getattr(
+                    existing,
+                    "longitude",
+                    None,
+                )
+                if existing
+                else None
+            ),
+        ),
+        "longitude",
     )
 
     return {
+        "title":
+            title,
 
-        "title": title,
-
-        "description": text_value(
-            get(
-                "description",
-                (
-                    existing.description
-                    if existing
-                    else ""
-                ),
-            )
-        ),
-
-        "price": to_int(
-            get(
-                "price",
-                (
-                    existing.price
-                    if existing
-                    else None
-                ),
-            ),
-            "price",
-        ),
-
-        "area": to_float(
-            get(
-                "area",
-                (
-                    existing.area
-                    if existing
-                    else 0
-                ),
-            ),
-            "area",
-        ),
-
-        "rooms": to_int(
-            get(
-                "rooms",
-                (
-                    existing.rooms
-                    if existing
-                    else 0
-                ),
-            ),
-            "rooms",
-            0,
-        ),
-
-        "city": text_value(
-            get(
-                "city",
-                (
-                    existing.city
-                    if existing
-                    else ""
-                ),
-            )
-        ),
-
-        "district": text_value(
-            get(
-                "district",
-                (
-                    existing.district
-                    if existing
-                    else ""
-                ),
-            )
-        ),
-
-        "address": text_value(
-            get(
-                "address",
-                (
-                    existing.address
-                    if existing
-                    else ""
-                ),
-            )
-        ),
-
-        "property_type": (
-            normalize_property_type(
-                property_type_value
-            )
-        ),
-
-        "status": (
+        "description":
             text_value(
-                get(
-                    "status",
+                payload.get(
+                    "description",
                     (
-                        existing.status
-                        if existing
-                        else DEFAULT_STATUS
-                    ),
-                ),
-                DEFAULT_STATUS,
-            )
-            or DEFAULT_STATUS
-        ),
-
-        "image_url": (
-            text_value(
-                get(
-                    "image_url",
-                    (
-                        existing.image_url
+                        existing.description
                         if existing
                         else ""
                     ),
                 )
-            )
-            or None
-        ),
+            ),
+
+        "price":
+            to_int(
+                payload.get(
+                    "price",
+                    (
+                        existing.price
+                        if existing
+                        else 0
+                    ),
+                ),
+                "price",
+                0,
+            ),
+
+        "area":
+            to_float(
+                payload.get(
+                    "area",
+                    (
+                        existing.area
+                        if existing
+                        else 0
+                    ),
+                ),
+                "area",
+                0,
+            ),
+
+        "rooms":
+            to_int(
+                payload.get(
+                    "rooms",
+                    (
+                        existing.rooms
+                        if existing
+                        else 0
+                    ),
+                ),
+                "rooms",
+                0,
+            ),
+
+        "city":
+            text_value(
+                payload.get(
+                    "city",
+                    (
+                        existing.city
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "district":
+            text_value(
+                payload.get(
+                    "district",
+                    (
+                        existing.district
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "address":
+            text_value(
+                payload.get(
+                    "address",
+                    (
+                        existing.address
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "property_type":
+            property_type,
+
+        "property_subtype":
+            property_subtype,
+
+        "deal_type":
+            deal_type,
+
+        "latitude":
+            latitude,
+
+        "longitude":
+            longitude,
+
+        "status":
+            (
+                text_value(
+                    payload.get(
+                        "status",
+                        (
+                            existing.status
+                            if existing
+                            else DEFAULT_STATUS
+                        ),
+                    ),
+                    DEFAULT_STATUS,
+                )
+                or DEFAULT_STATUS
+            ),
+
+        "image_url":
+            (
+                text_value(
+                    payload.get(
+                        "image_url",
+                        (
+                            existing.image_url
+                            if existing
+                            else ""
+                        ),
+                    )
+                )
+                or None
+            ),
     }
 
 
@@ -738,16 +1167,108 @@ def health():
     }
 
 
+# ============================================================
+# TYPE DIRECTORIES
+# ============================================================
+
 @app.get("/property-types")
 def get_property_types():
 
     return [
         {
-            "value": value,
-            "label": label,
+            "value": key,
+            "label": value,
         }
-        for value, label
+        for key, value
         in PROPERTY_TYPES.items()
+    ]
+
+
+@app.get("/property-subtypes")
+def get_property_subtypes(
+    property_type: str = Query(...),
+):
+
+    normalized = (
+        normalize_property_type(
+            property_type
+        )
+    )
+
+    mapping = {
+        "apartment": [
+            "secondary",
+            "new_building",
+            "studio",
+            "1_room",
+            "2_room",
+            "3_room",
+            "4_room",
+            "5_room",
+            "penthouse",
+        ],
+
+        "house": [
+            "house",
+            "part_of_house",
+            "townhouse",
+            "duplex",
+            "cottage",
+            "dacha",
+        ],
+
+        "land": [
+            "izhs",
+            "gardening",
+            "commercial_land",
+            "lph",
+            "dnp",
+        ],
+
+        "commercial": [
+            "office",
+            "business",
+            "separate_building",
+            "production",
+            "warehouse",
+            "retail",
+        ],
+
+        "garage": [
+            "garage_box",
+            "residential_complex",
+            "covered_parking",
+            "separate_garage",
+            "parking",
+        ],
+    }
+
+    return [
+        {
+            "value": subtype,
+            "label":
+                PROPERTY_SUBTYPES[
+                    subtype
+                ],
+        }
+        for subtype
+        in mapping.get(
+            normalized,
+            [],
+        )
+    ]
+
+
+@app.get("/deal-types")
+def get_deal_types():
+
+    return [
+        {
+            "value": key,
+            "label": value,
+        }
+        for key, value
+        in DEAL_TYPES.items()
     ]
 
 
@@ -758,32 +1279,71 @@ def get_property_types():
 @app.get("/properties")
 def get_properties(
     property_type: str | None = Query(
-        default=None,
-        alias="type",
+        default=None
+    ),
+
+    property_subtype: str | None = Query(
+        default=None
+    ),
+
+    deal_type: str | None = Query(
+        default=None
+    ),
+
+    type: str | None = Query(
+        default=None
     ),
 ):
 
-    db: Session = (
-        SessionLocal()
-    )
+    db: Session = SessionLocal()
 
     try:
-
         query = db.query(
             Property
         )
 
-        if property_type:
+        selected_type = (
+            property_type
+            or type
+        )
+
+        if selected_type:
 
             normalized_type = (
                 normalize_property_type(
-                    property_type
+                    selected_type
                 )
             )
 
             query = query.filter(
                 Property.property_type
                 == normalized_type
+            )
+
+        if property_subtype:
+
+            normalized_subtype = (
+                normalize_property_subtype(
+                    property_subtype
+                )
+            )
+
+            query = query.filter(
+                Property.property_subtype
+                == normalized_subtype
+            )
+
+        if deal_type:
+
+            normalized_deal = (
+                normalize_deal_type(
+                    deal_type
+                )
+            )
+
+            query = query.filter(
+                Property.deal_type
+                == normalized_deal
             )
 
         properties = (
@@ -803,7 +1363,6 @@ def get_properties(
         ]
 
     finally:
-
         db.close()
 
 
@@ -841,7 +1400,6 @@ def get_property(
         )
 
     finally:
-
         db.close()
 
 
@@ -867,53 +1425,55 @@ async def create_property(
         )
 
         image_url = (
-            await save_upload(image)
+            await save_upload(
+                image
+            )
             if image
             else data["image_url"]
         )
 
         property_obj = Property(
-
             title=data["title"],
-
-            description=data[
-                "description"
-            ],
-
-            price=data[
-                "price"
-            ],
-
-            area=data[
-                "area"
-            ],
-
-            rooms=data[
-                "rooms"
-            ],
-
-            city=data[
-                "city"
-            ],
-
-            district=data[
-                "district"
-            ],
-
-            address=data[
-                "address"
-            ],
-
+            description=data["description"],
+            price=data["price"],
+            area=data["area"],
+            rooms=data["rooms"],
+            city=data["city"],
+            district=data["district"],
+            address=data["address"],
             property_type=data[
                 "property_type"
             ],
-
+            property_subtype=data[
+                "property_subtype"
+            ],
+            deal_type=data[
+                "deal_type"
+            ],
             status=data[
                 "status"
             ],
-
             image_url=image_url,
         )
+
+        # Координаты добавляются после создания,
+        # чтобы код был совместим с моделью,
+        # пока она обновляется.
+        if hasattr(
+            property_obj,
+            "latitude",
+        ):
+            property_obj.latitude = (
+                data["latitude"]
+            )
+
+        if hasattr(
+            property_obj,
+            "longitude",
+        ):
+            property_obj.longitude = (
+                data["longitude"]
+            )
 
         db.add(
             property_obj
@@ -926,8 +1486,12 @@ async def create_property(
         )
 
         return {
-            "status": "success",
-            "id": property_obj.id,
+            "status":
+                "success",
+
+            "id":
+                property_obj.id,
+
             "property":
                 property_to_dict(
                     property_obj
@@ -947,7 +1511,6 @@ async def create_property(
         )
 
     finally:
-
         db.close()
 
 
@@ -1034,9 +1597,33 @@ async def update_property(
             data["property_type"]
         )
 
+        property_obj.property_subtype = (
+            data["property_subtype"]
+        )
+
+        property_obj.deal_type = (
+            data["deal_type"]
+        )
+
         property_obj.status = (
             data["status"]
         )
+
+        if hasattr(
+            property_obj,
+            "latitude",
+        ):
+            property_obj.latitude = (
+                data["latitude"]
+            )
+
+        if hasattr(
+            property_obj,
+            "longitude",
+        ):
+            property_obj.longitude = (
+                data["longitude"]
+            )
 
         if image:
 
@@ -1049,7 +1636,7 @@ async def update_property(
         elif (
             "image_url" in payload
             and data["image_url"]
-                is not None
+            is not None
         ):
 
             property_obj.image_url = (
@@ -1067,13 +1654,14 @@ async def update_property(
             and old_image
             != property_obj.image_url
         ):
-
             delete_local_file(
                 old_image
             )
 
         return {
-            "status": "success",
+            "status":
+                "success",
+
             "property":
                 property_to_dict(
                     property_obj
@@ -1093,7 +1681,6 @@ async def update_property(
         )
 
     finally:
-
         db.close()
 
 
@@ -1126,25 +1713,28 @@ def delete_property(
                 ),
             )
 
-        # Удаляем связанные заявки
-        db.query(Lead).filter(
+        db.query(
+            Lead
+        ).filter(
             Lead.property_id
             == property_id
         ).delete(
             synchronize_session=False
         )
 
-        # Удаляем связанные сделки
-        db.query(Sale).filter(
+        db.query(
+            Sale
+        ).filter(
             Sale.property_id
             == property_id
         ).delete(
             synchronize_session=False
         )
 
-        # Удаляем галерею
-        gallery = (
-            db.query(PropertyImage)
+        images = (
+            db.query(
+                PropertyImage
+            )
             .filter(
                 PropertyImage.property_id
                 == property_id
@@ -1152,14 +1742,14 @@ def delete_property(
             .all()
         )
 
-        for item in gallery:
+        for image in images:
 
             delete_local_file(
-                item.image_url
+                image.image_url
             )
 
             db.delete(
-                item
+                image
             )
 
         main_image = (
@@ -1177,7 +1767,8 @@ def delete_property(
         )
 
         return {
-            "status": "deleted"
+            "status":
+                "deleted"
         }
 
     except SQLAlchemyError:
@@ -1193,8 +1784,249 @@ def delete_property(
         )
 
     finally:
-
         db.close()
+
+
+# ============================================================
+# YANDEX GEOCODER
+# ============================================================
+
+def call_yandex_geocoder(
+    geocode: str,
+) -> dict[str, Any]:
+
+    if not YANDEX_GEOCODER_API_KEY:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "На сервере не настроен "
+                "YANDEX_GEOCODER_API_KEY."
+            ),
+        )
+
+    clean_value = (
+        geocode
+        or ""
+    ).strip()
+
+    if not clean_value:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Адрес не указан.",
+        )
+
+    url = (
+        "https://geocode-maps.yandex.ru/v1/"
+        f"?apikey={quote(YANDEX_GEOCODER_API_KEY)}"
+        f"&geocode={quote(clean_value)}"
+        "&lang=ru_RU"
+        "&format=json"
+        "&results=1"
+    )
+
+    try:
+
+        request = UrlRequest(
+            url,
+            headers={
+                "User-Agent":
+                    "DOMA/1.0",
+            },
+        )
+
+        with urlopen(
+            request,
+            timeout=10,
+        ) as response:
+
+            raw = response.read()
+
+        data = json.loads(
+            raw.decode(
+                "utf-8"
+            )
+        )
+
+    except HTTPError as exc:
+
+        print(
+            "Yandex Geocoder HTTP error:",
+            exc.code,
+        )
+
+        if exc.code == 403:
+
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Яндекс отклонил "
+                    "ключ Геокодера."
+                ),
+            )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Ошибка Яндекс Геокодера."
+            ),
+        )
+
+    except (
+        URLError,
+        TimeoutError,
+        json.JSONDecodeError,
+    ) as exc:
+
+        print(
+            "Yandex Geocoder error:",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Не удалось обратиться "
+                "к Яндекс Геокодеру."
+            ),
+        )
+
+    try:
+
+        collection = (
+            data[
+                "response"
+            ][
+                "GeoObjectCollection"
+            ]
+        )
+
+        members = (
+            collection[
+                "featureMember"
+            ]
+        )
+
+        if not members:
+
+            return {
+                "found":
+                    False,
+
+                "message":
+                    "Адрес не найден.",
+            }
+
+        geo_object = (
+            members[0][
+                "GeoObject"
+            ]
+        )
+
+        position = (
+            geo_object[
+                "Point"
+            ][
+                "pos"
+            ]
+        )
+
+        longitude, latitude = (
+            float(value)
+            for value
+            in position.split()
+        )
+
+        metadata = (
+            geo_object
+            .get(
+                "metaDataProperty",
+                {},
+            )
+            .get(
+                "GeocoderMetaData",
+                {},
+            )
+        )
+
+        address_data = (
+            metadata.get(
+                "Address",
+                {},
+            )
+        )
+
+        formatted = (
+            address_data.get(
+                "formatted"
+            )
+            or geo_object.get(
+                "name"
+            )
+            or clean_value
+        )
+
+        return {
+            "found":
+                True,
+
+            "latitude":
+                latitude,
+
+            "longitude":
+                longitude,
+
+            "formatted":
+                formatted,
+
+            "precision":
+                metadata.get(
+                    "precision"
+                ),
+        }
+
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
+
+        print(
+            "Unexpected geocoder response:",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Яндекс вернул "
+                "неожиданный ответ."
+            ),
+        )
+
+
+@app.get("/geocode")
+def geocode(
+    address: str = Query(...),
+):
+
+    return call_yandex_geocoder(
+        address
+    )
+
+
+@app.get("/reverse-geocode")
+def reverse_geocode(
+    latitude: float = Query(...),
+    longitude: float = Query(...),
+):
+
+    result = call_yandex_geocoder(
+        f"{longitude},{latitude}"
+    )
+
+    return result
 
 
 # ============================================================
@@ -1202,30 +2034,37 @@ def delete_property(
 # ============================================================
 
 @app.post("/leads")
-def create_lead(lead: LeadCreate):
+def create_lead(
+    lead: LeadCreate,
+):
+
     db = SessionLocal()
 
     try:
+
         new_lead = Lead(
             property_id=lead.property_id,
             name=lead.name,
             phone=lead.phone,
-            comment=lead.comment
-                or "Заявка на обратный звонок",
-            status="Новый",
+            comment=lead.comment,
+            status="Новая",
         )
 
-        db.add(new_lead)
+        db.add(
+            new_lead
+        )
 
         existing_client = (
             db.query(Client)
             .filter(
-                Client.phone == lead.phone
+                Client.phone
+                == lead.phone
             )
             .first()
         )
 
         if not existing_client:
+
             db.add(
                 Client(
                     name=lead.name,
@@ -1235,20 +2074,18 @@ def create_lead(lead: LeadCreate):
             )
 
         db.commit()
-        db.refresh(new_lead)
+
+        db.refresh(
+            new_lead
+        )
 
         return {
-            "status": "success",
-            "id": new_lead.id,
+            "status":
+                "success",
+
+            "id":
+                new_lead.id,
         }
-
-    except SQLAlchemyError as e:
-        db.rollback()
-
-        raise HTTPException(
-            status_code=500,
-            detail="Ошибка сохранения заявки",
-        )
 
     finally:
         db.close()
@@ -1270,27 +2107,37 @@ def get_leads():
         )
 
         return [
-
             {
-                "id": lead.id,
+                "id":
+                    lead.id,
+
                 "property_id":
                     lead.property_id,
+
                 "name":
                     lead.name,
+
                 "phone":
                     lead.phone,
+
                 "comment":
                     lead.comment,
+
                 "status":
                     lead.status,
+
+                "created_at":
+                    (
+                        lead.created_at.isoformat()
+                        if lead.created_at
+                        else None
+                    ),
             }
-
-            for lead in leads
-
+            for lead
+            in leads
         ]
 
     finally:
-
         db.close()
 
 
@@ -1308,7 +2155,8 @@ def get_lead(
         lead = (
             db.query(Lead)
             .filter(
-                Lead.id == lead_id
+                Lead.id
+                == lead_id
             )
             .first()
         )
@@ -1321,21 +2169,33 @@ def get_lead(
             )
 
         return {
-            "id": lead.id,
+            "id":
+                lead.id,
+
             "property_id":
                 lead.property_id,
+
             "name":
                 lead.name,
+
             "phone":
                 lead.phone,
+
             "comment":
                 lead.comment,
+
             "status":
                 lead.status,
+
+            "created_at":
+                (
+                    lead.created_at.isoformat()
+                    if lead.created_at
+                    else None
+                ),
         }
 
     finally:
-
         db.close()
 
 
@@ -1354,7 +2214,8 @@ def update_lead(
         lead = (
             db.query(Lead)
             .filter(
-                Lead.id == lead_id
+                Lead.id
+                == lead_id
             )
             .first()
         )
@@ -1374,13 +2235,10 @@ def update_lead(
 
         return {
             "status":
-                "updated",
-            "lead_status":
-                lead.status,
+                "updated"
         }
 
     finally:
-
         db.close()
 
 
@@ -1398,7 +2256,8 @@ def delete_lead(
         lead = (
             db.query(Lead)
             .filter(
-                Lead.id == lead_id
+                Lead.id
+                == lead_id
             )
             .first()
         )
@@ -1422,7 +2281,6 @@ def delete_lead(
         }
 
     finally:
-
         db.close()
 
 
@@ -1446,27 +2304,37 @@ def get_clients():
         )
 
         return [
-
             {
-                "id": c.id,
+                "id":
+                    client.id,
+
                 "name":
-                    c.name,
+                    client.name,
+
                 "phone":
-                    c.phone,
+                    client.phone,
+
                 "email":
-                    c.email,
+                    client.email,
+
                 "status":
-                    c.status,
+                    client.status,
+
                 "notes":
-                    c.notes,
+                    client.notes,
+
+                "created_at":
+                    (
+                        client.created_at.isoformat()
+                        if client.created_at
+                        else None
+                    ),
             }
-
-            for c in clients
-
+            for client
+            in clients
         ]
 
     finally:
-
         db.close()
 
 
@@ -1496,26 +2364,20 @@ def create_client(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Имя и телефон "
-                    "обязательны."
+                    "Имя и телефон обязательны."
                 ),
             )
 
         client = Client(
-
             name=name,
-
             phone=phone,
-
             email=data.get(
                 "email"
             ),
-
             status=data.get(
                 "status",
                 "Новый",
             ),
-
             notes=data.get(
                 "notes"
             ),
@@ -1534,12 +2396,12 @@ def create_client(
         return {
             "status":
                 "success",
+
             "id":
                 client.id,
         }
 
     finally:
-
         db.close()
 
 
@@ -1575,20 +2437,31 @@ def get_client(
         return {
             "id":
                 client.id,
+
             "name":
                 client.name,
+
             "phone":
                 client.phone,
+
             "email":
                 client.email,
+
             "status":
                 client.status,
+
             "notes":
                 client.notes,
+
+            "created_at":
+                (
+                    client.created_at.isoformat()
+                    if client.created_at
+                    else None
+                ),
         }
 
     finally:
-
         db.close()
 
 
@@ -1650,7 +2523,6 @@ def update_client(
         }
 
     finally:
-
         db.close()
 
 
@@ -1683,7 +2555,9 @@ def delete_client(
                 ),
             )
 
-        db.query(Sale).filter(
+        db.query(
+            Sale
+        ).filter(
             Sale.client_id
             == client_id
         ).delete(
@@ -1701,20 +2575,7 @@ def delete_client(
                 "deleted"
         }
 
-    except SQLAlchemyError:
-
-        db.rollback()
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Ошибка базы данных "
-                "при удалении клиента."
-            ),
-        )
-
     finally:
-
         db.close()
 
 
@@ -1754,29 +2615,32 @@ def get_client_sales(
                 .first()
             )
 
-            result.append({
+            result.append(
+                {
+                    "id":
+                        sale.id,
 
-                "id":
-                    sale.id,
+                    "amount":
+                        int(
+                            sale.amount
+                            or 0
+                        ),
 
-                "amount":
-                    sale.amount,
+                    "status":
+                        sale.status,
 
-                "status":
-                    sale.status,
-
-                "property_title":
-                    (
-                        property_obj.title
-                        if property_obj
-                        else "Не найден"
-                    ),
-            })
+                    "property_title":
+                        (
+                            property_obj.title
+                            if property_obj
+                            else "Не найден"
+                        ),
+                }
+            )
 
         return result
 
     finally:
-
         db.close()
 
 
@@ -1821,42 +2685,45 @@ def get_sales():
                 .first()
             )
 
-            result.append({
+            result.append(
+                {
+                    "id":
+                        sale.id,
 
-                "id":
-                    sale.id,
+                    "client_id":
+                        sale.client_id,
 
-                "client_id":
-                    sale.client_id,
+                    "client_name":
+                        (
+                            client.name
+                            if client
+                            else "Не найден"
+                        ),
 
-                "client_name":
-                    (
-                        client.name
-                        if client
-                        else "Не найден"
-                    ),
+                    "property_id":
+                        sale.property_id,
 
-                "property_id":
-                    sale.property_id,
+                    "property_title":
+                        (
+                            property_obj.title
+                            if property_obj
+                            else "Не найден"
+                        ),
 
-                "property_title":
-                    (
-                        property_obj.title
-                        if property_obj
-                        else "Не найден"
-                    ),
+                    "amount":
+                        int(
+                            sale.amount
+                            or 0
+                        ),
 
-                "amount":
-                    sale.amount,
-
-                "status":
-                    sale.status,
-            })
+                    "status":
+                        sale.status,
+                }
+            )
 
         return result
 
     finally:
-
         db.close()
 
 
@@ -1902,19 +2769,9 @@ def create_sale(
             )
 
         sale = Sale(
-
-            client_id=(
-                data.client_id
-            ),
-
-            property_id=(
-                data.property_id
-            ),
-
-            amount=(
-                data.amount
-            ),
-
+            client_id=data.client_id,
+            property_id=data.property_id,
+            amount=data.amount,
             status="Подготовка",
         )
 
@@ -1922,9 +2779,7 @@ def create_sale(
             sale
         )
 
-        client.status = (
-            "Сделка"
-        )
+        client.status = "Сделка"
 
         db.commit()
 
@@ -1935,12 +2790,12 @@ def create_sale(
         return {
             "id":
                 sale.id,
+
             "status":
                 "created",
         }
 
     finally:
-
         db.close()
 
 
@@ -1984,42 +2839,45 @@ def get_latest_sales():
                 .first()
             )
 
-            result.append({
+            result.append(
+                {
+                    "id":
+                        sale.id,
 
-                "id":
-                    sale.id,
+                    "client_id":
+                        sale.client_id,
 
-                "client_id":
-                    sale.client_id,
+                    "client_name":
+                        (
+                            client.name
+                            if client
+                            else "Не найден"
+                        ),
 
-                "client_name":
-                    (
-                        client.name
-                        if client
-                        else "Не найден"
-                    ),
+                    "property_id":
+                        sale.property_id,
 
-                "property_id":
-                    sale.property_id,
+                    "property_title":
+                        (
+                            property_obj.title
+                            if property_obj
+                            else "Не найден"
+                        ),
 
-                "property_title":
-                    (
-                        property_obj.title
-                        if property_obj
-                        else "Не найден"
-                    ),
+                    "amount":
+                        int(
+                            sale.amount
+                            or 0
+                        ),
 
-                "amount":
-                    sale.amount,
-
-                "status":
-                    sale.status,
-            })
+                    "status":
+                        sale.status,
+                }
+            )
 
         return result
 
     finally:
-
         db.close()
 
 
@@ -2047,9 +2905,7 @@ def get_sale(
 
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Sale not found"
-                ),
+                detail="Sale not found",
             )
 
         client = (
@@ -2071,7 +2927,6 @@ def get_sale(
         )
 
         return {
-
             "id":
                 sale.id,
 
@@ -2096,14 +2951,16 @@ def get_sale(
                 ),
 
             "amount":
-                sale.amount,
+                int(
+                    sale.amount
+                    or 0
+                ),
 
             "status":
                 sale.status,
         }
 
     finally:
-
         db.close()
 
 
@@ -2132,9 +2989,7 @@ def update_sale(
 
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Sale not found"
-                ),
+                detail="Sale not found",
             )
 
         sale.client_id = (
@@ -2161,7 +3016,6 @@ def update_sale(
         }
 
     finally:
-
         db.close()
 
 
@@ -2190,9 +3044,7 @@ def update_sale_status(
 
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Sale not found"
-                ),
+                detail="Sale not found",
             )
 
         sale.status = (
@@ -2207,7 +3059,6 @@ def update_sale_status(
         }
 
     finally:
-
         db.close()
 
 
@@ -2235,9 +3086,7 @@ def complete_sale(
 
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Sale not found"
-                ),
+                detail="Sale not found",
             )
 
         sale.status = (
@@ -2254,7 +3103,6 @@ def complete_sale(
         )
 
         if client:
-
             client.status = (
                 "Постоянный"
             )
@@ -2268,12 +3116,12 @@ def complete_sale(
         return {
             "id":
                 sale.id,
+
             "status":
                 "completed",
         }
 
     finally:
-
         db.close()
 
 
@@ -2301,9 +3149,7 @@ def delete_sale(
 
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Sale not found"
-                ),
+                detail="Sale not found",
             )
 
         db.delete(
@@ -2318,7 +3164,6 @@ def delete_sale(
         }
 
     finally:
-
         db.close()
 
 
@@ -2339,7 +3184,6 @@ def get_stats():
         )
 
         return {
-
             "properties":
                 db.query(
                     Property
@@ -2370,12 +3214,11 @@ def get_stats():
         }
 
     finally:
-
         db.close()
 
 
 # ============================================================
-# IMAGES / GALLERY
+# PROPERTY IMAGES
 # ============================================================
 
 @app.get(
@@ -2384,7 +3227,6 @@ def get_stats():
 def test_images():
 
     return {
-
         "cwd":
             os.getcwd(),
 
@@ -2392,9 +3234,7 @@ def test_images():
             IMAGE_DIR.exists(),
 
         "images_dir":
-            str(
-                IMAGE_DIR
-            ),
+            str(IMAGE_DIR),
 
         "files":
             sorted(
@@ -2458,14 +3298,8 @@ async def upload_property_image(
         )
 
         image = PropertyImage(
-
-            property_id=(
-                property_id
-            ),
-
-            image_url=(
-                image_url
-            ),
+            property_id=property_id,
+            image_url=image_url,
         )
 
         db.add(
@@ -2479,7 +3313,6 @@ async def upload_property_image(
         )
 
         return {
-
             "id":
                 image.id,
 
@@ -2488,7 +3321,6 @@ async def upload_property_image(
         }
 
     finally:
-
         db.close()
 
 
@@ -2536,7 +3368,6 @@ def get_property_images(
         )
 
         return [
-
             {
                 "id":
                     image.id,
@@ -2544,14 +3375,11 @@ def get_property_images(
                 "image_url":
                     image.image_url,
             }
-
             for image
             in images
-
         ]
 
     finally:
-
         db.close()
 
 
@@ -2602,7 +3430,6 @@ def delete_property_image(
         }
 
     finally:
-
         db.close()
 
 
@@ -2662,7 +3489,6 @@ async def set_property_image(
         }
 
     finally:
-
         db.close()
 
 
@@ -2692,9 +3518,7 @@ def login(
 
             raise HTTPException(
                 status_code=401,
-                detail=(
-                    "Неверный логин"
-                ),
+                detail="Неверный логин",
             )
 
         if not verify_password(
@@ -2704,9 +3528,7 @@ def login(
 
             raise HTTPException(
                 status_code=401,
-                detail=(
-                    "Неверный пароль"
-                ),
+                detail="Неверный пароль",
             )
 
         token = (
@@ -2716,6 +3538,7 @@ def login(
                         str(
                             user.id
                         ),
+
                     "role":
                         user.role,
                 }
@@ -2728,14 +3551,13 @@ def login(
         }
 
     finally:
-
         db.close()
 
 
 @app.get("/me")
 def me(
     authorization: str | None = Header(
-        default=None,
+        default=None
     ),
 ):
 
@@ -2749,9 +3571,7 @@ def me(
         )
 
     scheme, _, token = (
-        authorization.partition(
-            " "
-        )
+        authorization.partition(" ")
     )
 
     if (
@@ -2785,3 +3605,81 @@ def me(
                 "Invalid token"
             ),
         )
+
+
+# ============================================================
+# DEBUG
+# ============================================================
+
+@app.get(
+    "/debug-properties"
+)
+def debug_properties():
+
+    db = SessionLocal()
+
+    try:
+
+        properties = (
+            db.query(Property)
+            .order_by(
+                Property.id.asc()
+            )
+            .all()
+        )
+
+        return [
+            {
+                "id":
+                    p.id,
+
+                "title":
+                    p.title,
+
+                "price":
+                    int(
+                        p.price
+                        or 0
+                    ),
+
+                "area":
+                    float(
+                        p.area
+                        or 0
+                    ),
+
+                "rooms":
+                    p.rooms,
+
+                "property_type":
+                    p.property_type,
+
+                "property_subtype":
+                    p.property_subtype,
+
+                "deal_type":
+                    p.deal_type,
+
+                "status":
+                    p.status,
+
+                "latitude":
+                    getattr(
+                        p,
+                        "latitude",
+                        None,
+                    ),
+
+                "longitude":
+                    getattr(
+                        p,
+                        "longitude",
+                        None,
+                    ),
+            }
+            for p
+            in properties
+        ]
+
+    finally:
+        db.close()
