@@ -1,9 +1,18 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 
-const API_URL = "https://doma-nq4u.onrender.com";
+import AddressMapPicker from "@/components/AddressMapPicker";
+
+const API_URL =
+  "https://doma-nq4u.onrender.com";
 
 type PropertyType =
   | "apartment"
@@ -12,42 +21,7 @@ type PropertyType =
   | "commercial"
   | "garage";
 
-type PropertySubtype =
-  | "secondary"
-  | "new_building"
-  | "studio"
-  | "1_room"
-  | "2_room"
-  | "3_room"
-  | "4_room"
-  | "5_room"
-  | "penthouse"
-  | "house"
-  | "part_of_house"
-  | "townhouse"
-  | "duplex"
-  | "cottage"
-  | "dacha"
-  | "izhs"
-  | "gardening"
-  | "commercial_land"
-  | "lph"
-  | "dnp"
-  | "office"
-  | "business"
-  | "separate_building"
-  | "production"
-  | "warehouse"
-  | "retail"
-  | "garage_box"
-  | "residential_complex"
-  | "covered_parking"
-  | "separate_garage"
-  | "parking";
-
-type DealType = "sale" | "rent" | "lease";
-
-const propertyTypes: {
+const PROPERTY_TYPES: {
   value: PropertyType;
   label: string;
 }[] = [
@@ -73,10 +47,10 @@ const propertyTypes: {
   },
 ];
 
-const subtypesByType: Record<
+const SUBTYPES: Record<
   PropertyType,
   {
-    value: PropertySubtype;
+    value: string;
     label: string;
   }[]
 > = {
@@ -122,7 +96,7 @@ const subtypesByType: Record<
   house: [
     {
       value: "house",
-      label: "Частный дом",
+      label: "Дом",
     },
     {
       value: "part_of_house",
@@ -153,11 +127,11 @@ const subtypesByType: Record<
     },
     {
       value: "gardening",
-      label: "Садовый участок",
+      label: "Садоводство",
     },
     {
       value: "commercial_land",
-      label: "Земля под коммерцию",
+      label: "Коммерческая земля",
     },
     {
       value: "lph",
@@ -176,7 +150,7 @@ const subtypesByType: Record<
     },
     {
       value: "business",
-      label: "Бизнес",
+      label: "Готовый бизнес",
     },
     {
       value: "separate_building",
@@ -184,11 +158,11 @@ const subtypesByType: Record<
     },
     {
       value: "production",
-      label: "Производство",
+      label: "Производственное",
     },
     {
       value: "warehouse",
-      label: "Склад",
+      label: "Складское",
     },
     {
       value: "retail",
@@ -203,7 +177,7 @@ const subtypesByType: Record<
     },
     {
       value: "residential_complex",
-      label: "Гараж в ГСК",
+      label: "Внутри ЖК",
     },
     {
       value: "covered_parking",
@@ -211,19 +185,16 @@ const subtypesByType: Record<
     },
     {
       value: "separate_garage",
-      label: "Отдельный гараж",
+      label: "Отдельно стоящий гараж",
     },
     {
       value: "parking",
-      label: "Парковочное место",
+      label: "Паркинг",
     },
   ],
 };
 
-const dealTypes: {
-  value: DealType;
-  label: string;
-}[] = [
+const DEAL_TYPES = [
   {
     value: "sale",
     label: "Продажа",
@@ -234,228 +205,493 @@ const dealTypes: {
   },
   {
     value: "lease",
-    label: "Сдача в аренду",
+    label: "Сдача",
   },
 ];
 
-const categorySlugs: Record<PropertyType, string> = {
-  apartment: "apartments",
-  house: "houses",
-  land: "land",
-  commercial: "commercial",
-  garage: "garages",
-};
-
-function getDefaultSubtype(
-  propertyType: PropertyType
-): PropertySubtype {
-  return subtypesByType[propertyType][0].value;
-}
-
-function getSubtypeLabel(
-  propertyType: PropertyType,
-  propertySubtype: PropertySubtype
-) {
-  const subtype = subtypesByType[propertyType].find(
-    (item) => item.value === propertySubtype
-  );
-
-  return subtype?.label ?? propertySubtype;
-}
-
-function getTypeLabel(propertyType: PropertyType) {
-  return (
-    propertyTypes.find(
-      (item) => item.value === propertyType
-    )?.label ?? propertyType
-  );
-}
-
-function getDealLabel(dealType: DealType) {
-  return (
-    dealTypes.find(
-      (item) => item.value === dealType
-    )?.label ?? dealType
-  );
-}
+const STATUS_TYPES = [
+  "Свободен",
+  "Бронь",
+  "Продан",
+];
 
 export default function NewPropertyPage() {
   const router = useRouter();
 
-  const [title, setTitle] = useState("ЖК Самолёт");
+  const [
+    title,
+    setTitle,
+  ] = useState("");
 
-  const [propertyType, setPropertyType] =
-    useState<PropertyType>("apartment");
+  const [
+    propertyType,
+    setPropertyType,
+  ] = useState<PropertyType>(
+    "apartment"
+  );
 
-  const [propertySubtype, setPropertySubtype] =
-    useState<PropertySubtype>("secondary");
+  const [
+    propertySubtype,
+    setPropertySubtype,
+  ] = useState(
+    "secondary"
+  );
 
-  const [dealType, setDealType] =
-    useState<DealType>("sale");
+  const [
+    dealType,
+    setDealType,
+  ] = useState("sale");
 
-  const [price, setPrice] = useState("6000000");
+  const [
+    price,
+    setPrice,
+  ] = useState("");
 
-  const [area, setArea] = useState("75");
+  const [
+    area,
+    setArea,
+  ] = useState("");
 
-  const [rooms, setRooms] = useState("3");
+  const [
+    rooms,
+    setRooms,
+  ] = useState("1");
 
-  const [city, setCity] = useState("Краснодар");
+  const [
+    city,
+    setCity,
+  ] = useState(
+    "Краснодар"
+  );
 
-  const [district, setDistrict] =
-    useState("Центральный");
+  const [
+    district,
+    setDistrict,
+  ] = useState("");
 
-  const [address, setAddress] =
-    useState("ул. Красная 1");
+  const [
+    address,
+    setAddress,
+  ] = useState("");
 
-  const [imageUrl, setImageUrl] =
-    useState("/images/test-flat.jpg");
+  const [
+    latitude,
+    setLatitude,
+  ] = useState<number | null>(
+    null
+  );
 
-  const [description, setDescription] =
-    useState("");
+  const [
+    longitude,
+    setLongitude,
+  ] = useState<number | null>(
+    null
+  );
 
-  const [status, setStatus] =
-    useState("Свободен");
+  const [
+    description,
+    setDescription,
+  ] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    status,
+    setStatus,
+  ] = useState("Свободен");
 
-  const [error, setError] = useState("");
+  const [
+    images,
+    setImages,
+  ] = useState<File[]>(
+    []
+  );
 
-  function handlePropertyTypeChange(
-    newType: PropertyType
-  ) {
-    setPropertyType(newType);
+  const [
+    previews,
+    setPreviews,
+  ] = useState<string[]>(
+    []
+  );
 
-    setPropertySubtype(
-      getDefaultSubtype(newType)
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
+
+  const currentSubtypes =
+    useMemo(
+      () =>
+        SUBTYPES[
+          propertyType
+        ] || [],
+      [propertyType]
     );
 
+  useEffect(() => {
+    const first =
+      currentSubtypes[0];
+
     if (
-      newType === "land" ||
-      newType === "commercial" ||
-      newType === "garage"
+      !currentSubtypes.some(
+        (item) =>
+          item.value ===
+          propertySubtype
+      )
     ) {
-      setRooms("0");
-    } else if (rooms === "0") {
-      setRooms("1");
+      setPropertySubtype(
+        first?.value ||
+          ""
+      );
+    }
+  }, [
+    propertyType,
+    currentSubtypes,
+    propertySubtype,
+  ]);
+
+  function handleTypeChange(
+    value: PropertyType
+  ) {
+    setPropertyType(value);
+
+    setPropertySubtype(
+      SUBTYPES[value][0]
+        ?.value || ""
+    );
+  }
+
+  function handleImages(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const files = Array.from(
+      event.target.files ||
+        []
+    );
+
+    if (!files.length) {
+      return;
+    }
+
+    const validFiles =
+      files.filter((file) =>
+        file.type.startsWith(
+          "image/"
+        )
+      );
+
+    setImages(
+      validFiles
+    );
+
+    const nextPreviews =
+      validFiles.map(
+        (file) =>
+          URL.createObjectURL(
+            file
+          )
+      );
+
+    previews.forEach(
+      (url) =>
+        URL.revokeObjectURL(
+          url
+        )
+    );
+
+    setPreviews(
+      nextPreviews
+    );
+  }
+
+  function removeImage(
+    index: number
+  ) {
+    const nextImages =
+      images.filter(
+        (_, i) =>
+          i !== index
+      );
+
+    const nextPreviews =
+      previews.filter(
+        (_, i) =>
+          i !== index
+      );
+
+    if (
+      previews[index]
+    ) {
+      URL.revokeObjectURL(
+        previews[index]
+      );
+    }
+
+    setImages(
+      nextImages
+    );
+
+    setPreviews(
+      nextPreviews
+    );
+  }
+
+  async function uploadExtraImages(
+    propertyId: number,
+    files: File[]
+  ) {
+    for (
+      const file of files
+    ) {
+      const formData =
+        new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      const response =
+        await fetch(
+          `${API_URL}/properties/${propertyId}/images`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      if (!response.ok) {
+        const data =
+          await response
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        throw new Error(
+          data?.detail ||
+            "Не удалось загрузить фотографию."
+        );
+      }
     }
   }
 
-  const availableSubtypes =
-    subtypesByType[propertyType];
-
-  const catalogPath = `/catalog/${dealType}/${categorySlugs[propertyType]}/${propertySubtype}`;
-
   async function handleSubmit(
-    e: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>
   ) {
-    e.preventDefault();
+    event.preventDefault();
 
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
-      const formData = new FormData();
+      if (!title.trim()) {
+        throw new Error(
+          "Введите название объекта."
+        );
+      }
 
-      formData.append("title", title);
+      if (!price) {
+        throw new Error(
+          "Укажите цену."
+        );
+      }
+
+      if (!area) {
+        throw new Error(
+          "Укажите площадь."
+        );
+      }
+
+      if (!address.trim()) {
+        throw new Error(
+          "Укажите адрес."
+        );
+      }
+
+      const formData =
+        new FormData();
+
       formData.append(
-        "property_type",
-        propertyType
-      );
-      formData.append(
-        "property_subtype",
-        propertySubtype
-      );
-      formData.append("deal_type", dealType);
-
-      formData.append("price", price);
-      formData.append("area", area);
-
-      formData.append(
-        "rooms",
-        rooms || "0"
-      );
-
-      formData.append("city", city);
-      formData.append("district", district);
-      formData.append("address", address);
-
-      formData.append(
-        "image_url",
-        imageUrl
+        "title",
+        title.trim()
       );
 
       formData.append(
         "description",
-        description
+        description.trim()
       );
 
-      formData.append("status", status);
+      formData.append(
+        "price",
+        price
+      );
+
+      formData.append(
+        "area",
+        area
+      );
+
+      formData.append(
+        "rooms",
+        rooms
+      );
+
+      formData.append(
+        "city",
+        city.trim()
+      );
+
+      formData.append(
+        "district",
+        district.trim()
+      );
+
+      formData.append(
+        "address",
+        address.trim()
+      );
+
+      formData.append(
+        "property_type",
+        propertyType
+      );
+
+      formData.append(
+        "property_subtype",
+        propertySubtype
+      );
+
+      formData.append(
+        "deal_type",
+        dealType
+      );
+
+      formData.append(
+        "status",
+        status
+      );
+
+      if (
+        latitude !== null
+      ) {
+        formData.append(
+          "latitude",
+          String(latitude)
+        );
+      }
+
+      if (
+        longitude !== null
+      ) {
+        formData.append(
+          "longitude",
+          String(longitude)
+        );
+      }
+
+      /*
+       * Первое фото становится
+       * основной фотографией объекта.
+       */
+
+      if (images[0]) {
+        formData.append(
+          "image",
+          images[0]
+        );
+      }
 
       const token =
-        localStorage.getItem("token");
+        localStorage.getItem(
+          "token"
+        );
 
-      const headers: HeadersInit = {};
+      const headers: HeadersInit =
+        {};
 
       if (token) {
         headers.Authorization =
           `Bearer ${token}`;
       }
 
-      const response = await fetch(
-        `${API_URL}/properties`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/properties`,
+          {
+            method: "POST",
+            headers,
+            body: formData,
+          }
+        );
 
-      const responseText =
-        await response.text();
-
-      let data: any = null;
-
-      try {
-        data = responseText
-          ? JSON.parse(responseText)
-          : null;
-      } catch {
-        data = null;
-      }
+      const data =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
 
       if (!response.ok) {
-        let message =
-          "Не удалось сохранить объект";
-
-        if (typeof data?.detail === "string") {
-          message = data.detail;
-        } else if (Array.isArray(data?.detail)) {
-          message = data.detail
-            .map(
-              (item: any) =>
-                item?.msg ?? "Ошибка в данных"
-            )
-            .join(", ");
-        } else if (responseText) {
-          message = responseText;
-        }
-
-        throw new Error(message);
+        throw new Error(
+          typeof data?.detail ===
+            "string"
+            ? data.detail
+            : "Не удалось создать объект."
+        );
       }
 
-      router.push(
-        "/admin/properties"
+      const propertyId =
+        Number(
+          data?.id
+        );
+
+      /*
+       * Остальные фотографии
+       * записываем в property_images.
+       */
+
+      if (
+        propertyId &&
+        images.length > 1
+      ) {
+        await uploadExtraImages(
+          propertyId,
+          images.slice(1)
+        );
+      }
+
+      setSuccess(
+        "Объект успешно создан."
       );
 
-      router.refresh();
-    } catch (err) {
-      console.error(err);
+      setTimeout(() => {
+        router.push(
+          `/admin/properties/${propertyId}`
+        );
+
+        router.refresh();
+      }, 500);
+    } catch (
+      submitError
+    ) {
+      console.error(
+        submitError
+      );
 
       setError(
-        err instanceof Error
-          ? err.message
-          : "Произошла ошибка"
+        submitError instanceof Error
+          ? submitError.message
+          : "Не удалось создать объект."
       );
     } finally {
       setLoading(false);
@@ -464,190 +700,196 @@ export default function NewPropertyPage() {
 
   return (
     <main className="page">
-      <div className="container">
-        <div className="header">
-          <h1>🏠 Новый объект</h1>
 
-          <p>
-            Добавьте новый объект
-            недвижимости в каталог
-          </p>
+      <div className="container">
+
+        <div className="header">
+          <div>
+            <div className="eyebrow">
+              АДМИН-ПАНЕЛЬ
+            </div>
+
+            <h1>
+              Новый объект
+            </h1>
+
+            <p>
+              Добавьте недвижимость
+              в каталог DOMA
+            </p>
+          </div>
         </div>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="form"
         >
-          {error && (
-            <div className="error">
-              {error}
-            </div>
-          )}
 
-          {/* ОСНОВНЫЕ ПАРАМЕТРЫ */}
+          <section className="card">
+            <h2>
+              Основные параметры
+            </h2>
 
-          <div className="section-title">
-            Основные параметры
-          </div>
+            <div className="grid">
 
-          <div className="main-grid">
-            {/* Название */}
+              <div className="field">
+                <label>
+                  Название объекта
+                </label>
 
-            <div>
-              <label style={labelStyle}>
-                Название объекта
-              </label>
+                <input
+                  value={title}
+                  onChange={(e) =>
+                    setTitle(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Например: ЖК Самолёт"
+                  required
+                />
+              </div>
 
-              <input
-                required
-                value={title}
-                onChange={(e) =>
-                  setTitle(e.target.value)
-                }
-                placeholder="ЖК Самолёт"
-                style={inputStyle}
-              />
-            </div>
+              <div className="field">
+                <label>
+                  Операция
+                </label>
 
-            {/* Операция */}
-
-            <div>
-              <label style={labelStyle}>
-                Операция
-              </label>
-
-              <select
-                required
-                value={dealType}
-                onChange={(e) =>
-                  setDealType(
-                    e.target.value as DealType
-                  )
-                }
-                style={selectStyle}
-              >
-                {dealTypes.map((type) => (
-                  <option
-                    key={type.value}
-                    value={type.value}
-                  >
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Тип */}
-
-            <div>
-              <label style={labelStyle}>
-                Тип недвижимости
-              </label>
-
-              <select
-                required
-                value={propertyType}
-                onChange={(e) =>
-                  handlePropertyTypeChange(
-                    e.target.value as PropertyType
-                  )
-                }
-                style={selectStyle}
-              >
-                {propertyTypes.map(
-                  (type) => (
-                    <option
-                      key={type.value}
-                      value={type.value}
-                    >
-                      {type.label}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            {/* Подтип */}
-
-            <div>
-              <label style={labelStyle}>
-                Подтип недвижимости
-              </label>
-
-              <select
-                required
-                value={propertySubtype}
-                onChange={(e) =>
-                  setPropertySubtype(
-                    e.target
-                      .value as PropertySubtype
-                  )
-                }
-                style={selectStyle}
-              >
-                {availableSubtypes.map(
-                  (subtype) => (
-                    <option
-                      key={subtype.value}
-                      value={subtype.value}
-                    >
-                      {subtype.label}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            {/* Цена */}
-
-            <div>
-              <label style={labelStyle}>
-                Цена
-              </label>
-
-              <input
-                required
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) =>
-                  setPrice(e.target.value)
-                }
-                placeholder="6000000"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Площадь */}
-
-            <div>
-              <label style={labelStyle}>
-                Площадь (м²)
-              </label>
-
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={area}
-                onChange={(e) =>
-                  setArea(e.target.value)
-                }
-                placeholder="75"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Комнаты */}
-
-            {(propertyType ===
-              "apartment" ||
-              propertyType ===
-                "house") && (
-              <div>
-                <label
-                  style={labelStyle}
+                <select
+                  value={dealType}
+                  onChange={(e) =>
+                    setDealType(
+                      e.target.value
+                    )
+                  }
                 >
+                  {DEAL_TYPES.map(
+                    (item) => (
+                      <option
+                        key={
+                          item.value
+                        }
+                        value={
+                          item.value
+                        }
+                      >
+                        {
+                          item.label
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>
+                  Тип недвижимости
+                </label>
+
+                <select
+                  value={
+                    propertyType
+                  }
+                  onChange={(e) =>
+                    handleTypeChange(
+                      e.target.value as PropertyType
+                    )
+                  }
+                >
+                  {PROPERTY_TYPES.map(
+                    (item) => (
+                      <option
+                        key={
+                          item.value
+                        }
+                        value={
+                          item.value
+                        }
+                      >
+                        {
+                          item.label
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>
+                  Подтип недвижимости
+                </label>
+
+                <select
+                  value={
+                    propertySubtype
+                  }
+                  onChange={(e) =>
+                    setPropertySubtype(
+                      e.target.value
+                    )
+                  }
+                >
+                  {currentSubtypes.map(
+                    (item) => (
+                      <option
+                        key={
+                          item.value
+                        }
+                        value={
+                          item.value
+                        }
+                      >
+                        {
+                          item.label
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>
+                  Цена, ₽
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={price}
+                  onChange={(e) =>
+                    setPrice(
+                      e.target.value
+                    )
+                  }
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>
+                  Площадь, м²
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={area}
+                  onChange={(e) =>
+                    setArea(
+                      e.target.value
+                    )
+                  }
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>
                   Количество комнат
                 </label>
 
@@ -660,149 +902,262 @@ export default function NewPropertyPage() {
                       e.target.value
                     )
                   }
-                  placeholder="3"
-                  style={inputStyle}
                 />
               </div>
+
+              <div className="field">
+                <label>
+                  Статус
+                </label>
+
+                <select
+                  value={status}
+                  onChange={(e) =>
+                    setStatus(
+                      e.target.value
+                    )
+                  }
+                >
+                  {STATUS_TYPES.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+            </div>
+
+            <div className="preview-box">
+              <span>
+                Объявление попадёт в раздел
+              </span>
+
+              <strong>
+                {
+                  DEAL_TYPES.find(
+                    (item) =>
+                      item.value ===
+                      dealType
+                  )?.label
+                }
+                {" → "}
+                {
+                  PROPERTY_TYPES.find(
+                    (item) =>
+                      item.value ===
+                      propertyType
+                  )?.label
+                }
+                {" → "}
+                {
+                  currentSubtypes.find(
+                    (item) =>
+                      item.value ===
+                      propertySubtype
+                  )?.label
+                }
+              </strong>
+
+              <small>
+                /catalog/
+                {
+                  dealType
+                }/
+                {
+                  propertyType ===
+                  "apartment"
+                    ? "apartments"
+                    : propertyType ===
+                      "house"
+                    ? "houses"
+                    : propertyType ===
+                      "land"
+                    ? "land"
+                    : propertyType ===
+                      "commercial"
+                    ? "commercial"
+                    : "garages"
+                }/
+                {
+                  propertySubtype
+                }
+              </small>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2>
+              Расположение
+            </h2>
+
+            <div className="grid">
+
+              <div className="field">
+                <label>
+                  Город
+                </label>
+
+                <input
+                  value={city}
+                  onChange={(e) =>
+                    setCity(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Краснодар"
+                  required
+                />
+              </div>
+
+              <div className="field">
+                <label>
+                  Район
+                </label>
+
+                <input
+                  value={district}
+                  onChange={(e) =>
+                    setDistrict(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Центральный"
+                />
+              </div>
+
+            </div>
+
+            <div className="address-block">
+
+              <label>
+                Адрес
+              </label>
+
+              <AddressMapPicker
+                city={city}
+                address={address}
+                latitude={latitude}
+                longitude={longitude}
+                onAddressChange={
+                  setAddress
+                }
+                onCoordinatesChange={(
+                  nextLatitude,
+                  nextLongitude
+                ) => {
+                  setLatitude(
+                    nextLatitude
+                  );
+
+                  setLongitude(
+                    nextLongitude
+                  );
+                }}
+              />
+
+            </div>
+          </section>
+
+          <section className="card">
+            <h2>
+              Фотографии
+            </h2>
+
+            <p className="hint">
+              Можно выбрать сразу
+              несколько фотографий
+              с компьютера.
+              Первая фотография
+              станет основной.
+            </p>
+
+            <label className="upload">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={
+                  handleImages
+                }
+              />
+
+              <span className="upload-icon">
+                +
+              </span>
+
+              <strong>
+                Добавить фотографии
+              </strong>
+
+              <small>
+                JPG, JPEG, PNG,
+                WEBP
+              </small>
+            </label>
+
+            {previews.length >
+              0 && (
+              <div className="photos">
+
+                {previews.map(
+                  (
+                    preview,
+                    index
+                  ) => (
+                    <div
+                      className="photo"
+                      key={
+                        preview
+                      }
+                    >
+                      <img
+                        src={
+                          preview
+                        }
+                        alt={`Фото ${
+                          index +
+                          1
+                        }`}
+                      />
+
+                      {index ===
+                        0 && (
+                        <span className="main-photo">
+                          Основное
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeImage(
+                            index
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )
+                )}
+
+              </div>
             )}
+          </section>
 
-            {/* Статус */}
-
-            <div>
-              <label style={labelStyle}>
-                Статус
-              </label>
-
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value)
-                }
-                style={selectStyle}
-              >
-                <option value="Свободен">
-                  Свободен
-                </option>
-
-                <option value="Забронирован">
-                  Забронирован
-                </option>
-
-                <option value="Продан">
-                  Продан
-                </option>
-
-                <option value="Скрыт">
-                  Скрыт
-                </option>
-              </select>
-            </div>
-
-            {/* Город */}
-
-            <div>
-              <label style={labelStyle}>
-                Город
-              </label>
-
-              <input
-                required
-                value={city}
-                onChange={(e) =>
-                  setCity(e.target.value)
-                }
-                placeholder="Краснодар"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Район */}
-
-            <div>
-              <label style={labelStyle}>
-                Район
-              </label>
-
-              <input
-                value={district}
-                onChange={(e) =>
-                  setDistrict(e.target.value)
-                }
-                placeholder="Центральный"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* ПРЕДПРОСМОТР КАТАЛОГА */}
-
-          <div className="catalog-preview">
-            <div className="catalog-preview-title">
-              Объявление попадёт в раздел
-            </div>
-
-            <div className="catalog-preview-main">
-              {getDealLabel(dealType)}
-              {" → "}
-              {getTypeLabel(propertyType)}
-              {" → "}
-              {getSubtypeLabel(
-                propertyType,
-                propertySubtype
-              )}
-            </div>
-
-            <div className="catalog-preview-path">
-              {catalogPath}
-            </div>
-          </div>
-
-          {/* АДРЕС */}
-
-          <div className="full-field">
-            <label style={labelStyle}>
-              Адрес
-            </label>
-
-            <input
-              value={address}
-              onChange={(e) =>
-                setAddress(e.target.value)
-              }
-              placeholder="ул. Красная 1"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* ФОТО */}
-
-          <div className="full-field">
-            <label style={labelStyle}>
-              Путь к фото
-            </label>
-
-            <input
-              value={imageUrl}
-              onChange={(e) =>
-                setImageUrl(e.target.value)
-              }
-              placeholder="/images/test-flat.jpg"
-              style={inputStyle}
-            />
-
-            <div className="hint">
-              Например: /images/test-flat.jpg
-            </div>
-          </div>
-
-          {/* ОПИСАНИЕ */}
-
-          <div className="full-field">
-            <label style={labelStyle}>
+          <section className="card">
+            <h2>
               Описание
-            </label>
+            </h2>
 
             <textarea
+              rows={8}
               value={description}
               onChange={(e) =>
                 setDescription(
@@ -810,192 +1165,426 @@ export default function NewPropertyPage() {
                 )
               }
               placeholder="Описание объекта..."
-              rows={7}
-              style={{
-                ...inputStyle,
-                resize: "vertical",
-                minHeight: "170px",
-              }}
             />
-          </div>
+          </section>
 
-          {/* КНОПКА */}
+          {error && (
+            <div className="alert error">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="alert success">
+              {success}
+            </div>
+          )}
 
           <button
             type="submit"
+            className="save"
             disabled={loading}
-            className="submit"
           >
             {loading
               ? "Сохраняем..."
-              : "💾 Сохранить объект"}
+              : "💾 Создать объект"}
           </button>
+
         </form>
       </div>
 
       <style jsx>{`
         .page {
           min-height: 100vh;
-          background: #f8fafc;
-          padding: 40px 20px 70px;
+          padding:
+            45px
+            20px
+            80px;
+          background: #f5f7fa;
         }
 
         .container {
-          max-width: 1000px;
+          width: 100%;
+          max-width: 1050px;
           margin: 0 auto;
         }
 
         .header {
-          margin-bottom: 30px;
+          margin-bottom: 28px;
         }
 
-        .header h1 {
-          margin: 0;
-          font-size: clamp(36px, 5vw, 48px);
-          font-weight: 700;
-          color: #111827;
-          letter-spacing: -1px;
+        .eyebrow {
+          color: #ef4444;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+        }
+
+        h1 {
+          margin:
+            8px 0
+            8px;
+          color: #101828;
+          font-size:
+            clamp(
+              38px,
+              5vw,
+              56px
+            );
+          line-height: 1;
+          letter-spacing:
+            -0.04em;
         }
 
         .header p {
-          margin-top: 10px;
-          margin-bottom: 0;
-          color: #64748b;
-          font-size: 16px;
+          margin: 0;
+          color: #667085;
+          font-size: 15px;
         }
 
         .form {
-          background: #ffffff;
-          border-radius: 26px;
-          padding: 36px;
-          box-shadow:
-            0 12px 35px rgba(0, 0, 0, 0.06);
+          display: grid;
+          gap: 20px;
         }
 
-        .section-title {
-          margin-bottom: 20px;
-          color: #111827;
-          font-size: 20px;
+        .card {
+          padding: 30px;
+          border:
+            1px solid
+            #e4e7ec;
+          border-radius: 24px;
+          background: #fff;
+          box-shadow:
+            0
+            8px
+            30px
+            rgba(
+              16,
+              24,
+              40,
+              0.05
+            );
+        }
+
+        h2 {
+          margin:
+            0 0
+            24px;
+          color: #101828;
+          font-size: 22px;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns:
+            repeat(
+              2,
+              minmax(0, 1fr)
+            );
+          gap: 18px;
+        }
+
+        .field {
+          min-width: 0;
+        }
+
+        .field label,
+        .address-block > label {
+          display: block;
+          margin-bottom: 8px;
+          color: #344054;
+          font-size: 13px;
           font-weight: 700;
         }
 
-        .main-grid {
+        input,
+        select,
+        textarea {
+          width: 100%;
+          box-sizing: border-box;
+
+          border:
+            1px solid
+            #d0d5dd;
+
+          border-radius: 13px;
+
+          padding:
+            13px
+            14px;
+
+          background: #fff;
+          color: #101828;
+
+          font-size: 14px;
+          outline: none;
+        }
+
+        input,
+        select {
+          height: 48px;
+        }
+
+        textarea {
+          resize: vertical;
+          min-height: 170px;
+          line-height: 1.6;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+          border-color: #ef4444;
+          box-shadow:
+            0
+            0
+            0
+            3px
+            rgba(
+              239,
+              68,
+              68,
+              0.08
+            );
+        }
+
+        .preview-box {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 24px;
+          gap: 6px;
+
+          margin-top: 22px;
+          padding: 18px;
+
+          border-radius: 16px;
+          background: #f8fafc;
+          border:
+            1px solid
+            #e5e7eb;
         }
 
-        .full-field {
-          margin-top: 24px;
+        .preview-box span {
+          color: #667085;
+          font-size: 12px;
         }
 
-        .error {
-          background: #fee2e2;
-          color: #991b1b;
-          border-radius: 14px;
-          padding: 14px 16px;
-          margin-bottom: 24px;
-          font-weight: 500;
+        .preview-box strong {
+          color: #101828;
+          font-size: 16px;
+        }
+
+        .preview-box small {
+          color: #98a2b3;
+          font-size: 12px;
+        }
+
+        .address-block {
+          margin-top: 20px;
         }
 
         .hint {
-          margin-top: 7px;
-          color: #94a3b8;
+          margin:
+            -10px 0
+            20px;
+          color: #667085;
           font-size: 13px;
+          line-height: 1.6;
         }
 
-        .catalog-preview {
-          margin-top: 28px;
-          padding: 20px;
+        .upload {
+          min-height: 190px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+
+          gap: 7px;
+
+          border:
+            2px dashed
+            #d0d5dd;
+
+          border-radius: 18px;
+
+          background: #fafafa;
+
+          cursor: pointer;
+          transition:
+            0.2s
+            ease;
+        }
+
+        .upload:hover {
+          border-color: #ef4444;
+          background: #fffafa;
+        }
+
+        .upload input {
+          display: none;
+        }
+
+        .upload-icon {
+          width: 48px;
+          height: 48px;
+
+          display: grid;
+          place-items: center;
+
+          border-radius: 50%;
+
+          background: #fee2e2;
+          color: #ef4444;
+
+          font-size: 28px;
+        }
+
+        .upload strong {
+          color: #344054;
+          font-size: 15px;
+        }
+
+        .upload small {
+          color: #98a2b3;
+        }
+
+        .photos {
+          display: grid;
+          grid-template-columns:
+            repeat(
+              auto-fill,
+              minmax(
+                160px,
+                1fr
+              )
+            );
+          gap: 14px;
+          margin-top: 18px;
+        }
+
+        .photo {
+          position: relative;
+          height: 150px;
+          overflow: hidden;
           border-radius: 16px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: #f2f4f7;
         }
 
-        .catalog-preview-title {
-          color: #64748b;
-          font-size: 13px;
-          margin-bottom: 7px;
-        }
-
-        .catalog-preview-main {
-          color: #111827;
-          font-size: 16px;
-          font-weight: 700;
-        }
-
-        .catalog-preview-path {
-          margin-top: 8px;
-          color: #94a3b8;
-          font-size: 13px;
-          word-break: break-all;
-        }
-
-        .submit {
+        .photo img {
           width: 100%;
-          margin-top: 28px;
-          border: none;
-          border-radius: 15px;
-          padding: 17px 24px;
-          background: ${loading
-            ? "#fca5a5"
-            : "#ef4444"};
-          color: #ffffff;
-          font-size: 17px;
-          font-weight: 700;
-          cursor: ${loading
-            ? "not-allowed"
-            : "pointer"};
-          transition: 0.2s;
+          height: 100%;
+          object-fit: cover;
         }
 
-        .submit:hover {
-          opacity: ${loading ? "1" : "0.92"};
+        .photo button {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+
+          width: 30px;
+          height: 30px;
+
+          border: 0;
+          border-radius: 50%;
+
+          background:
+            rgba(
+              0,
+              0,
+              0,
+              0.6
+            );
+
+          color: #fff;
+          cursor: pointer;
+          font-size: 20px;
+        }
+
+        .main-photo {
+          position: absolute;
+          left: 8px;
+          bottom: 8px;
+
+          padding:
+            5px
+            8px;
+
+          border-radius: 8px;
+
+          background: #ef4444;
+          color: #fff;
+
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .alert {
+          padding:
+            14px
+            16px;
+          border-radius: 13px;
+          font-size: 14px;
+        }
+
+        .alert.error {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+
+        .alert.success {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+        .save {
+          width: 100%;
+          min-height: 56px;
+
+          border: 0;
+          border-radius: 16px;
+
+          background: #ef4444;
+          color: #fff;
+
+          font-size: 16px;
+          font-weight: 800;
+
+          cursor: pointer;
+          transition:
+            0.2s
+            ease;
+        }
+
+        .save:hover:not(
+          :disabled
+        ) {
+          background: #dc3741;
+          transform:
+            translateY(-1px);
+        }
+
+        .save:disabled {
+          opacity: 0.6;
+          cursor: wait;
         }
 
         @media (max-width: 700px) {
           .page {
-            padding: 25px 14px 50px;
+            padding:
+              25px
+              14px
+              50px;
           }
 
-          .form {
-            padding: 22px;
+          .card {
+            padding: 20px;
+            border-radius: 18px;
           }
 
-          .main-grid {
+          .grid {
             grid-template-columns: 1fr;
-          }
-
-          .header h1 {
-            font-size: 36px;
           }
         }
       `}</style>
     </main>
   );
 }
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  color: "#111827",
-  fontSize: "15px",
-  fontWeight: 500,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "15px 16px",
-  border: "1px solid #dbe3ec",
-  borderRadius: "12px",
-  background: "#ffffff",
-  color: "#111827",
-  fontSize: "15px",
-  outline: "none",
-};
-
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
-  cursor: "pointer",
-};
