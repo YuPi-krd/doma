@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-# =========================================================
-# Property types
-# =========================================================
+# ============================================================
+# PROPERTY TYPES
+# ============================================================
 
 PropertyType = Literal[
     "apartment",
@@ -16,10 +16,6 @@ PropertyType = Literal[
     "garage",
 ]
 
-
-# =========================================================
-# Property subtypes
-# =========================================================
 
 PropertySubtype = Literal[
     # Квартиры
@@ -65,10 +61,6 @@ PropertySubtype = Literal[
 ]
 
 
-# =========================================================
-# Deal types
-# =========================================================
-
 DealType = Literal[
     "sale",
     "rent",
@@ -76,60 +68,71 @@ DealType = Literal[
 ]
 
 
-# =========================================================
-# Properties
-# =========================================================
+# ============================================================
+# PROPERTIES
+# ============================================================
 
 class PropertyCreate(BaseModel):
     title: str
-    description: str
+    description: str = ""
 
     price: int
-    area: float
-    rooms: int
+    area: float = 0
+    rooms: int = 0
 
-    city: str
-    district: str
-    address: str
+    city: str = ""
+    district: str = ""
+    address: str = ""
 
-    # Основной тип
-    property_type: PropertyType = "apartment"
+    property_type: PropertyType = (
+        "apartment"
+    )
 
-    # Подтип
-    property_subtype: PropertySubtype = "secondary"
+    property_subtype: PropertySubtype = (
+        "secondary"
+    )
 
-    # Продажа / аренда / сдача
-    deal_type: DealType = "sale"
+    deal_type: DealType = (
+        "sale"
+    )
 
-    # Картинка
+    latitude: float | None = None
+    longitude: float | None = None
+
+    status: str = "Свободен"
+
     image_url: str | None = None
 
 
 class PropertyUpdate(BaseModel):
     title: str
-    description: str
+    description: str = ""
 
     price: int
-    area: float
-    rooms: int
+    area: float = 0
+    rooms: int = 0
 
-    city: str
-    district: str
-    address: str
+    city: str = ""
+    district: str = ""
+    address: str = ""
 
-    # Основной тип
-    property_type: PropertyType = "apartment"
+    property_type: PropertyType = (
+        "apartment"
+    )
 
-    # Подтип
-    property_subtype: PropertySubtype = "secondary"
+    property_subtype: PropertySubtype = (
+        "secondary"
+    )
 
-    # Продажа / аренда / сдача
-    deal_type: DealType = "sale"
+    deal_type: DealType = (
+        "sale"
+    )
 
-    # Статус объекта
+    latitude: float | None = None
+    longitude: float | None = None
+
     status: str = "Свободен"
 
-    # Картинка
     image_url: str | None = None
 
 
@@ -137,21 +140,35 @@ class PropertyResponse(BaseModel):
     id: int
 
     title: str
+
     description: str | None = None
 
     price: int
+
     area: float | None = None
+
     rooms: int | None = None
 
     city: str | None = None
+
     district: str | None = None
+
     address: str | None = None
 
-    property_type: PropertyType = "apartment"
+    property_type: PropertyType = (
+        "apartment"
+    )
 
-    property_subtype: PropertySubtype = "secondary"
+    property_subtype: PropertySubtype = (
+        "secondary"
+    )
 
-    deal_type: DealType = "sale"
+    deal_type: DealType = (
+        "sale"
+    )
+
+    latitude: float | None = None
+    longitude: float | None = None
 
     status: str | None = None
 
@@ -161,9 +178,9 @@ class PropertyResponse(BaseModel):
         from_attributes = True
 
 
-# =========================================================
-# Leads
-# =========================================================
+# ============================================================
+# LEADS
+# ============================================================
 
 class LeadCreate(BaseModel):
     property_id: int | None = None
@@ -184,25 +201,34 @@ class LeadCreate(BaseModel):
 class LeadUpdate(BaseModel):
     name: str
     phone: str
+
     comment: str | None = None
+
     status: str
 
 
-# =========================================================
-# Clients
-# =========================================================
+class LeadStatusUpdate(BaseModel):
+    status: str
+
+
+# ============================================================
+# CLIENTS
+# ============================================================
 
 class ClientUpdate(BaseModel):
     name: str
     phone: str
+
     email: str | None = None
+
     status: str
+
     notes: str | None = None
 
 
-# =========================================================
-# Sales
-# =========================================================
+# ============================================================
+# SALES
+# ============================================================
 
 class SaleCreate(BaseModel):
     client_id: int
