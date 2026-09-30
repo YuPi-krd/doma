@@ -5,13 +5,9 @@ import { FormEvent, useState } from "react";
 
 const API_URL = "https://doma-nq4u.onrender.com";
 
-type Category = {
-  title: string;
-  items: {
-    title: string;
-    slug: string;
-  }[];
-};
+/* ============================================================
+   ТИПЫ
+============================================================ */
 
 type ApplicationType =
   | "Продать"
@@ -25,6 +21,18 @@ type PropertyType =
   | "Коммерция"
   | "Гаражи";
 
+type Category = {
+  title: string;
+  items: {
+    title: string;
+    slug: string;
+  }[];
+};
+
+/* ============================================================
+   ОСНОВНЫЕ ТИПЫ
+============================================================ */
+
 const propertyTypes: PropertyType[] = [
   "Квартиры",
   "Дома",
@@ -32,6 +40,10 @@ const propertyTypes: PropertyType[] = [
   "Коммерция",
   "Гаражи",
 ];
+
+/* ============================================================
+   ПОДТИПЫ
+============================================================ */
 
 const subTypes: Record<
   PropertyType,
@@ -86,6 +98,10 @@ const subTypes: Record<
   ],
 };
 
+/* ============================================================
+   ФИЛЬТРЫ
+============================================================ */
+
 const roomOptions = [
   "Не важно",
   "Студия",
@@ -124,6 +140,10 @@ const locationOptions = [
   "ККБ",
 ];
 
+/* ============================================================
+   МАППИНГИ
+============================================================ */
+
 const typeMap: Record<
   PropertyType,
   string
@@ -149,8 +169,8 @@ const subtypeSlugMap: Record<
 
   /*
    * Важно:
-   * ведём в существующий
-   * каталог новостроек.
+   * "От застройщика" открывает
+   * существующий раздел новостроек.
    */
   "Квартиры от застройщика":
     "new-buildings",
@@ -209,7 +229,13 @@ const subtypeSlugMap: Record<
 
   "Отдельно стоящий паркинг":
     "parking",
+
+  Комнаты: "secondary",
 };
+
+/* ============================================================
+   КАТЕГОРИИ
+============================================================ */
 
 const buyCategories: Category[] = [
   {
@@ -484,13 +510,19 @@ const leaseCategories: Category[] = [
   },
 ];
 
+/* ============================================================
+   DROPDOWN
+============================================================ */
+
 type DropdownProps = {
   label: string;
   value: string;
   options: string[];
   open: boolean;
   onOpen: () => void;
-  onChange: (value: string) => void;
+  onChange: (
+    value: string
+  ) => void;
 };
 
 function CustomDropdown({
@@ -523,7 +555,8 @@ function CustomDropdown({
           border: "none",
           cursor: "pointer",
           textAlign: "left",
-          padding: "0 16px",
+          padding:
+            "0 16px",
         }}
       >
         <span
@@ -534,7 +567,8 @@ function CustomDropdown({
             fontWeight: value
               ? 600
               : 400,
-            overflow: "hidden",
+            overflow:
+              "hidden",
             textOverflow:
               "ellipsis",
             whiteSpace:
@@ -558,17 +592,22 @@ function CustomDropdown({
         <div
           style={{
             position: "absolute",
-            top: "calc(100% + 8px)",
+            top:
+              "calc(100% + 8px)",
             left: 0,
             right: 0,
-            background: "#f1f3f7",
-            borderRadius: "18px",
+            background:
+              "#f1f3f7",
+            borderRadius:
+              "18px",
             padding: "8px",
             boxShadow:
               "0 15px 35px rgba(0,0,0,.12)",
             zIndex: 1000,
-            maxHeight: "280px",
-            overflowY: "auto",
+            maxHeight:
+              "280px",
+            overflowY:
+              "auto",
           }}
         >
           {options.length ===
@@ -577,8 +616,10 @@ function CustomDropdown({
               style={{
                 padding:
                   "12px 10px",
-                color: "#9ca3af",
-                fontSize: "14px",
+                color:
+                  "#9ca3af",
+                fontSize:
+                  "14px",
               }}
             >
               Нет вариантов
@@ -587,8 +628,7 @@ function CustomDropdown({
             options.map(
               (option) => {
                 const selected =
-                  option ===
-                  value;
+                  option === value;
 
                 return (
                   <button
@@ -651,7 +691,8 @@ function CustomDropdown({
                           "white",
                         fontSize:
                           "10px",
-                        fontWeight: 700,
+                        fontWeight:
+                          700,
                       }}
                     >
                       {selected
@@ -680,6 +721,170 @@ function CustomDropdown({
   );
 }
 
+/* ============================================================
+   SUCCESS MODAL
+============================================================ */
+
+type SuccessModalProps = {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+};
+
+function SuccessModal({
+  open,
+  title,
+  onClose,
+}: SuccessModalProps) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      onMouseDown={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        background:
+          "rgba(15,23,42,.62)",
+        display: "flex",
+        alignItems:
+          "center",
+        justifyContent:
+          "center",
+        padding: "20px",
+        backdropFilter:
+          "blur(3px)",
+      }}
+    >
+      <div
+        onMouseDown={(e) =>
+          e.stopPropagation()
+        }
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "520px",
+          background:
+            "#ffffff",
+          borderRadius:
+            "26px",
+          padding:
+            "34px 30px 30px",
+          boxShadow:
+            "0 25px 70px rgba(0,0,0,.22)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть"
+          style={{
+            position:
+              "absolute",
+            top: "16px",
+            right: "16px",
+            width: "40px",
+            height: "40px",
+            borderRadius:
+              "50%",
+            border:
+              "1px solid #e5e7eb",
+            background:
+              "#ffffff",
+            color:
+              "#111827",
+            fontSize:
+              "24px",
+            lineHeight: 1,
+            cursor:
+              "pointer",
+          }}
+        >
+          ×
+        </button>
+
+        <h2
+          style={{
+            margin:
+              "0 50px 12px 0",
+            color:
+              "#0f172a",
+            fontSize:
+              "32px",
+            fontWeight:
+              500,
+            lineHeight:
+              1.2,
+          }}
+        >
+          {title}
+        </h2>
+
+        <p
+          style={{
+            margin:
+              "0 0 26px",
+            color:
+              "#64748b",
+            fontSize:
+              "16px",
+            lineHeight:
+              1.6,
+          }}
+        >
+          Оставьте свои контакты,
+          и менеджер свяжется с вами.
+        </p>
+
+        <div
+          style={{
+            borderRadius:
+              "18px",
+            background:
+              "#dcfce7",
+            padding:
+              "22px 20px",
+            color:
+              "#166534",
+          }}
+        >
+          <div
+            style={{
+              fontSize:
+                "16px",
+              fontWeight:
+                700,
+              marginBottom:
+                "5px",
+            }}
+          >
+            Заявка отправлена.
+          </div>
+
+          <div
+            style={{
+              fontSize:
+                "16px",
+              lineHeight:
+                1.5,
+            }}
+          >
+            Менеджер свяжется с вами
+            в ближайшее время.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ФОРМА ЗАЯВКИ
+============================================================ */
+
 type ApplicationFormProps = {
   applicationType:
     | "Продать"
@@ -697,20 +902,30 @@ function ApplicationForm({
     setPropertyType,
   ] = useState("");
 
-  const [subType, setSubType] =
-    useState("");
+  const [
+    subType,
+    setSubType,
+  ] = useState("");
 
-  const [rooms, setRooms] =
-    useState("");
+  const [
+    rooms,
+    setRooms,
+  ] = useState("");
 
-  const [name, setName] =
-    useState("");
+  const [
+    name,
+    setName,
+  ] = useState("");
 
-  const [phone, setPhone] =
-    useState("");
+  const [
+    phone,
+    setPhone,
+  ] = useState("");
 
-  const [comment, setComment] =
-    useState("");
+  const [
+    comment,
+    setComment,
+  ] = useState("");
 
   const [
     agreement,
@@ -727,8 +942,10 @@ function ApplicationForm({
     setSuccess,
   ] = useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
 
   const [
     openType,
@@ -743,6 +960,11 @@ function ApplicationForm({
   const [
     openRooms,
     setOpenRooms,
+  ] = useState(false);
+
+  const [
+    showSuccessModal,
+    setShowSuccessModal,
   ] = useState(false);
 
   const availableSubTypes =
@@ -769,7 +991,9 @@ function ApplicationForm({
     const cleanComment =
       comment.trim();
 
-    if (cleanName.length < 2) {
+    if (
+      cleanName.length < 2
+    ) {
       setError(
         "Введите имя."
       );
@@ -909,6 +1133,9 @@ function ApplicationForm({
       }
 
       setSuccess(true);
+      setShowSuccessModal(
+        true
+      );
 
       setName("");
       setPhone("");
@@ -931,260 +1158,326 @@ function ApplicationForm({
   }
 
   return (
-    <form
-      onSubmit={
-        handleSubmit
-      }
-    >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(2, minmax(0, 1fr))",
-          gap: "12px",
-        }}
+    <>
+      <form
+        onSubmit={
+          handleSubmit
+        }
       >
-        <CustomDropdown
-          label="Тип недвижимости"
-          value={propertyType}
-          options={propertyTypes}
-          open={openType}
-          onOpen={() => {
-            setOpenType(
-              (value) =>
-                !value
-            );
-
-            setOpenSubType(
-              false
-            );
-
-            setOpenRooms(
-              false
-            );
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(2, minmax(0, 1fr))",
+            gap: "12px",
           }}
-          onChange={(value) => {
-            setPropertyType(
-              value
-            );
-
-            setSubType("");
-
-            setOpenType(
-              false
-            );
-          }}
-        />
-
-        <CustomDropdown
-          label={
-            propertyType
-              ? "Тип"
-              : "Сначала выберите недвижимость"
-          }
-          value={subType}
-          options={
-            availableSubTypes
-          }
-          open={openSubType}
-          onOpen={() => {
-            if (
-              !availableSubTypes.length
-            ) {
-              return;
+        >
+          <CustomDropdown
+            label="Тип недвижимости"
+            value={
+              propertyType
             }
+            options={
+              propertyTypes
+            }
+            open={
+              openType
+            }
+            onOpen={() => {
+              setOpenType(
+                (value) =>
+                  !value
+              );
 
-            setOpenSubType(
-              (value) =>
-                !value
-            );
+              setOpenSubType(
+                false
+              );
 
-            setOpenType(
-              false
-            );
-
-            setOpenRooms(
-              false
-            );
-          }}
-          onChange={(value) => {
-            setSubType(
+              setOpenRooms(
+                false
+              );
+            }}
+            onChange={(
               value
-            );
+            ) => {
+              setPropertyType(
+                value
+              );
 
-            setOpenSubType(
-              false
-            );
-          }}
-        />
+              setSubType(
+                ""
+              );
 
-        <CustomDropdown
-          label="Количество комнат"
-          value={rooms}
-          options={roomOptions}
-          open={openRooms}
-          onOpen={() => {
-            setOpenRooms(
-              (value) =>
-                !value
-            );
+              setOpenType(
+                false
+              );
+            }}
+          />
 
-            setOpenType(
-              false
-            );
+          <CustomDropdown
+            label={
+              propertyType
+                ? "Тип"
+                : "Сначала выберите недвижимость"
+            }
+            value={
+              subType
+            }
+            options={
+              availableSubTypes
+            }
+            open={
+              openSubType
+            }
+            onOpen={() => {
+              if (
+                !availableSubTypes.length
+              ) {
+                return;
+              }
 
-            setOpenSubType(
-              false
-            );
-          }}
-          onChange={(value) => {
-            setRooms(value);
+              setOpenSubType(
+                (value) =>
+                  !value
+              );
 
-            setOpenRooms(
-              false
-            );
-          }}
-        />
+              setOpenType(
+                false
+              );
 
-        <input
-          className="search-input"
-          required
-          placeholder="Имя"
-          value={name}
-          onChange={(e) =>
-            setName(
-              e.target.value
-            )
-          }
-        />
+              setOpenRooms(
+                false
+              );
+            }}
+            onChange={(
+              value
+            ) => {
+              setSubType(
+                value
+              );
 
-        <input
-          className="search-input"
-          required
-          type="tel"
-          placeholder="+7 (999) 999-99-99"
-          value={phone}
-          onChange={(e) =>
-            setPhone(
-              e.target.value
-            )
-          }
-        />
+              setOpenSubType(
+                false
+              );
+            }}
+          />
 
-        <input
-          className="search-input"
-          placeholder="Комментарий"
-          value={comment}
-          onChange={(e) =>
-            setComment(
-              e.target.value
-            )
-          }
-        />
+          <CustomDropdown
+            label="Количество комнат"
+            value={
+              rooms
+            }
+            options={
+              roomOptions
+            }
+            open={
+              openRooms
+            }
+            onOpen={() => {
+              setOpenRooms(
+                (value) =>
+                  !value
+              );
 
-        <button
-          type="submit"
-          className="btn btn-red"
-          disabled={loading}
-          style={{
-            border: "none",
-            opacity: loading
-              ? 0.7
-              : 1,
-            cursor: loading
-              ? "not-allowed"
-              : "pointer",
-          }}
-        >
-          {loading
-            ? "Отправляем..."
-            : "Оставить заявку"}
-        </button>
-      </div>
+              setOpenType(
+                false
+              );
 
-      <label
-        style={{
-          display: "flex",
-          alignItems:
-            "flex-start",
-          gap: "10px",
-          marginTop: "12px",
-          color:
-            "rgba(255,255,255,.9)",
-          fontSize: "12px",
-          lineHeight: 1.5,
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={agreement}
-          onChange={(e) =>
-            setAgreement(
-              e.target.checked
-            )
-          }
-          style={{
-            marginTop: "2px",
-            accentColor:
-              "#ef4444",
-          }}
-        />
+              setOpenSubType(
+                false
+              );
+            }}
+            onChange={(
+              value
+            ) => {
+              setRooms(
+                value
+              );
 
-        <span>
-          Нажимая кнопку
-          «Оставить заявку», я
-          даю согласие на обработку
-          персональных данных.
-        </span>
-      </label>
+              setOpenRooms(
+                false
+              );
+            }}
+          />
 
-      {error && (
-        <div
-          style={{
-            marginTop: "12px",
-            padding:
-              "12px 14px",
-            borderRadius:
-              "12px",
-            background:
-              "rgba(254,226,226,.95)",
-            color: "#991b1b",
-            fontSize: "13px",
-          }}
-        >
-          {error}
+          <input
+            className="search-input"
+            required
+            placeholder="Имя"
+            value={name}
+            onChange={(e) =>
+              setName(
+                e.target.value
+              )
+            }
+          />
+
+          <input
+            className="search-input"
+            required
+            type="tel"
+            placeholder="+7 (999) 999-99-99"
+            value={phone}
+            onChange={(e) =>
+              setPhone(
+                e.target.value
+              )
+            }
+          />
+
+          <input
+            className="search-input"
+            placeholder="Комментарий"
+            value={
+              comment
+            }
+            onChange={(e) =>
+              setComment(
+                e.target.value
+              )
+            }
+          />
+
+          <button
+            type="submit"
+            className="btn btn-red"
+            disabled={
+              loading
+            }
+            style={{
+              border:
+                "none",
+              opacity:
+                loading
+                  ? 0.7
+                  : 1,
+              cursor:
+                loading
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            {loading
+              ? "Отправляем..."
+              : "Оставить заявку"}
+          </button>
         </div>
-      )}
 
-      {success && (
-        <div
+        <label
           style={{
-            marginTop: "12px",
-            padding:
-              "12px 14px",
-            borderRadius:
+            display: "flex",
+            alignItems:
+              "flex-start",
+            gap: "10px",
+            marginTop:
               "12px",
-            background:
-              "rgba(220,252,231,.95)",
-            color: "#166534",
-            fontSize: "13px",
-            fontWeight: 600,
+            color:
+              "rgba(255,255,255,.9)",
+            fontSize:
+              "12px",
+            lineHeight:
+              1.5,
           }}
         >
-          {title} отправлена.
-          Менеджер свяжется с
-          вами.
-        </div>
-      )}
-    </form>
+          <input
+            type="checkbox"
+            checked={
+              agreement
+            }
+            onChange={(e) =>
+              setAgreement(
+                e.target.checked
+              )
+            }
+            style={{
+              marginTop:
+                "2px",
+              accentColor:
+                "#ef4444",
+            }}
+          />
+
+          <span>
+            Нажимая кнопку
+            «Оставить заявку», я
+            даю согласие на обработку
+            персональных данных.
+          </span>
+        </label>
+
+        {error && (
+          <div
+            style={{
+              marginTop:
+                "12px",
+              padding:
+                "12px 14px",
+              borderRadius:
+                "12px",
+              background:
+                "rgba(254,226,226,.95)",
+              color:
+                "#991b1b",
+              fontSize:
+                "13px",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div
+            style={{
+              marginTop:
+                "12px",
+              padding:
+                "12px 14px",
+              borderRadius:
+                "12px",
+              background:
+                "rgba(220,252,231,.95)",
+              color:
+                "#166534",
+              fontSize:
+                "13px",
+              fontWeight:
+                600,
+            }}
+          >
+            {title} отправлена.
+            Менеджер свяжется
+            с вами.
+          </div>
+        )}
+      </form>
+
+      <SuccessModal
+        open={
+          showSuccessModal
+        }
+        title={title}
+        onClose={() =>
+          setShowSuccessModal(
+            false
+          )
+        }
+      />
+    </>
   );
 }
+
+/* ============================================================
+   HERO
+============================================================ */
 
 export default function Hero() {
   const [
     activeTab,
     setActiveTab,
-  ] = useState("Купить");
+  ] = useState(
+    "Купить"
+  );
 
   const [
     propertyType,
@@ -1193,20 +1486,30 @@ export default function Hero() {
     PropertyType | ""
   >("");
 
-  const [subType, setSubType] =
-    useState("");
+  const [
+    subType,
+    setSubType,
+  ] = useState("");
 
-  const [rooms, setRooms] =
-    useState("");
+  const [
+    rooms,
+    setRooms,
+  ] = useState("");
 
-  const [price, setPrice] =
-    useState("");
+  const [
+    price,
+    setPrice,
+  ] = useState("");
 
-  const [area, setArea] =
-    useState("");
+  const [
+    area,
+    setArea,
+  ] = useState("");
 
-  const [location, setLocation] =
-    useState("");
+  const [
+    location,
+    setLocation,
+  ] = useState("");
 
   const [
     showFilters,
@@ -1252,28 +1555,33 @@ export default function Hero() {
 
   const currentSubTypes =
     propertyType
-      ? subTypes[propertyType]
+      ? subTypes[
+          propertyType
+        ]
       : [];
 
-  let categories: Category[] =
-    [];
+  let categories:
+    Category[] = [];
 
   if (
-    activeTab === "Купить"
+    activeTab ===
+    "Купить"
   ) {
     categories =
       buyCategories;
   }
 
   if (
-    activeTab === "Снять"
+    activeTab ===
+    "Снять"
   ) {
     categories =
       rentCategories;
   }
 
   if (
-    activeTab === "Сдать"
+    activeTab ===
+    "Сдать"
   ) {
     categories =
       leaseCategories;
@@ -1284,16 +1592,27 @@ export default function Hero() {
       setOpenPropertyType(
         false
       );
-
-      setOpenSubType(false);
-      setOpenRooms(false);
-      setOpenPrice(false);
-      setOpenArea(false);
-      setOpenLocation(false);
+      setOpenSubType(
+        false
+      );
+      setOpenRooms(
+        false
+      );
+      setOpenPrice(
+        false
+      );
+      setOpenArea(
+        false
+      );
+      setOpenLocation(
+        false
+      );
     };
 
   const handleTabChange =
-    (tab: string) => {
+    (
+      tab: string
+    ) => {
       setActiveTab(tab);
 
       closeDropdowns();
@@ -1302,152 +1621,167 @@ export default function Hero() {
         null
       );
 
-      setShowFilters(false);
+      setShowFilters(
+        false
+      );
     };
 
-  const handleSearch = () => {
-    const params =
-      new URLSearchParams();
+  const handleSearch =
+    () => {
+      const params =
+        new URLSearchParams();
 
-    const type = propertyType
-      ? typeMap[propertyType]
-      : "";
+      const type =
+        propertyType
+          ? typeMap[
+              propertyType
+            ]
+          : "";
 
-    const deal =
-      activeTab === "Снять"
-        ? "rent"
-        : activeTab === "Сдать"
-        ? "lease"
-        : "sale";
+      const deal =
+        activeTab ===
+        "Снять"
+          ? "rent"
+          : activeTab ===
+            "Сдать"
+          ? "lease"
+          : "sale";
 
-    if (type) {
-      params.set(
-        "type",
-        type
-      );
-
-      params.set(
-        "property_type",
-        type
-      );
-    }
-
-    if (subType) {
-      const subtypeSlug =
-        subtypeSlugMap[
-          subType
-        ];
-
-      if (subtypeSlug) {
+      if (type) {
         params.set(
-          "subtype",
-          subtypeSlug
+          "type",
+          type
         );
 
-        /*
-         * Совместимость с каталогом.
-         * Каталог получает slug
-         * подтипа.
-         */
         params.set(
-          "property_subtype",
-          subtypeSlug
+          "property_type",
+          type
         );
       }
-    }
 
-    if (
-      rooms &&
-      rooms !== "Не важно"
-    ) {
-      params.set(
-        "rooms",
-        rooms
-      );
-    }
-
-    if (
-      price &&
-      price !== "Не важно"
-    ) {
-      params.set(
-        "price",
-        price
-      );
-    }
-
-    if (
-      area &&
-      area !== "Не важно"
-    ) {
-      params.set(
-        "area",
-        area
-      );
-    }
-
-    if (
-      location &&
-      location !== "Не важно"
-    ) {
-      params.set(
-        "location",
-        location
-      );
-    }
-
-    params.set(
-      "deal_type",
-      deal
-    );
-
-    const categorySlug =
-      type === "apartment"
-        ? "apartments"
-        : type === "house"
-        ? "houses"
-        : type === "land"
-        ? "land"
-        : type === "commercial"
-        ? "commercial"
-        : type === "garage"
-        ? "garages"
-        : "apartments";
-
-    const subtypeSlug =
-      subType
-        ? subtypeSlugMap[
+      if (subType) {
+        const slug =
+          subtypeSlugMap[
             subType
-          ] || ""
-        : "";
+          ];
 
-    let url =
-      `/catalog/${deal}/${categorySlug}`;
+        if (slug) {
+          params.set(
+            "subtype",
+            slug
+          );
 
-    if (
-      subtypeSlug &&
-      subtypeSlug !==
-        categorySlug
-    ) {
-      url += `/${subtypeSlug}`;
-    }
+          params.set(
+            "property_subtype",
+            slug
+          );
+        }
+      }
 
-    const query =
-      params.toString();
+      if (
+        rooms &&
+        rooms !== "Не важно"
+      ) {
+        params.set(
+          "rooms",
+          rooms
+        );
+      }
 
-    window.location.href =
-      query
-        ? `${url}?${query}`
-        : url;
-  };
+      if (
+        price &&
+        price !==
+          "Не важно"
+      ) {
+        params.set(
+          "price",
+          price
+        );
+      }
+
+      if (
+        area &&
+        area !==
+          "Не важно"
+      ) {
+        params.set(
+          "area",
+          area
+        );
+      }
+
+      if (
+        location &&
+        location !==
+          "Не важно"
+      ) {
+        params.set(
+          "location",
+          location
+        );
+      }
+
+      params.set(
+        "deal_type",
+        deal
+      );
+
+      const categorySlug =
+        type ===
+        "apartment"
+          ? "apartments"
+          : type ===
+            "house"
+          ? "houses"
+          : type ===
+            "land"
+          ? "land"
+          : type ===
+            "commercial"
+          ? "commercial"
+          : type ===
+            "garage"
+          ? "garages"
+          : "apartments";
+
+      const subtypeSlug =
+        subType
+          ? subtypeSlugMap[
+              subType
+            ] || ""
+          : "";
+
+      let url =
+        `/catalog/${deal}/${categorySlug}`;
+
+      if (
+        subtypeSlug &&
+        subtypeSlug !==
+          categorySlug
+      ) {
+        url +=
+          `/${subtypeSlug}`;
+      }
+
+      const query =
+        params.toString();
+
+      window.location.href =
+        query
+          ? `${url}?${query}`
+          : url;
+    };
 
   return (
     <section className="hero">
       <div className="container hero-content">
+
         <div
           style={{
-            color: "white",
-            fontWeight: 700,
+            color:
+              "white",
+            fontWeight:
+              700,
             letterSpacing:
               "2px",
             marginBottom:
@@ -1467,33 +1801,39 @@ export default function Hero() {
 
         <p className="hero-text">
           Покупка, продажа и
-          аренда недвижимости в
-          Краснодаре. Полное
-          сопровождение сделки и
-          персональный подход к
-          каждому клиенту.
+          аренда недвижимости
+          в Краснодаре. Полное
+          сопровождение сделки
+          и персональный подход
+          к каждому клиенту.
         </p>
 
         <div
           style={{
-            display: "flex",
+            display:
+              "flex",
             gap: "50px",
-            marginTop: "35px",
-            marginBottom: "40px",
-            color: "white",
-            flexWrap: "wrap",
+            marginTop:
+              "35px",
+            marginBottom:
+              "40px",
+            color:
+              "white",
+            flexWrap:
+              "wrap",
           }}
         >
           <div>
             <div
               style={{
-                fontSize: "36px",
-                fontWeight: 700,
+                fontSize:
+                  "36px",
+                fontWeight:
+                  700,
               }}
             >
               500+
             </div>
-
             <div>
               Объектов
             </div>
@@ -1502,13 +1842,14 @@ export default function Hero() {
           <div>
             <div
               style={{
-                fontSize: "36px",
-                fontWeight: 700,
+                fontSize:
+                  "36px",
+                fontWeight:
+                  700,
               }}
             >
               150+
             </div>
-
             <div>
               Сделок
             </div>
@@ -1517,13 +1858,14 @@ export default function Hero() {
           <div>
             <div
               style={{
-                fontSize: "36px",
-                fontWeight: 700,
+                fontSize:
+                  "36px",
+                fontWeight:
+                  700,
               }}
             >
               98%
             </div>
-
             <div>
               Довольных клиентов
             </div>
@@ -1533,16 +1875,20 @@ export default function Hero() {
         <div
           className="search-box"
           style={{
-            position: "relative",
+            position:
+              "relative",
             zIndex: 20,
           }}
         >
+
           <div
             className="search-tabs"
             style={{
-              display: "flex",
+              display:
+                "flex",
               gap: "8px",
-              flexWrap: "wrap",
+              flexWrap:
+                "wrap",
               marginBottom:
                 "18px",
             }}
@@ -1554,25 +1900,32 @@ export default function Hero() {
               "Оценить",
               "Снять",
               "Сдать",
-            ].map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() =>
-                  handleTabChange(
+            ].map(
+              (tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() =>
+                    handleTabChange(
+                      tab
+                    )
+                  }
+                  className={
+                    activeTab ===
                     tab
-                  )
-                }
-                className={
-                  activeTab === tab
-                    ? "search-tab active"
-                    : "search-tab"
-                }
-              >
-                {tab}
-              </button>
-            ))}
+                      ? "search-tab active"
+                      : "search-tab"
+                  }
+                >
+                  {tab}
+                </button>
+              )
+            )}
           </div>
+
+          {/* ====================================================
+             КУПИТЬ
+          ==================================================== */}
 
           {activeTab ===
             "Купить" && (
@@ -1584,9 +1937,11 @@ export default function Hero() {
                     "grid",
                   gridTemplateColumns:
                     "repeat(4, minmax(0, 1fr))",
-                  gap: "12px",
+                  gap:
+                    "12px",
                 }}
               >
+
                 <CustomDropdown
                   label="Тип недвижимости"
                   value={
@@ -1634,6 +1989,11 @@ export default function Hero() {
                       nextType
                     );
 
+                    /*
+                     * При смене
+                     * основного типа
+                     * подтип сбрасывается.
+                     */
                     setSubType(
                       ""
                     );
@@ -1812,11 +2172,13 @@ export default function Hero() {
                     "grid",
                   gridTemplateColumns:
                     "1fr auto auto auto",
-                  gap: "12px",
+                  gap:
+                    "12px",
                   marginTop:
                     "12px",
                 }}
               >
+
                 <CustomDropdown
                   label="Площадь"
                   value={
@@ -1914,7 +2276,8 @@ export default function Hero() {
                     "12px",
                   position:
                     "relative",
-                  zIndex: 30,
+                  zIndex:
+                    30,
                 }}
               >
                 <CustomDropdown
@@ -1985,10 +2348,12 @@ export default function Hero() {
                       "grid",
                     gridTemplateColumns:
                       "repeat(3, 1fr)",
-                    gap: "12px",
+                    gap:
+                      "12px",
                     position:
                       "relative",
-                    zIndex: 20,
+                    zIndex:
+                      20,
                   }}
                 >
                   <CustomDropdown
@@ -1999,7 +2364,9 @@ export default function Hero() {
                     options={
                       propertyTypes
                     }
-                    open={false}
+                    open={
+                      false
+                    }
                     onOpen={() =>
                       undefined
                     }
@@ -2016,7 +2383,9 @@ export default function Hero() {
                     options={
                       currentSubTypes
                     }
-                    open={false}
+                    open={
+                      false
+                    }
                     onOpen={() =>
                       undefined
                     }
@@ -2033,7 +2402,9 @@ export default function Hero() {
                     options={
                       locationOptions
                     }
-                    open={false}
+                    open={
+                      false
+                    }
                     onOpen={() =>
                       undefined
                     }
@@ -2077,6 +2448,10 @@ export default function Hero() {
             </>
           )}
 
+          {/* ====================================================
+             ПРОДАТЬ
+          ==================================================== */}
+
           {activeTab ===
             "Продать" && (
             <ApplicationForm
@@ -2084,6 +2459,10 @@ export default function Hero() {
               title="Заявка на продажу недвижимости"
             />
           )}
+
+          {/* ====================================================
+             СНЯТЬ
+          ==================================================== */}
 
           {activeTab ===
             "Снять" && (
@@ -2126,6 +2505,10 @@ export default function Hero() {
             </>
           )}
 
+          {/* ====================================================
+             СДАТЬ
+          ==================================================== */}
+
           {activeTab ===
             "Сдать" && (
             <>
@@ -2167,6 +2550,10 @@ export default function Hero() {
             </>
           )}
 
+          {/* ====================================================
+             ИПОТЕКА / ОЦЕНКА
+          ==================================================== */}
+
           {(
             activeTab ===
               "Ипотека" ||
@@ -2179,7 +2566,8 @@ export default function Hero() {
                   "grid",
                 gridTemplateColumns:
                   "repeat(2, minmax(0, 1fr))",
-                gap: "12px",
+                gap:
+                  "12px",
               }}
             >
               <select
@@ -2193,8 +2581,12 @@ export default function Hero() {
                 {propertyTypes.map(
                   (item) => (
                     <option
-                      key={item}
-                      value={item}
+                      key={
+                        item
+                      }
+                      value={
+                        item
+                      }
                     >
                       {item}
                     </option>
@@ -2213,8 +2605,12 @@ export default function Hero() {
                 {roomOptions.map(
                   (item) => (
                     <option
-                      key={item}
-                      value={item}
+                      key={
+                        item
+                      }
+                      value={
+                        item
+                      }
                     >
                       {item}
                     </option>
@@ -2251,6 +2647,10 @@ export default function Hero() {
   );
 }
 
+/* ============================================================
+   CATEGORY BLOCK
+============================================================ */
+
 type CategoryBlockProps = {
   title: string;
   categories: Category[];
@@ -2279,12 +2679,14 @@ function CategoryBlock({
     <>
       <div
         style={{
-          display: "flex",
+          display:
+            "flex",
           justifyContent:
             "space-between",
           alignItems:
             "center",
-          gap: "20px",
+          gap:
+            "20px",
           marginBottom:
             "20px",
         }}
@@ -2292,8 +2694,10 @@ function CategoryBlock({
         <div>
           <div
             style={{
-              color: "#6b7280",
-              fontSize: "14px",
+              color:
+                "#6b7280",
+              fontSize:
+                "14px",
               marginBottom:
                 "5px",
             }}
@@ -2304,8 +2708,10 @@ function CategoryBlock({
           <h2
             style={{
               margin: 0,
-              fontSize: "26px",
-              fontWeight: 700,
+              fontSize:
+                "26px",
+              fontWeight:
+                700,
             }}
           >
             {title}
@@ -2319,7 +2725,8 @@ function CategoryBlock({
               "#111827",
             textDecoration:
               "none",
-            fontWeight: 600,
+            fontWeight:
+              600,
             whiteSpace:
               "nowrap",
           }}
@@ -2331,13 +2738,15 @@ function CategoryBlock({
       <div
         className="category-grid"
         style={{
-          display: "grid",
+          display:
+            "grid",
           gridTemplateColumns:
             `repeat(${Math.min(
               categories.length,
               4
             )}, 1fr)`,
-          gap: "12px",
+          gap:
+            "12px",
         }}
       >
         {categories.map(
@@ -2420,7 +2829,7 @@ function CategoryBlock({
                 (item) => (
                   <Link
                     key={
-                      item.slug
+                      `${category.title}-${item.slug}`
                     }
                     href={`/catalog/${dealType}/${categorySlugFromTitle(
                       category.title
@@ -2487,6 +2896,10 @@ function CategoryBlock({
     </>
   );
 }
+
+/* ============================================================
+   SLUG КАТЕГОРИИ
+============================================================ */
 
 function categorySlugFromTitle(
   title: string
