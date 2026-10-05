@@ -1,90 +1,50 @@
 import Link from "next/link";
-import DeletePropertyButton from "@/components/DeletePropertyButton";
-import PropertySearch from "./PropertySearch";
 
-interface Property {
-  id: number;
-  title: string;
-  price: number;
-  rooms: number;
-  city: string;
-}
-
-async function getProperties(): Promise<Property[]> {
-  try {
-    const res = await fetch(
-      "https://doma-nq4u.onrender.com/properties",
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) {
-      return [];
-    }
-
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
-
-export default async function PropertiesPage() {
-  const properties = await getProperties();
-
+export default function PropertiesPage() {
   return (
     <main
       style={{
         padding: "40px",
-        background: "#f8fafc",
-        minHeight: "100vh",
       }}
     >
+      <h1>Объекты</h1>
+
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-          flexWrap: "wrap",
-          gap: "15px",
+          gap: "20px",
+          marginTop: "30px",
         }}
       >
-        <h1
+        <Link
+          href="/crm/sale"
           style={{
-            fontSize: "42px",
-            margin: 0,
+            background: "#dc2626",
+            color: "white",
+            padding: "20px 40px",
+            borderRadius: "16px",
+            textDecoration: "none",
+            fontSize: "20px",
+            fontWeight: 700,
           }}
         >
-          Объекты недвижимости
-        </h1>
+          Продажа
+        </Link>
 
         <Link
-          href="/admin/properties/new"
+          href="/crm/rent"
           style={{
-            background: "#ef4444",
+            background: "#1e293b",
             color: "white",
-            padding: "14px 22px",
-            borderRadius: "12px",
+            padding: "20px 40px",
+            borderRadius: "16px",
             textDecoration: "none",
-            fontWeight: 600,
+            fontSize: "20px",
+            fontWeight: 700,
           }}
         >
-          ➕ Добавить объект
+          Аренда
         </Link>
-      </div>
-
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "20px",
-          marginBottom: "30px",
-          boxShadow:
-            "0 10px 30px rgba(0,0,0,.05)",
-        }}
-      >
-        <PropertySearch properties={properties} />
       </div>
     </main>
   );
