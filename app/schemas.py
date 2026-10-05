@@ -103,6 +103,19 @@ class PropertyCreate(BaseModel):
 
     image_url: str | None = None
 
+    # адрес для агента
+    real_address: str = ""
+
+    # адрес для рекламы
+    public_address: str = ""
+
+    # данные собственника
+    owner_name: str = ""
+    owner_phone: str = ""
+
+    # комментарий агента
+    agent_comment: str = ""
+
 
 class PropertyUpdate(BaseModel):
     title: str

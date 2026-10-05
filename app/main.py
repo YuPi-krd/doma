@@ -1143,6 +1143,66 @@ def validate_property_payload(
                 )
                 or None
             ),
+
+        "real_address":
+            text_value(
+                payload.get(
+                    "real_address",
+                    (
+                        existing.real_address
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "public_address":
+            text_value(
+                payload.get(
+                    "public_address",
+                    (
+                        existing.public_address
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "owner_name":
+            text_value(
+                payload.get(
+                    "owner_name",
+                    (
+                        existing.owner_name
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "owner_phone":
+            text_value(
+                payload.get(
+                    "owner_phone",
+                    (
+                        existing.owner_phone
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
+
+        "agent_comment":
+            text_value(
+                payload.get(
+                    "agent_comment",
+                    (
+                        existing.agent_comment
+                        if existing
+                        else ""
+                    ),
+                )
+            ),
     }
 
 
@@ -1454,6 +1514,14 @@ async def create_property(
                 "status"
             ],
             image_url=image_url,
+
+            real_address=data["real_address"],
+            public_address=data["public_address"],
+
+            owner_name=data["owner_name"],
+            owner_phone=data["owner_phone"],
+
+            agent_comment=data["agent_comment"],
         )
 
         # Координаты добавляются после создания,
@@ -3605,6 +3673,161 @@ def me(
                 "Invalid token"
             ),
         )
+
+DEFAULT_SITE_SETTINGS = {
+    "hero_eyebrow": "НЕДВИЖИМОСТЬ • КРАСНОДАР",
+    "hero_title_line1": "Найдём место,",
+    "hero_title_line2": "которое станет",
+    "hero_title_line3": "домом",
+    "hero_description": (
+        "Покупка, продажа и аренда недвижимости в Краснодаре. "
+        "Полное сопровождение сделки и персональный подход к каждому клиенту."
+    ),
+    "hero_image": None,
+    "stat1_value": "500+",
+    "stat1_label": "Объектов",
+    "stat2_value": "150+",
+    "stat2_label": "Сделок",
+    "stat3_value": "98%",
+    "stat3_label": "Довольных клиентов",
+}
+
+
+class SiteSettingsPayload(BaseModel):
+    hero_eyebrow: str
+    hero_title_line1: str
+    hero_title_line2: str
+    hero_title_line3: str
+    hero_description: str
+    hero_image: str | None = None
+    stat1_value: str
+    stat1_label: str
+    stat2_value: str
+    stat2_label: str
+    stat3_value: str
+    stat3_label: str
+
+
+def get_or_create_site_settings(db):
+    settings = (
+        db.query(SiteSettings)
+        .order_by(SiteSettings.id.asc())
+        .first()
+    )
+
+    if not settings:
+        settings = SiteSettings(**DEFAULT_SITE_SETTINGS)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    return settings
+
+
+def site_settings_to_dict(settings):
+    return {
+        "id": settings.id,
+        "hero_eyebrow": settings.hero_eyebrow,
+        "hero_title_line1": settings.hero_title_line1,
+        "hero_title_line2": settings.hero_title_line2,
+        "hero_title_line3": settings.hero_title_line3,
+        "hero_description": settings.hero_description,
+        "hero_image": settings.hero_image,
+        "stat1_value": settings.stat1_value,
+        "stat1_label": settings.stat1_label,
+        "stat2_value": settings.stat2_value,
+        "stat2_label": settings.stat2_label,
+        "stat3_value": settings.stat3_value,
+        "stat3_label": settings.stat3_label,
+    }
+
+
+def require_admin(authorization: str | None):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Необходима авторизация администратора.",
+        )
+
+    scheme, _, token = authorization.partition(" ")
+
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Некорректный Authorization header.",
+        )
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Недействительный токен.",
+        )
+
+    role = payload.get("role")
+
+    if role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Недостаточно прав для изменения настроек сайта.",
+        )
+
+    return payload
+
+
+@app.get("/site-settings")
+def get_site_settings():
+    """Публичные настройки Hero. Нужны главной странице сайта."""
+    db = SessionLocal()
+
+    try:
+        settings = get_or_create_site_settings(db)
+        return site_settings_to_dict(settings)
+    finally:
+        db.close()
+
+
+@app.put("/site-settings")
+def update_site_settings(
+    data: SiteSettingsPayload,
+    authorization: str | None = Header(default=None),
+):
+    """Изменение Hero. Только для администратора."""
+    require_admin(authorization)
+
+    db = SessionLocal()
+
+    try:
+        settings = get_or_create_site_settings(db)
+
+        # Поддержка Pydantic v1 и v2.
+        payload = (
+            data.model_dump()
+            if hasattr(data, "model_dump")
+            else data.dict()
+        )
+
+        for field, value in payload.items():
+            setattr(settings, field, value)
+
+        db.commit()
+        db.refresh(settings)
+
+        return {
+            "status": "success",
+            "settings": site_settings_to_dict(settings),
+        }
+
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 # ============================================================

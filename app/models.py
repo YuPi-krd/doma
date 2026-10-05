@@ -165,6 +165,35 @@ class Property(Base):
         nullable=True,
     )
 
+    # адрес для агента
+    real_address = Column(
+        Text,
+        nullable=True,
+    )
+
+    # адрес для рекламы
+    public_address = Column(
+        Text,
+        nullable=True,
+    )
+
+    # собственник
+    owner_name = Column(
+        String,
+        nullable=True,
+    )
+
+    owner_phone = Column(
+        String,
+        nullable=True,
+    )
+
+    # комментарий агента
+    agent_comment = Column(
+        Text,
+        nullable=True,
+    )
+
 
 # =========================================================
 # Clients
@@ -343,4 +372,85 @@ class User(Base):
     role = Column(
         String,
         default="admin",
+    )
+
+class SiteSettings(Base):
+    __tablename__ = "site_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    hero_eyebrow = Column(
+        String(255),
+        nullable=False,
+        default="НЕДВИЖИМОСТЬ • КРАСНОДАР",
+    )
+
+    hero_title_line1 = Column(
+        String(255),
+        nullable=False,
+        default="Найдём место,",
+    )
+
+    hero_title_line2 = Column(
+        String(255),
+        nullable=False,
+        default="которое станет",
+    )
+
+    hero_title_line3 = Column(
+        String(255),
+        nullable=False,
+        default="домом",
+    )
+
+    hero_description = Column(
+        Text,
+        nullable=False,
+        default=(
+            "Покупка, продажа и аренда недвижимости в Краснодаре. "
+            "Полное сопровождение сделки и персональный подход к каждому клиенту."
+        ),
+    )
+
+    # Храним уже оптимизированное изображение как Data URL.
+    # Это удобно для Render/PostgreSQL: не зависит от локальной файловой системы.
+    hero_image = Column(
+        Text,
+        nullable=True,
+    )
+
+    stat1_value = Column(
+        String(50),
+        nullable=False,
+        default="500+",
+    )
+
+    stat1_label = Column(
+        String(100),
+        nullable=False,
+        default="Объектов",
+    )
+
+    stat2_value = Column(
+        String(50),
+        nullable=False,
+        default="150+",
+    )
+
+    stat2_label = Column(
+        String(100),
+        nullable=False,
+        default="Сделок",
+    )
+
+    stat3_value = Column(
+        String(50),
+        nullable=False,
+        default="98%",
+    )
+
+    stat3_label = Column(
+        String(100),
+        nullable=False,
+        default="Довольных клиентов",
     )
