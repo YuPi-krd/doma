@@ -28,6 +28,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .database import Base, SessionLocal, engine
+from pydantic import BaseModel
 from .models import (
     Client,
     Lead,
