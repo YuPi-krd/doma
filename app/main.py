@@ -1858,6 +1858,55 @@ def delete_property(
     finally:
         db.close()
 
+@app.put("/properties/{property_id}/publish")
+def publish_property(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    property_obj = (
+        db.query(Property)
+        .filter(Property.id == property_id)
+        .first()
+    )
+
+    if not property_obj:
+        raise HTTPException(
+            status_code=404,
+            detail="Property not found"
+        )
+
+    property_obj.is_draft = False
+
+    db.commit()
+    db.refresh(property_obj)
+
+    return {
+        "status": "published",
+        "id": property_obj.id
+    }
+
+@app.delete("/properties/{property_id}")
+def delete_property(
+    property_id: int,
+    db: Session = Depends(get_db)
+):
+    property_obj = (
+        db.query(Property)
+        .filter(Property.id == property_id)
+        .first()
+    )
+
+    if not property_obj:
+        raise HTTPException(
+            status_code=404,
+            detail="Property not found"
+        )
+
+    db.delete(property_obj)
+    db.commit()
+
+    return {"status": "deleted"}
+
 
 # ============================================================
 # YANDEX GEOCODER
