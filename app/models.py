@@ -12,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Boolean,
 )
 
 from .database import Base
@@ -49,6 +50,8 @@ class Property(Base):
         String,
         nullable=False,
     )
+
+    is_draft = Column(Boolean, default=True)
 
     description = Column(
         Text,

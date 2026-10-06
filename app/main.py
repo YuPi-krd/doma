@@ -1524,6 +1524,8 @@ async def create_property(
             owner_phone=data["owner_phone"],
 
             agent_comment=data["agent_comment"],
+
+            is_draft=data.get("is_draft", True),
         )
 
         # Координаты добавляются после создания,

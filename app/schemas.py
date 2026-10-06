@@ -76,6 +76,8 @@ class PropertyCreate(BaseModel):
     title: str
     description: str = ""
 
+    is_draft: bool = True
+
     price: int
     area: float = 0
     rooms: int = 0
