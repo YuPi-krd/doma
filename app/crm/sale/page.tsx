@@ -145,34 +145,63 @@ export default function SalePage() {
     setPropertySubtype(firstSubtype);
   }
 
-  function saveDraft() {
-    const draft = {
-      title,
-      dealType,
-      propertyType,
-      propertySubtype,
-      district,
-      realAddress,
-      publicAddress,
-      price,
-      area,
-      rooms,
-      floor,
-      totalFloors,
-      bathroom,
-      balcony,
-      renovation,
-      buildingMaterial,
-      yearBuilt,
-      status,
-      description,
-      ownerName,
-      ownerPhone,
-      agentComment,
-    };
+  async function saveDraft() {
+  try {
+    const res = await fetch(
+      "https://doma-nq4u.onrender.com/properties",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
 
-    localStorage.setItem("doma-sale-draft", JSON.stringify(draft));
-    alert("Черновик сохранён на этом устройстве.");
+          price: Number(price) || 0,
+          area: Number(area) || 0,
+          rooms: Number(rooms) || 0,
+
+          city: "Краснодар",
+          district,
+
+          address: publicAddress,
+
+          real_address: realAddress,
+          public_address: publicAddress,
+
+          owner_name: ownerName,
+          owner_phone: ownerPhone,
+
+          agent_comment: agentComment,
+
+          property_type: propertyType,
+          property_subtype: propertySubtype,
+          deal_type: dealType,
+
+          status,
+
+          is_draft: true,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error();
+    }
+
+    alert("Черновик сохранён в CRM");
+
+    window.location.href =
+      "/admin/properties";
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      "Ошибка сохранения черновика"
+    );
+  }
+}
   }
 
   async function saveProperty() {
