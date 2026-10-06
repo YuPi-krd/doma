@@ -44,6 +44,75 @@ export default function PropertiesPage() {
       });
   }, []);
 
+  const publishProperty = async (
+  id: number
+) => {
+  try {
+    const res = await fetch(
+      `https://doma-nq4u.onrender.com/properties/${id}/publish`,
+      {
+        method: "PUT",
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(
+        "Ошибка публикации"
+      );
+    }
+
+    setProperties((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              is_draft: false,
+            }
+          : item
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert(
+      "Не удалось опубликовать объект"
+    );
+  }
+};
+
+const deleteProperty = async (
+  id: number
+) => {
+  if (!confirm("Удалить объект?")) {
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `https://doma-nq4u.onrender.com/properties/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(
+        "Ошибка удаления"
+      );
+    }
+
+    setProperties((prev) =>
+      prev.filter(
+        (item) => item.id !== id
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert(
+      "Не удалось удалить объект"
+    );
+  }
+};
+
   const publishedProperties = useMemo(() => {
     return properties.filter(
       (item) =>
@@ -351,6 +420,9 @@ export default function PropertiesPage() {
 
                   {property.is_draft ? (
                     <button
+                      onClick={() =>
+                        publishProperty(property.id)
+                      }
                       style={{
                         flex: 1,
                         background:
@@ -360,12 +432,16 @@ export default function PropertiesPage() {
                         borderRadius: 12,
                         cursor:
                           "pointer",
+                        padding: 12,
                       }}
                     >
                       Опубликовать
                     </button>
                   ) : (
                     <button
+                      onClick={() =>
+                        deleteProperty(property.id)
+                      }
                       style={{
                         flex: 1,
                         background:
@@ -375,6 +451,7 @@ export default function PropertiesPage() {
                         borderRadius: 12,
                         cursor:
                           "pointer",
+                        padding: 12,
                       }}
                     >
                       Удалить
