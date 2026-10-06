@@ -36,6 +36,7 @@ from .models import (
     PropertyImage,
     Sale,
     User,
+    SiteSettings
 )
 from .schemas import (
     ClientUpdate,
