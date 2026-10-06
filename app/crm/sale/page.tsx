@@ -202,7 +202,7 @@ export default function SalePage() {
     );
   }
 }
-  }
+
 
   async function saveProperty() {
     if (!title.trim()) {
@@ -244,7 +244,7 @@ export default function SalePage() {
           public_address: publicAddress,
           owner_name: ownerName,
           owner_phone: ownerPhone,
-          owner_comment: agentComment,
+          agent_comment: agentComment,
           property_type: propertyType,
           property_subtype: propertySubtype,
           deal_type: dealType,
