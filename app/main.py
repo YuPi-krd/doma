@@ -29,6 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .database import Base, SessionLocal, engine
+from .database import get_db
 from pydantic import BaseModel
 from .models import (
     Client,
