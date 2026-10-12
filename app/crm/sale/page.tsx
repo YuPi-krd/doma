@@ -1,5 +1,6 @@
 "use client";
 
+import { YandexAddressPreview } from "@/components/YandexMap";
 import { useEffect, useMemo, useState } from "react";
 
 interface PhotoPreview {
@@ -380,6 +381,7 @@ export default function SalePage() {
                     />
                     <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
                   </div>
+                  <YandexAddressPreview address={realAddress} />
                 </Field>
 
                 <Field label="Рекламный адрес" full>

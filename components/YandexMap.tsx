@@ -487,3 +487,272 @@ export default function YandexMap({
     </div>
   );
 }
+
+type AddressCoordinates = [number, number];
+
+interface YandexAddressPreviewProps {
+  address: string;
+}
+
+/**
+ * Компактная карта фактического адреса для CRM.
+ * Координаты получаем через существующий FastAPI endpoint GET /geocode?address=...
+ */
+export function YandexAddressPreview({
+  address,
+}: YandexAddressPreviewProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const [coordinates, setCoordinates] = useState<AddressCoordinates | null>(null);
+  const [geocodeStatus, setGeocodeStatus] = useState<
+    "idle" | "searching" | "found" | "not-found" | "error"
+  >("idle");
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    const cleanAddress = address.trim();
+    let cancelled = false;
+
+    if (cleanAddress.length < 5) {
+      setCoordinates(null);
+      setGeocodeStatus("idle");
+      return;
+    }
+
+    setGeocodeStatus("searching");
+    setCoordinates(null);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const apiBase =
+          process.env.NEXT_PUBLIC_API_URL ||
+          (["localhost", "127.0.0.1"].includes(window.location.hostname)
+            ? "http://127.0.0.1:8000"
+            : "https://doma-nq4u.onrender.com");
+
+        const response = await fetch(
+          `${apiBase}/geocode?address=${encodeURIComponent(cleanAddress)}`,
+        );
+
+        if (!response.ok) {
+          throw new Error("Не удалось определить координаты адреса.");
+        }
+
+        const result = await response.json();
+
+        if (cancelled) return;
+
+        if (
+          result?.found &&
+          Number.isFinite(Number(result.longitude)) &&
+          Number.isFinite(Number(result.latitude))
+        ) {
+          setCoordinates([Number(result.longitude), Number(result.latitude)]);
+          setGeocodeStatus("found");
+        } else {
+          setCoordinates(null);
+          setGeocodeStatus("not-found");
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Yandex address geocoding error:", error);
+        setCoordinates(null);
+        setGeocodeStatus("error");
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [address]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let map: any = null;
+
+    if (!coordinates || !containerRef.current) {
+      setMapStatus("loading");
+      return;
+    }
+
+    async function initPreviewMap() {
+      try {
+        setMapStatus("loading");
+        const ymaps = await loadYandexMaps();
+
+        if (cancelled || !containerRef.current) return;
+
+        const {
+          YMap,
+          YMapDefaultSchemeLayer,
+          YMapDefaultFeaturesLayer,
+          YMapMarker,
+        } = ymaps;
+
+        map = new YMap(containerRef.current, {
+          location: {
+            center: coordinates,
+            zoom: 16,
+          },
+          mode: "vector",
+        });
+
+        map.addChild(new YMapDefaultSchemeLayer({}));
+        map.addChild(new YMapDefaultFeaturesLayer({}));
+
+        const markerContent = document.createElement("div");
+        markerContent.className = "doma-address-marker";
+        markerContent.setAttribute("aria-label", "Местоположение объекта");
+
+        map.addChild(new YMapMarker({ coordinates }, markerContent));
+        mapRef.current = map;
+
+        if (!cancelled) setMapStatus("ready");
+      } catch (error) {
+        console.error("Yandex address preview map error:", error);
+        if (!cancelled) setMapStatus("error");
+      }
+    }
+
+    void initPreviewMap();
+
+    return () => {
+      cancelled = true;
+      if (map) {
+        try {
+          map.destroy();
+        } catch {
+          // Карта могла быть уничтожена API при размонтировании.
+        }
+      }
+      if (mapRef.current === map) mapRef.current = null;
+    };
+  }, [coordinates]);
+
+  if (!address.trim()) return null;
+
+  return (
+    <div className="doma-address-preview">
+      {geocodeStatus === "searching" && (
+        <div className="doma-address-preview__message">
+          Определяем местоположение по адресу…
+        </div>
+      )}
+
+      {geocodeStatus === "not-found" && (
+        <div className="doma-address-preview__message">
+          Адрес не найден. Уточните улицу и номер дома.
+        </div>
+      )}
+
+      {geocodeStatus === "error" && (
+        <div className="doma-address-preview__message doma-address-preview__message--error">
+          Не удалось определить адрес. Проверьте подключение к Геокодеру Яндекса.
+        </div>
+      )}
+
+      {coordinates && (
+        <div className="doma-address-preview__map-shell">
+          <div ref={containerRef} className="doma-address-preview__map" />
+          {mapStatus === "loading" && (
+            <div className="doma-address-preview__map-overlay">
+              Загружаем карту…
+            </div>
+          )}
+          {mapStatus === "error" && (
+            <div className="doma-address-preview__map-overlay doma-address-preview__map-overlay--error">
+              Не удалось загрузить карту. Проверьте API-ключ Яндекс.Карт.
+            </div>
+          )}
+          <div className="doma-address-preview__caption">
+            <span className="doma-address-preview__pin" />
+            Местоположение по реальному адресу
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        .doma-address-preview {
+          width: 100%;
+          margin-top: 10px;
+        }
+        .doma-address-preview__message {
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          background: #f8fafc;
+          color: #64748b;
+          padding: 10px 12px;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+        .doma-address-preview__message--error {
+          border-color: #fecaca;
+          background: #fff7f7;
+          color: #b91c1c;
+        }
+        .doma-address-preview__map-shell {
+          position: relative;
+          height: 220px;
+          width: 100%;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          background: #eef2f6;
+        }
+        .doma-address-preview__map {
+          height: 100%;
+          width: 100%;
+        }
+        .doma-address-preview__map-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          background: rgba(248, 250, 252, 0.88);
+          color: #64748b;
+          font-size: 12px;
+          text-align: center;
+        }
+        .doma-address-preview__map-overlay--error {
+          color: #b91c1c;
+        }
+        .doma-address-preview__caption {
+          position: absolute;
+          left: 10px;
+          bottom: 10px;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          border-radius: 9px;
+          background: rgba(255, 255, 255, 0.96);
+          padding: 7px 10px;
+          box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+          color: #334155;
+          font-size: 11px;
+          font-weight: 600;
+        }
+        .doma-address-preview__pin {
+          width: 8px;
+          height: 8px;
+          flex: 0 0 8px;
+          border-radius: 50%;
+          background: #ef4444;
+          box-shadow: 0 0 0 3px #fee2e2;
+        }
+        .doma-address-marker {
+          position: relative;
+          width: 18px;
+          height: 18px;
+          border: 3px solid white;
+          border-radius: 50% 50% 50% 0;
+          background: #ef4444;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+          transform: translate(-50%, -50%) rotate(-45deg);
+        }
+      `}</style>
+    </div>
+  );
+}
