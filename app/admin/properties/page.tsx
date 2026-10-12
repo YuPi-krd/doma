@@ -422,7 +422,7 @@ const deleteProperty = async (
                   }}
                 >
                   <Link
-                    href={`/admin/property/${property.id}`}
+                    href={`/admin/properties/${property.id}`}
                     style={{
                       flex: 1,
                       textAlign:
