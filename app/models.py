@@ -457,3 +457,7 @@ class SiteSettings(Base):
         nullable=False,
         default="Довольных клиентов",
     )
+    # Настраиваемые карточки мегаменю и сотрудники страницы контактов.
+    menu_services = Column(Text, nullable=True)
+    menu_about = Column(Text, nullable=True)
+    team_members = Column(Text, nullable=True)
