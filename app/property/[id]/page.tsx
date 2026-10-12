@@ -593,446 +593,109 @@ export default function PropertyPage() {
       <style jsx>{`
         .page {
           min-height: 100vh;
-          padding: 22px 20px 70px;
-          background: #f5f6f8;
+          padding: 28px 24px 84px;
+          background: #f7f7f5;
+          color: #20252b;
         }
-
-        .container {
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-
-        /* ======================================================
-           BREADCRUMBS
-        ====================================================== */
-
+        .container { max-width: 1320px; margin: 0 auto; }
         .breadcrumbs {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 7px;
-          margin-bottom: 16px;
-          color: #9aa2ad;
-          font-size: 13px;
+          display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+          margin-bottom: 18px; color: #a0a4aa; font-size: 13px;
         }
-
-        .breadcrumbs a {
-          color: #566170;
-          text-decoration: none;
-        }
-
-        /* ======================================================
-           CONTENT
-        ====================================================== */
-
+        .breadcrumbs a { color: #606872; text-decoration: none; transition: color .2s ease; }
+        .breadcrumbs a:hover { color: #d94343; }
         .content-grid {
-          display: grid;
-          grid-template-columns:
-            minmax(0, 1fr)
-            360px;
-          gap: 28px;
-          margin-top: 28px;
+          display: grid; grid-template-columns: minmax(0, 1fr) 350px;
+          gap: 30px; margin-top: 30px; align-items: start;
         }
-
-        .title-section {
-          margin-bottom: 22px;
+        .title-section { margin-bottom: 25px; }
+        .labels { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .deal-label, .type-label, .subtype-label {
+          display: inline-flex; align-items: center; padding: 7px 11px;
+          border-radius: 8px; font-size: 11px; font-weight: 750; letter-spacing: .035em;
+          text-transform: uppercase;
         }
-
-        .labels {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-          margin-bottom: 10px;
-        }
-
-        .deal-label,
-        .type-label,
-        .subtype-label {
-          display: inline-flex;
-          align-items: center;
-          padding:
-            6px
-            10px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .deal-label {
-          background: #ef4444;
-          color: #ffffff;
-        }
-
-        .type-label {
-          background: #e8ebef;
-          color: #4f5966;
-        }
-
-        .subtype-label {
-          background: #252c34;
-          color: #ffffff;
-        }
-
+        .deal-label { background: #d94343; color: #fff; }
+        .type-label { background: #eceeeb; color: #4d555e; }
+        .subtype-label { background: #292f35; color: #fff; }
         h1 {
-          margin: 0;
-          color: #171d24;
-          font-size: clamp(
-            34px,
-            4vw,
-            52px
-          );
-          line-height: 1.08;
-          letter-spacing: -1.5px;
+          margin: 0; color: #1d2227; font-size: clamp(32px, 3.8vw, 48px);
+          line-height: 1.08; letter-spacing: -1.5px; font-weight: 760;
+          overflow-wrap: anywhere;
         }
-
-        .address {
-          margin:
-            12px
-            0
-            0;
-          color: #697483;
-          font-size: 16px;
-          line-height: 1.5;
-        }
-
-        /* ======================================================
-           PRICE
-        ====================================================== */
-
-        .mobile-price-box {
-          display: none;
-        }
-
-        /* ======================================================
-           SECTION
-        ====================================================== */
-
-        .section {
-          margin-top: 24px;
-        }
-
-        .section h2 {
-          margin:
-            0
-            0
-            14px;
-          color: #222a33;
-          font-size: 23px;
-        }
-
+        .address { margin: 13px 0 0; color: #727981; font-size: 15px; line-height: 1.65; }
+        .mobile-price-box { display: none; }
+        .section { margin-top: 27px; }
+        .section h2 { margin: 0 0 16px; color: #242a30; font-size: 22px; letter-spacing: -.45px; }
         .white-section {
-          padding: 26px;
-          border-radius: 22px;
-          background: #ffffff;
-          box-shadow:
-            0 5px 20px
-              rgba(
-                15,
-                23,
-                42,
-                0.04
-              );
+          padding: 27px; border: 1px solid #eeefec; border-radius: 20px;
+          background: #fff; box-shadow: 0 8px 28px rgba(30, 35, 40, .035);
         }
-
-        /* ======================================================
-           CHARACTERISTICS
-        ====================================================== */
-
-        .characteristics {
-          display: grid;
-          grid-template-columns:
-            repeat(
-              3,
-              minmax(
-                0,
-                1fr
-              )
-            );
-          gap: 12px;
-        }
-
+        .characteristics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
         .characteristic {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 82px;
-          padding: 16px;
-          border:
-            1px solid
-            #e7eaf0;
-          border-radius: 16px;
-          background: #ffffff;
+          display: flex; align-items: center; gap: 12px; min-height: 84px;
+          padding: 15px; border: 1px solid #e9ebe8; border-radius: 14px; background: #fff;
+          transition: border-color .2s ease, transform .2s ease;
         }
-
-        .characteristic
-          > span {
-          font-size: 22px;
+        .characteristic:hover { border-color: #e2b4b4; transform: translateY(-2px); }
+        .characteristic > span {
+          display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px;
+          border-radius: 12px; background: #fff1f0; font-size: 19px;
         }
-
-        .characteristic
-          small {
-          display: block;
-          margin-bottom: 4px;
-          color: #919aa6;
-          font-size: 11px;
-        }
-
-        .characteristic
-          strong {
-          display: block;
-          color: #29313b;
-          font-size: 15px;
-        }
-
-        /* ======================================================
-           DESCRIPTION
-        ====================================================== */
-
-        .description {
-          margin: 0;
-          color: #566170;
-          font-size: 15px;
-          line-height: 1.8;
-          white-space: pre-line;
-        }
-
-        /* ======================================================
-           LOCATION
-        ====================================================== */
-
-        .location-box {
-          display: flex;
-          align-items: flex-start;
-          gap: 15px;
-          padding: 16px;
-          border-radius: 16px;
-          background: #f7f8fa;
-        }
-
-        .location-icon {
-          width: 42px;
-          height: 42px;
-          display: grid;
-          place-items: center;
-          flex: 0 0 42px;
-          border-radius: 50%;
-          background: #ef4444;
-          color: #ffffff;
-        }
-
-        .location-box strong {
-          color: #252d36;
-          font-size: 16px;
-        }
-
-        .location-box p {
-          margin:
-            4px
-            0
-            0;
-          color: #697483;
-          font-size: 14px;
-        }
-
-        /* ======================================================
-           SIDE
-        ====================================================== */
-
-        aside {
-          min-width: 0;
-        }
-
+        .characteristic small { display: block; margin-bottom: 5px; color: #92989e; font-size: 11px; }
+        .characteristic strong { display: block; color: #2a3036; font-size: 15px; overflow-wrap: anywhere; }
+        .description { margin: 0; color: #626a72; font-size: 15px; line-height: 1.85; white-space: pre-line; }
+        .location-box { display: flex; align-items: flex-start; gap: 15px; padding: 18px; border: 1px solid #eff0ed; border-radius: 15px; background: #fafaf8; }
+        .location-icon { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 44px; border-radius: 13px; background: #d94343; color: #fff; }
+        .location-box strong { color: #252b31; font-size: 16px; }
+        .location-box p { margin: 5px 0 0; color: #727981; font-size: 14px; line-height: 1.55; }
+        aside { min-width: 0; }
         .side-card {
-          position: sticky;
-          top: 25px;
-          padding: 28px;
-          border-radius: 24px;
-          background: #ffffff;
-          box-shadow:
-            0 10px 35px
-              rgba(
-                17,
-                24,
-                39,
-                0.07
-              );
+          position: sticky; top: 24px; padding: 28px; border: 1px solid #eceeeb;
+          border-radius: 22px; background: #fff; box-shadow: 0 12px 36px rgba(28, 32, 36, .07);
         }
-
-        .side-price {
-          color: #171d24;
-          font-size: 38px;
-          line-height: 1.1;
-          font-weight: 750;
-        }
-
-        .side-meter {
-          margin-top: 6px;
-          color: #7c8693;
-          font-size: 13px;
-        }
-
-        .side-status {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 18px;
-          color: #596473;
-          font-size: 13px;
-        }
-
-        .status-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          background: #f59e0b;
-        }
-
-        .status-dot.green {
-          background: #22c55e;
-        }
-
-        .lead-wrapper {
-          margin-top: 22px;
-        }
-
-        .consultation {
-          margin-top: 24px;
-          padding-top: 22px;
-          border-top:
-            1px solid
-            #eceff3;
-        }
-
-        .consultation-title {
-          color: #29323c;
-          font-size: 14px;
-          font-weight: 700;
-        }
-
-        .consultation p {
-          margin:
-            9px
-            0
-            0;
-          color: #737e8c;
-          font-size: 13px;
-          line-height: 1.7;
-        }
-
-        .property-id {
-          margin-top: 20px;
-          color: #a0a7b1;
-          font-size: 11px;
-        }
-
-        /* ======================================================
-           STATES
-        ====================================================== */
-
-        .state-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 30px;
-          background: #f5f6f8;
-        }
-
-        .state-box {
-          color: #697483;
-          font-size: 17px;
-        }
-
-        /* ======================================================
-           RESPONSIVE
-        ====================================================== */
-
+        .side-price { color: #1e2429; font-size: 36px; line-height: 1.12; font-weight: 780; letter-spacing: -1px; overflow-wrap: anywhere; }
+        .side-meter { margin-top: 7px; color: #858b92; font-size: 13px; }
+        .side-status { display: flex; align-items: center; gap: 9px; margin-top: 19px; color: #5e666e; font-size: 13px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #e9a23b; box-shadow: 0 0 0 4px #fff5e6; }
+        .status-dot.green { background: #25a56a; box-shadow: 0 0 0 4px #e7f8ef; }
+        .lead-wrapper { margin-top: 23px; }
+        .consultation { margin-top: 25px; padding-top: 22px; border-top: 1px solid #eff0ed; }
+        .consultation-title { color: #2a3036; font-size: 14px; font-weight: 750; }
+        .consultation p { margin: 9px 0 0; color: #777f87; font-size: 13px; line-height: 1.7; }
+        .property-id { margin-top: 21px; color: #a2a7ad; font-size: 11px; }
+        .state-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 30px; background: #f7f7f5; }
+        .state-box { color: #697483; font-size: 16px; }
         @media (max-width: 1000px) {
-          .content-grid {
-            grid-template-columns: 1fr;
-          }
-
-          aside {
-            order: -1;
-          }
-
-          .side-card {
-            position: static;
-          }
-
-          .mobile-price-box {
-            display: block;
-            margin:
-              0
-              0
-              20px;
-          }
-
-          .mobile-price {
-            color: #171d24;
-            font-size: 34px;
-            font-weight: 750;
-          }
-
-          .mobile-meter {
-            margin-top: 5px;
-            color: #7c8693;
-            font-size: 13px;
-          }
+          .content-grid { grid-template-columns: 1fr; gap: 18px; }
+          aside { order: -1; }
+          .side-card { position: static; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 20px; align-items: center; }
+          .side-price, .side-meter, .side-status { grid-column: 1; }
+          .lead-wrapper { grid-column: 2; grid-row: 1 / span 3; min-width: 190px; margin-top: 0; }
+          .consultation, .property-id { grid-column: 1 / -1; }
+          .mobile-price-box { display: none; }
         }
-
         @media (max-width: 700px) {
-          .page {
-            padding:
-              12px
-              12px
-              50px;
-          }
-
-          .content-grid {
-            gap: 15px;
-            margin-top: 20px;
-          }
-
-          .characteristics {
-            grid-template-columns:
-              1fr
-              1fr;
-          }
-
-          .white-section {
-            padding: 20px;
-          }
-
-          h1 {
-            font-size: 34px;
-          }
-
-          .side-card {
-            padding: 22px;
-          }
+          .page { padding: 14px 13px 52px; }
+          .content-grid { gap: 14px; margin-top: 20px; }
+          .characteristics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .white-section { padding: 20px; border-radius: 17px; }
+          h1 { font-size: 34px; letter-spacing: -1px; }
+          .side-card { display: block; padding: 22px; }
+          .side-price { font-size: 32px; }
+          .lead-wrapper { margin-top: 20px; }
+          .consultation { margin-top: 20px; padding-top: 18px; }
         }
-
         @media (max-width: 480px) {
-          .characteristics {
-            grid-template-columns: 1fr;
-          }
-
-          .breadcrumbs {
-            font-size: 11px;
-          }
-
-          h1 {
-            font-size: 30px;
-          }
-
-          .address {
-            font-size: 14px;
-          }
-
-          .side-price {
-            font-size: 32px;
-          }
+          .characteristics { grid-template-columns: 1fr 1fr; gap: 8px; }
+          .characteristic { min-height: 75px; gap: 9px; padding: 10px; }
+          .characteristic > span { width: 34px; height: 34px; flex-basis: 34px; font-size: 17px; }
+          .characteristic strong { font-size: 13px; }
+          .breadcrumbs { font-size: 11px; }
+          h1 { font-size: 29px; }
+          .address { font-size: 13px; }
+          .section h2 { font-size: 20px; }
+          .side-price { font-size: 29px; }
         }
       `}</style>
     </main>
