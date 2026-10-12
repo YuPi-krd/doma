@@ -151,6 +151,27 @@ const deleteProperty = async (
         Объекты недвижимости
       </h1>
 
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -66, marginBottom: 28 }}>
+        <Link
+          href={activeTab === "rent" ? "/crm/rent" : "/crm/sale"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "14px 22px",
+            borderRadius: 12,
+            background: "#16a34a",
+            color: "#fff",
+            fontWeight: 700,
+            textDecoration: "none",
+            boxShadow: "0 6px 18px rgba(22,163,74,.18)",
+          }}
+        >
+          ＋ Добавить объявление
+        </Link>
+      </div>
+
       <div
         style={{
           display: "flex",
@@ -401,7 +422,7 @@ const deleteProperty = async (
                   }}
                 >
                   <Link
-                    href={`/admin/property/${property.id}`}
+                    href={`/crm/property/${property.id}`}
                     style={{
                       flex: 1,
                       textAlign:
@@ -420,9 +441,6 @@ const deleteProperty = async (
 
                   {property.is_draft ? (
                     <button
-                      onClick={() =>
-                        publishProperty(property.id)
-                      }
                       style={{
                         flex: 1,
                         background:
@@ -432,16 +450,12 @@ const deleteProperty = async (
                         borderRadius: 12,
                         cursor:
                           "pointer",
-                        padding: 12,
                       }}
                     >
                       Опубликовать
                     </button>
                   ) : (
                     <button
-                      onClick={() =>
-                        deleteProperty(property.id)
-                      }
                       style={{
                         flex: 1,
                         background:
@@ -451,7 +465,6 @@ const deleteProperty = async (
                         borderRadius: 12,
                         cursor:
                           "pointer",
-                        padding: 12,
                       }}
                     >
                       Удалить

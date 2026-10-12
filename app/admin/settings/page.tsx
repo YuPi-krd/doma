@@ -7,6 +7,9 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://doma-nq4u.onrender.com";
 
+type MenuCard = { title: string; description: string; image: string; href: string };
+type TeamMember = { name: string; position: string; phone: string; email: string; photo: string; visible: boolean };
+
 type SiteSettings = {
   hero_eyebrow: string;
   hero_title_line1: string;
@@ -20,6 +23,9 @@ type SiteSettings = {
   stat2_label: string;
   stat3_value: string;
   stat3_label: string;
+  menu_services: MenuCard[];
+  menu_about: MenuCard[];
+  team_members: TeamMember[];
 };
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -36,6 +42,132 @@ const DEFAULT_SETTINGS: SiteSettings = {
   stat2_label: "Сделок",
   stat3_value: "98%",
   stat3_label: "Довольных клиентов",
+  menu_services: [
+  {
+    "title": "Подбор недвижимости",
+    "description": "Подберём подходящие объекты",
+    "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  },
+  {
+    "title": "Ипотека",
+    "description": "Помощь с ипотекой",
+    "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  },
+  {
+    "title": "Оценка",
+    "description": "Оценим рыночную стоимость",
+    "image": "https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  },
+  {
+    "title": "Продать объект",
+    "description": "Сопровождение продажи",
+    "image": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  },
+  {
+    "title": "Юридические услуги",
+    "description": "Безопасность сделки",
+    "image": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  },
+  {
+    "title": "Дизайн и ремонт недвижимости",
+    "description": "Подготовка пространства",
+    "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=900&q=80",
+    "href": "/services"
+  }
+],
+  menu_about: [
+  {
+    "title": "История компании",
+    "description": "Знакомство с DOMA",
+    "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80",
+    "href": "/about"
+  },
+  {
+    "title": "Специалисты по недвижимости",
+    "description": "Наша команда",
+    "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80",
+    "href": "/about"
+  },
+  {
+    "title": "Блог",
+    "description": "Новости и советы",
+    "image": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80",
+    "href": "/about"
+  },
+  {
+    "title": "Карьера",
+    "description": "Работа в DOMA",
+    "image": "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80",
+    "href": "/about"
+  },
+  {
+    "title": "Региональное партнёрство",
+    "description": "Развиваемся вместе",
+    "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80",
+    "href": "/about"
+  },
+  {
+    "title": "Служба заботы",
+    "description": "Помогаем клиентам",
+    "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80",
+    "href": "/contacts"
+  }
+],
+  team_members: [
+  {
+    "name": "Имя Фамилия",
+    "position": "Руководитель отдела",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  },
+  {
+    "name": "Имя Фамилия",
+    "position": "Менеджер по недвижимости",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  },
+  {
+    "name": "Имя Фамилия",
+    "position": "Специалист по новостройкам",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  },
+  {
+    "name": "Имя Фамилия",
+    "position": "Юрист по сделкам",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  },
+  {
+    "name": "Имя Фамилия",
+    "position": "Ипотечный специалист",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  },
+  {
+    "name": "Имя Фамилия",
+    "position": "Менеджер по работе с клиентами",
+    "phone": "+7 (900) 000-00-00",
+    "email": "info@doma.ru",
+    "photo": "",
+    "visible": true
+  }
+],
 };
 
 async function imageToDataUrl(file: File): Promise<string> {
@@ -138,6 +270,9 @@ export default function SettingsPage() {
           setSettings({
             ...DEFAULT_SETTINGS,
             ...data,
+            menu_services: Array.isArray(data.menu_services) ? data.menu_services : DEFAULT_SETTINGS.menu_services,
+            menu_about: Array.isArray(data.menu_about) ? data.menu_about : DEFAULT_SETTINGS.menu_about,
+            team_members: Array.isArray(data.team_members) ? data.team_members : DEFAULT_SETTINGS.team_members,
           });
         }
       } catch (requestError) {
@@ -199,6 +334,36 @@ export default function SettingsPage() {
           ? imageError.message
           : "Не удалось обработать изображение.",
       );
+    }
+  }
+
+  async function handleTeamPhotoChange(
+    event: ChangeEvent<HTMLInputElement>,
+    index: number,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Можно загружать только изображения.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Исходное изображение слишком большое. Максимум — 8 МБ.");
+      return;
+    }
+    try {
+      setError("");
+      const photo = await imageToDataUrl(file);
+      updateField(
+        "team_members",
+        settings.team_members.map((person, i) =>
+          i === index ? { ...person, photo } : person,
+        ),
+      );
+      setMessage("Фото сотрудника добавлено. Нажмите «Сохранить изменения».");
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : "Не удалось обработать фото сотрудника.");
     }
   }
 
@@ -462,6 +627,80 @@ export default function SettingsPage() {
               <div style={sectionHeaderStyle}>
                 <div>
                   <div style={sectionNumberStyle}>04</div>
+                  <h2 style={sectionTitleStyle}>Мегаменю «Услуги»</h2>
+                </div>
+                <div style={sectionHintStyle}>Карточки всплывающего окна</div>
+              </div>
+              <div style={fieldsGridStyle}>
+                {settings.menu_services.map((item, index) => (
+                  <div key={`service-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
+                    <strong>Карточка {index + 1}</strong>
+                    <InputField label="Название" value={item.title} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, title: value } : x))} />
+                    <InputField label="Описание" value={item.description} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, description: value } : x))} />
+                    <InputField label="URL изображения" value={item.image} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, image: value } : x))} />
+                    <InputField label="Ссылка карточки" value={item.href} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, href: value } : x))} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section style={{ ...cardStyle, gridColumn: "1 / -1" }}>
+              <div style={sectionHeaderStyle}>
+                <div>
+                  <div style={sectionNumberStyle}>05</div>
+                  <h2 style={sectionTitleStyle}>Мегаменю «О компании»</h2>
+                </div>
+                <div style={sectionHintStyle}>Карточки всплывающего окна</div>
+              </div>
+              <div style={fieldsGridStyle}>
+                {settings.menu_about.map((item, index) => (
+                  <div key={`about-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
+                    <strong>Карточка {index + 1}</strong>
+                    <InputField label="Название" value={item.title} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, title: value } : x))} />
+                    <InputField label="Описание" value={item.description} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, description: value } : x))} />
+                    <InputField label="URL изображения" value={item.image} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, image: value } : x))} />
+                    <InputField label="Ссылка карточки" value={item.href} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, href: value } : x))} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section style={{ ...cardStyle, gridColumn: "1 / -1" }}>
+              <div style={sectionHeaderStyle}>
+                <div>
+                  <div style={sectionNumberStyle}>06</div>
+                  <h2 style={sectionTitleStyle}>Команда на странице контактов</h2>
+                </div>
+                <div style={sectionHintStyle}>Шесть редактируемых карточек</div>
+              </div>
+              <div style={fieldsGridStyle}>
+                {settings.team_members.map((person, index) => (
+                  <div key={`person-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
+                    <strong>Сотрудник {index + 1}</strong>
+                    <InputField label="ФИО" value={person.name} onChange={(value) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, name: value } : x))} />
+                    <InputField label="Должность" value={person.position} onChange={(value) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, position: value } : x))} />
+                    <InputField label="Телефон" value={person.phone} onChange={(value) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, phone: value } : x))} />
+                    <InputField label="Email" value={person.email} onChange={(value) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, email: value } : x))} />
+                    <InputField label="Фото (URL или Data URL)" value={person.photo} onChange={(value) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, photo: value } : x))} />
+                    <label style={{ ...uploadZoneStyle, marginTop: 10, padding: 12, display: "block", cursor: "pointer" }}>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleTeamPhotoChange(event, index)} style={{ display: "none" }} />
+                      <div style={{ fontWeight: 700 }}>Загрузить фото с компьютера</div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>JPG, PNG или WEBP · до 8 МБ</div>
+                    </label>
+                    {person.photo && <img src={person.photo} alt={`Фото ${person.name}`} style={{ width: 88, height: 88, objectFit: "cover", borderRadius: 12, marginTop: 10 }} />}
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 14 }}>
+                      <input type="checkbox" checked={person.visible} onChange={(event) => updateField("team_members", settings.team_members.map((x, i) => i === index ? { ...x, visible: event.target.checked } : x))} />
+                      Показывать на сайте
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section style={{ ...cardStyle, gridColumn: "1 / -1" }}>
+              <div style={sectionHeaderStyle}>
+                <div>
+                  <div style={sectionNumberStyle}>07</div>
                   <h2 style={sectionTitleStyle}>Как это работает</h2>
                 </div>
               </div>

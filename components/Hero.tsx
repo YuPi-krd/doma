@@ -87,11 +87,6 @@ const subTypes: Record<
     "Квартиры в новостройке",
     "Квартиры от застройщика",
     "Студии",
-    "1-комнатные",
-    "2-комнатные",
-    "3-комнатные",
-    "4-комнатные",
-    "5-комнатные",
     "Пентхаусы",
   ],
 
@@ -208,12 +203,6 @@ const subtypeSlugMap: Record<
     "new-buildings",
 
   Студии: "studios",
-
-  "1-комнатные": "1-room",
-  "2-комнатные": "2-room",
-  "3-комнатные": "3-room",
-  "4-комнатные": "4-room",
-  "5-комнатные": "5-room",
 
   Пентхаусы: "penthouses",
 
@@ -1006,6 +995,9 @@ function ApplicationForm({
         ] || []
       : [];
 
+  // Комнатность доступна только для квартир.
+  const isApartment = propertyType === "Квартиры";
+
   async function handleSubmit(
     e: FormEvent<HTMLFormElement>
   ) {
@@ -1240,6 +1232,11 @@ function ApplicationForm({
                 ""
               );
 
+              if (value !== "Квартиры") {
+                setRooms("");
+                setOpenRooms(false);
+              }
+
               setOpenType(
                 false
               );
@@ -1294,43 +1291,23 @@ function ApplicationForm({
             }}
           />
 
-          <CustomDropdown
-            label="Количество комнат"
-            value={
-              rooms
-            }
-            options={
-              roomOptions
-            }
-            open={
-              openRooms
-            }
-            onOpen={() => {
-              setOpenRooms(
-                (value) =>
-                  !value
-              );
-
-              setOpenType(
-                false
-              );
-
-              setOpenSubType(
-                false
-              );
-            }}
-            onChange={(
-              value
-            ) => {
-              setRooms(
-                value
-              );
-
-              setOpenRooms(
-                false
-              );
-            }}
-          />
+          {isApartment && (
+            <CustomDropdown
+              label="Количество комнат"
+              value={rooms}
+              options={roomOptions}
+              open={openRooms}
+              onOpen={() => {
+                setOpenRooms((value) => !value);
+                setOpenType(false);
+                setOpenSubType(false);
+              }}
+              onChange={(value) => {
+                setRooms(value);
+                setOpenRooms(false);
+              }}
+            />
+          )}
 
           <input
             className="search-input"
@@ -1628,6 +1605,14 @@ export default function Hero() {
           propertyType
         ]
       : [];
+
+  // Показываем фильтр комнат только для квартир.
+  const isApartment = propertyType === "Квартиры";
+
+  // Отдельные значения для формы ипотеки/оценки.
+  const [requestPropertyType, setRequestPropertyType] =
+    useState<PropertyType | "">("");
+  const [requestRooms, setRequestRooms] = useState("");
 
   let categories:
     Category[] = [];
@@ -1990,8 +1975,9 @@ export default function Hero() {
                 style={{
                   display:
                     "grid",
-                  gridTemplateColumns:
-                    "repeat(4, minmax(0, 1fr))",
+                  gridTemplateColumns: isApartment
+                    ? "repeat(4, minmax(0, 1fr))"
+                    : "repeat(3, minmax(0, 1fr))",
                   gap:
                     "12px",
                 }}
@@ -2043,6 +2029,11 @@ export default function Hero() {
                     setPropertyType(
                       nextType
                     );
+
+                    if (nextType !== "Квартиры") {
+                      setRooms("");
+                      setOpenRooms(false);
+                    }
 
                     /*
                      * При смене
@@ -2119,55 +2110,26 @@ export default function Hero() {
                   }}
                 />
 
-                <CustomDropdown
-                  label="Количество комнат"
-                  value={
-                    rooms
-                  }
-                  options={
-                    roomOptions
-                  }
-                  open={
-                    openRooms
-                  }
-                  onOpen={() => {
-                    setOpenRooms(
-                      (value) =>
-                        !value
-                    );
-
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
-                  }}
-                  onChange={(
-                    value
-                  ) => {
-                    setRooms(
-                      value
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-                  }}
-                />
+                {isApartment && (
+                  <CustomDropdown
+                    label="Количество комнат"
+                    value={rooms}
+                    options={roomOptions}
+                    open={openRooms}
+                    onOpen={() => {
+                      setOpenRooms((value) => !value);
+                      setOpenPropertyType(false);
+                      setOpenSubType(false);
+                      setOpenPrice(false);
+                      setOpenArea(false);
+                      setOpenLocation(false);
+                    }}
+                    onChange={(value) => {
+                      setRooms(value);
+                      setOpenRooms(false);
+                    }}
+                  />
+                )}
 
                 <CustomDropdown
                   label="Цена"
@@ -2627,51 +2589,37 @@ export default function Hero() {
             >
               <select
                 className="search-input"
-                defaultValue=""
+                value={requestPropertyType}
+                onChange={(e) => {
+                  const nextType = e.target.value as PropertyType | "";
+                  setRequestPropertyType(nextType);
+                  if (nextType !== "Квартиры") {
+                    setRequestRooms("");
+                  }
+                }}
               >
-                <option value="">
-                  Тип недвижимости
-                </option>
-
-                {propertyTypes.map(
-                  (item) => (
-                    <option
-                      key={
-                        item
-                      }
-                      value={
-                        item
-                      }
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
+                <option value="">Тип недвижимости</option>
+                {propertyTypes.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
 
-              <select
-                className="search-input"
-                defaultValue=""
-              >
-                <option value="">
-                  Количество комнат
-                </option>
-
-                {roomOptions.map(
-                  (item) => (
-                    <option
-                      key={
-                        item
-                      }
-                      value={
-                        item
-                      }
-                    >
+              {requestPropertyType === "Квартиры" && (
+                <select
+                  className="search-input"
+                  value={requestRooms}
+                  onChange={(e) => setRequestRooms(e.target.value)}
+                >
+                  <option value="">Количество комнат</option>
+                  {roomOptions.map((item) => (
+                    <option key={item} value={item}>
                       {item}
                     </option>
-                  )
-                )}
-              </select>
+                  ))}
+                </select>
+              )}
 
               <input
                 className="search-input"

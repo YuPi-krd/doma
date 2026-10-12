@@ -145,64 +145,35 @@ export default function SalePage() {
     setPropertySubtype(firstSubtype);
   }
 
-  async function saveDraft() {
-  try {
-    const res = await fetch(
-      "https://doma-nq4u.onrender.com/properties",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          description,
+  function saveDraft() {
+    const draft = {
+      title,
+      dealType,
+      propertyType,
+      propertySubtype,
+      district,
+      realAddress,
+      publicAddress,
+      price,
+      area,
+      rooms,
+      floor,
+      totalFloors,
+      bathroom,
+      balcony,
+      renovation,
+      buildingMaterial,
+      yearBuilt,
+      status,
+      description,
+      ownerName,
+      ownerPhone,
+      agentComment,
+    };
 
-          price: Number(price) || 0,
-          area: Number(area) || 0,
-          rooms: Number(rooms) || 0,
-
-          city: "Краснодар",
-          district,
-
-          address: publicAddress,
-
-          real_address: realAddress,
-          public_address: publicAddress,
-
-          owner_name: ownerName,
-          owner_phone: ownerPhone,
-
-          agent_comment: agentComment,
-
-          property_type: propertyType,
-          property_subtype: propertySubtype,
-          deal_type: dealType,
-
-          status,
-
-          is_draft: true,
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error();
-    }
-
-    alert("Черновик сохранён в CRM");
-
-    window.location.href =
-      "/admin/properties";
-  } catch (err) {
-    console.error(err);
-
-    alert(
-      "Ошибка сохранения черновика"
-    );
+    localStorage.setItem("doma-sale-draft", JSON.stringify(draft));
+    alert("Черновик сохранён на этом устройстве.");
   }
-}
-
 
   async function saveProperty() {
     if (!title.trim()) {
@@ -219,7 +190,7 @@ export default function SalePage() {
     setSavedId(null);
 
     try {
-      const res = await fetch("https://doma-nq4u.onrender.com/properties", {
+      const res = await fetch("http://127.0.0.1:8000/properties", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -244,7 +215,7 @@ export default function SalePage() {
           public_address: publicAddress,
           owner_name: ownerName,
           owner_phone: ownerPhone,
-          agent_comment: agentComment,
+          owner_comment: agentComment,
           property_type: propertyType,
           property_subtype: propertySubtype,
           deal_type: dealType,
@@ -345,12 +316,29 @@ export default function SalePage() {
                 </Field>
 
                 <Field label="Район">
-                  <input
+                  <select
                     value={district}
                     onChange={(e) => setDistrict(e.target.value)}
-                    placeholder="Например: Центральный"
                     style={inputStyle}
-                  />
+                  >
+                    <option value="">Выберите район</option>
+                    <option key="Центральный" value="Центральный">Центральный</option>
+                    <option key="Западный" value="Западный">Западный</option>
+                    <option key="Прикубанский" value="Прикубанский">Прикубанский</option>
+                    <option key="Карасунский" value="Карасунский">Карасунский</option>
+                    <option key="Юбилейный" value="Юбилейный">Юбилейный</option>
+                    <option key="Фестивальный" value="Фестивальный">Фестивальный</option>
+                    <option key="Черёмушки" value="Черёмушки">Черёмушки</option>
+                    <option key="Гидростроителей" value="Гидростроителей">Гидростроителей</option>
+                    <option key="Комсомольский" value="Комсомольский">Комсомольский</option>
+                    <option key="Пашковский" value="Пашковский">Пашковский</option>
+                    <option key="Славянский" value="Славянский">Славянский</option>
+                    <option key="Энка" value="Энка">Энка</option>
+                    <option key="40 лет Победы" value="40 лет Победы">40 лет Победы</option>
+                    <option key="РМЗ" value="РМЗ">РМЗ</option>
+                    <option key="Музыкальный микрорайон" value="Музыкальный микрорайон">Музыкальный микрорайон</option>
+                    <option key="Другой район" value="Другой район">Другой район</option>
+                  </select>
                 </Field>
 
                 <Field label="Цена" required>
@@ -507,328 +495,88 @@ export default function SalePage() {
               <SectionHeading
                 number="04"
                 title="Характеристики"
-                description={characteristicsDescription(propertyType)}
+                description="Параметры и состояние объекта"
               />
 
-              <div style={characteristicsNoticeStyle}>
-                <span style={characteristicsNoticeDotStyle} />
-                <span>
-                  Поля меняются автоматически в зависимости от типа недвижимости.
-                </span>
-              </div>
-
               <div style={formGridStyle}>
-                {propertyType === "apartment" && (
-                  <>
-                    <Field label="Комнат">
-                      <input
-                        type="number"
-                        min="0"
-                        value={rooms}
-                        onChange={(e) => setRooms(e.target.value)}
-                        placeholder="0"
-                        style={inputStyle}
-                      />
-                    </Field>
+                <Field label="Комнат">
+                  <input
+                    type="number"
+                    min="0"
+                    value={rooms}
+                    onChange={(e) => setRooms(e.target.value)}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </Field>
 
-                    <Field label="Этаж">
-                      <input
-                        type="number"
-                        min="0"
-                        value={floor}
-                        onChange={(e) => setFloor(e.target.value)}
-                        placeholder="Например: 7"
-                        style={inputStyle}
-                      />
-                    </Field>
+                <Field label="Этаж">
+                  <input
+                    type="number"
+                    min="0"
+                    value={floor}
+                    onChange={(e) => setFloor(e.target.value)}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </Field>
 
-                    <Field label="Этажность дома">
-                      <input
-                        type="number"
-                        min="0"
-                        value={totalFloors}
-                        onChange={(e) => setTotalFloors(e.target.value)}
-                        placeholder="Например: 16"
-                        style={inputStyle}
-                      />
-                    </Field>
+                <Field label="Этажность">
+                  <input
+                    type="number"
+                    min="0"
+                    value={totalFloors}
+                    onChange={(e) => setTotalFloors(e.target.value)}
+                    placeholder="0"
+                    style={inputStyle}
+                  />
+                </Field>
 
-                    <Field label="Год постройки">
-                      <input
-                        type="number"
-                        min="0"
-                        value={yearBuilt}
-                        onChange={(e) => setYearBuilt(e.target.value)}
-                        placeholder="Например: 2018"
-                        style={inputStyle}
-                      />
-                    </Field>
+                <Field label="Год постройки">
+                  <input
+                    type="number"
+                    min="0"
+                    value={yearBuilt}
+                    onChange={(e) => setYearBuilt(e.target.value)}
+                    placeholder="Например: 2018"
+                    style={inputStyle}
+                  />
+                </Field>
 
-                    <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="combined">Совмещённый</option>
-                        <option value="separate">Раздельный</option>
-                      </select>
-                    </Field>
+                <Field label="Санузел">
+                  <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="combined">Совмещённый</option>
+                    <option value="separate">Раздельный</option>
+                  </select>
+                </Field>
 
-                    <Field label="Балкон / лоджия">
-                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="yes">Есть</option>
-                        <option value="no">Нет</option>
-                      </select>
-                    </Field>
+                <Field label="Балкон">
+                  <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="yes">Есть</option>
+                    <option value="no">Нет</option>
+                  </select>
+                </Field>
 
-                    <Field label="Ремонт">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="none">Без ремонта</option>
-                        <option value="cosmetic">Косметический</option>
-                        <option value="euro">Евроремонт</option>
-                        <option value="designer">Дизайнерский</option>
-                      </select>
-                    </Field>
+                <Field label="Ремонт">
+                  <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="none">Без ремонта</option>
+                    <option value="cosmetic">Косметический</option>
+                    <option value="euro">Евроремонт</option>
+                    <option value="designer">Дизайнерский</option>
+                  </select>
+                </Field>
 
-                    <Field label="Материал дома">
-                      <input
-                        value={buildingMaterial}
-                        onChange={(e) => setBuildingMaterial(e.target.value)}
-                        placeholder="Кирпич, монолит..."
-                        style={inputStyle}
-                      />
-                    </Field>
-                  </>
-                )}
-
-                {propertyType === "house" && (
-                  <>
-                    <Field label="Комнат">
-                      <input
-                        type="number"
-                        min="0"
-                        value={rooms}
-                        onChange={(e) => setRooms(e.target.value)}
-                        placeholder="0"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Этажей">
-                      <input
-                        type="number"
-                        min="0"
-                        value={totalFloors}
-                        onChange={(e) => setTotalFloors(e.target.value)}
-                        placeholder="Например: 2"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Год постройки">
-                      <input
-                        type="number"
-                        min="0"
-                        value={yearBuilt}
-                        onChange={(e) => setYearBuilt(e.target.value)}
-                        placeholder="Например: 2020"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="combined">Совмещённый</option>
-                        <option value="separate">Раздельный</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Балкон / терраса">
-                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="yes">Есть</option>
-                        <option value="no">Нет</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Ремонт">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="none">Без ремонта</option>
-                        <option value="cosmetic">Косметический</option>
-                        <option value="euro">Евроремонт</option>
-                        <option value="designer">Дизайнерский</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Материал дома">
-                      <input
-                        value={buildingMaterial}
-                        onChange={(e) => setBuildingMaterial(e.target.value)}
-                        placeholder="Кирпич, газобетон, монолит..."
-                        style={inputStyle}
-                      />
-                    </Field>
-                  </>
-                )}
-
-                {propertyType === "land" && (
-                  <>
-                    <Field label="Площадь участка" full>
-                      <div style={inputWithSuffixStyle}>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={area}
-                          onChange={(e) => setArea(e.target.value)}
-                          placeholder="0"
-                          style={inputBareStyle}
-                        />
-                        <span style={suffixStyle}>м²</span>
-                      </div>
-                    </Field>
-
-                    <Field label="Год образования / освоения">
-                      <input
-                        type="number"
-                        min="0"
-                        value={yearBuilt}
-                        onChange={(e) => setYearBuilt(e.target.value)}
-                        placeholder="Необязательно"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Текущее состояние">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="none">Не освоен</option>
-                        <option value="cosmetic">Частично освоен</option>
-                        <option value="euro">Освоен</option>
-                        <option value="designer">Полностью подготовлен</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Материал построек / основания" full>
-                      <input
-                        value={buildingMaterial}
-                        onChange={(e) => setBuildingMaterial(e.target.value)}
-                        placeholder="Например: кирпичные хозпостройки"
-                        style={inputStyle}
-                      />
-                    </Field>
-                  </>
-                )}
-
-                {propertyType === "commercial" && (
-                  <>
-                    <Field label="Этаж">
-                      <input
-                        type="number"
-                        min="0"
-                        value={floor}
-                        onChange={(e) => setFloor(e.target.value)}
-                        placeholder="0"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Этажность здания">
-                      <input
-                        type="number"
-                        min="0"
-                        value={totalFloors}
-                        onChange={(e) => setTotalFloors(e.target.value)}
-                        placeholder="0"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Год постройки">
-                      <input
-                        type="number"
-                        min="0"
-                        value={yearBuilt}
-                        onChange={(e) => setYearBuilt(e.target.value)}
-                        placeholder="Например: 2015"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="combined">Совмещённый</option>
-                        <option value="separate">Раздельный</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Ремонт / состояние">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="none">Требует ремонта</option>
-                        <option value="cosmetic">Рабочее состояние</option>
-                        <option value="euro">После ремонта</option>
-                        <option value="designer">Премиальная отделка</option>
-                      </select>
-                    </Field>
-
-                    <Field label="Материал здания">
-                      <input
-                        value={buildingMaterial}
-                        onChange={(e) => setBuildingMaterial(e.target.value)}
-                        placeholder="Кирпич, монолит..."
-                        style={inputStyle}
-                      />
-                    </Field>
-                  </>
-                )}
-
-                {propertyType === "garage" && (
-                  <>
-                    <Field label="Этаж">
-                      <input
-                        type="number"
-                        min="0"
-                        value={floor}
-                        onChange={(e) => setFloor(e.target.value)}
-                        placeholder="0"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Год постройки">
-                      <input
-                        type="number"
-                        min="0"
-                        value={yearBuilt}
-                        onChange={(e) => setYearBuilt(e.target.value)}
-                        placeholder="Например: 2022"
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Материал">
-                      <input
-                        value={buildingMaterial}
-                        onChange={(e) => setBuildingMaterial(e.target.value)}
-                        placeholder="Кирпич, бетон, металл..."
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Состояние">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option>
-                        <option value="none">Требует ремонта</option>
-                        <option value="cosmetic">Хорошее</option>
-                        <option value="euro">Отличное</option>
-                      </select>
-                    </Field>
-                  </>
-                )}
+                <Field label="Материал дома">
+                  <input
+                    value={buildingMaterial}
+                    onChange={(e) => setBuildingMaterial(e.target.value)}
+                    placeholder="Кирпич, монолит..."
+                    style={inputStyle}
+                  />
+                </Field>
               </div>
             </section>
 
@@ -944,21 +692,6 @@ export default function SalePage() {
       </div>
     </main>
   );
-}
-
-function characteristicsDescription(propertyType: string) {
-  switch (propertyType) {
-    case "house":
-      return "Параметры дома, участка и состояния объекта";
-    case "land":
-      return "Параметры земельного участка и его состояния";
-    case "commercial":
-      return "Параметры коммерческого помещения или здания";
-    case "garage":
-      return "Параметры гаража, паркинга или машино-места";
-    default:
-      return "Параметры квартиры, дома и инженерных характеристик";
-  }
 }
 
 function SectionHeading({ number, title, description }: { number: string; title: string; description: string }) {
@@ -1121,27 +854,6 @@ const fieldStyle: React.CSSProperties = { display: "grid", gap: 8 };
 const fullFieldStyle: React.CSSProperties = { ...fieldStyle, gridColumn: "1 / -1" };
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 750, color: "#334155" };
 const requiredStyle: React.CSSProperties = { color: "#dc2626" };
-
-const characteristicsNoticeStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  marginBottom: 18,
-  padding: "10px 12px",
-  borderRadius: 10,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  color: "#64748b",
-  fontSize: 12,
-};
-
-const characteristicsNoticeDotStyle: React.CSSProperties = {
-  width: 7,
-  height: 7,
-  borderRadius: "50%",
-  background: "#dc2626",
-  flex: "0 0 auto",
-};
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
