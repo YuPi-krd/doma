@@ -1,6 +1,5 @@
 "use client";
 
-import { YandexAddressPreview } from "@/components/YandexMap";
 import { useEffect, useMemo, useState } from "react";
 
 interface PhotoPreview {
@@ -84,6 +83,25 @@ export default function SalePage() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agentComment, setAgentComment] = useState("");
+  const [roomLayout, setRoomLayout] = useState("");
+  const [livingArea, setLivingArea] = useState("");
+  const [kitchenArea, setKitchenArea] = useState("");
+  const [plotArea, setPlotArea] = useState("");
+  const [plotLength, setPlotLength] = useState("");
+  const [plotWidth, setPlotWidth] = useState("");
+  const [frontage, setFrontage] = useState("");
+  const [landPurpose, setLandPurpose] = useState("");
+  const [heating, setHeating] = useState("");
+  const [gas, setGas] = useState(false);
+  const [water, setWater] = useState(false);
+  const [electricity, setElectricity] = useState(false);
+  const [sewerage, setSewerage] = useState(false);
+  const [fenced, setFenced] = useState("");
+  const [terrace, setTerrace] = useState(false);
+  const [bathhouse, setBathhouse] = useState(false);
+  const [sauna, setSauna] = useState(false);
+  const [pool, setPool] = useState(false);
+  const [garage, setGarage] = useState(false);
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
@@ -170,6 +188,25 @@ export default function SalePage() {
       ownerName,
       ownerPhone,
       agentComment,
+      roomLayout,
+      livingArea,
+      kitchenArea,
+      plotArea,
+      plotLength,
+      plotWidth,
+      frontage,
+      landPurpose,
+      heating,
+      gas,
+      water,
+      electricity,
+      sewerage,
+      fenced,
+      terrace,
+      bathhouse,
+      sauna,
+      pool,
+      garage,
     };
 
     localStorage.setItem("doma-sale-draft", JSON.stringify(draft));
@@ -221,6 +258,25 @@ export default function SalePage() {
           property_subtype: propertySubtype,
           deal_type: dealType,
           status,
+          room_layout: roomLayout,
+          living_area: Number(livingArea) || 0,
+          kitchen_area: Number(kitchenArea) || 0,
+          plot_area: Number(plotArea) || 0,
+          plot_length: Number(plotLength) || 0,
+          plot_width: Number(plotWidth) || 0,
+          frontage: Number(frontage) || 0,
+          land_purpose: landPurpose,
+          heating,
+          gas,
+          water,
+          electricity,
+          sewerage,
+          fenced,
+          terrace,
+          bathhouse,
+          sauna,
+          pool,
+          garage,
         }),
       });
 
@@ -235,7 +291,7 @@ export default function SalePage() {
       alert(`Объект сохранён. ID: ${data.id}`);
     } catch (error) {
       console.error(error);
-      alert("Не удалось подключиться к серверу CRM.");
+      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
     } finally {
       setIsSaving(false);
     }
@@ -381,7 +437,6 @@ export default function SalePage() {
                     />
                     <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
                   </div>
-                  <YandexAddressPreview address={realAddress} />
                 </Field>
 
                 <Field label="Рекламный адрес" full>
@@ -497,91 +552,217 @@ export default function SalePage() {
               <SectionHeading
                 number="04"
                 title="Характеристики"
-                description="Параметры и состояние объекта"
+                description={`Параметры объекта: ${propertyTypeLabels[propertyType] ?? "недвижимость"}`}
               />
 
               <div style={formGridStyle}>
-                <Field label="Комнат">
-                  <input
-                    type="number"
-                    min="0"
-                    value={rooms}
-                    onChange={(e) => setRooms(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "apartment" && (
+                  <>
+                    <Field label="Комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 5" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность дома">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 9" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                    <Field label="Планировка комнат">
+                      <select value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="isolated">Изолированные</option>
+                        <option value="adjacent">Смежные</option>
+                        <option value="kitchen_living">Кухня-гостиная</option>
+                        <option value="free">Свободная планировка</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option>
+                      </select>
+                    </Field>
+                    <Field label="Балкон / лоджия">
+                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
+                      </select>
+                    </Field>
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="none">Без ремонта</option><option value="cosmetic">Косметический</option><option value="euro">Евроремонт</option><option value="designer">Дизайнерский</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал дома">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="panel">Панель</option><option value="block">Блок</option><option value="wood">Дерево</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Этаж">
-                  <input
-                    type="number"
-                    min="0"
-                    value={floor}
-                    onChange={(e) => setFloor(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "house" && (
+                  <>
+                    <Field label="Количество комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 4" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь жилая, м²">
+                      <input type="number" min="0" step="0.1" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} placeholder="Например: 90" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь кухни, м²">
+                      <input type="number" min="0" step="0.1" value={kitchenArea} onChange={(e) => setKitchenArea(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2022" style={inputStyle} />
+                    </Field>
+                    <Field label="Материал дома">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="block">Блок</option><option value="wood">Дерево</option><option value="frame">Каркас</option>
+                      </select>
+                    </Field>
+                    <Field label="Отопление">
+                      <select value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="gas">Газовое</option><option value="electric">Электрическое</option><option value="solid_fuel">Твердотопливное</option><option value="central">Центральное</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option><option value="multiple">Несколько</option>
+                      </select>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                    <Field label="Дополнительно" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Бассейн", pool, setPool],
+                          ["Гараж", garage, setGarage],
+                          ["Терраса", terrace, setTerrace],
+                          ["Баня", bathhouse, setBathhouse],
+                          ["Сауна", sauna, setSauna],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Этажность">
-                  <input
-                    type="number"
-                    min="0"
-                    value={totalFloors}
-                    onChange={(e) => setTotalFloors(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "land" && (
+                  <>
+                    <Field label="Площадь участка, соток">
+                      <input type="number" min="0" step="0.1" value={plotArea} onChange={(e) => setPlotArea(e.target.value)} placeholder="Например: 6" style={inputStyle} />
+                    </Field>
+                    <Field label="Назначение земли">
+                      <select value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
+                        <option value="izhs">ИЖС</option><option value="lph">ЛПХ</option><option value="gardening">Садоводство</option><option value="dnp">ДНП</option><option value="commercial_land">Коммерческое</option>
+                      </select>
+                    </Field>
+                    <Field label="Длина, м">
+                      <input type="number" min="0" step="0.1" value={plotLength} onChange={(e) => setPlotLength(e.target.value)} placeholder="Например: 30" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина, м">
+                      <input type="number" min="0" step="0.1" value={plotWidth} onChange={(e) => setPlotWidth(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина фасада, м">
+                      <input type="number" min="0" step="0.1" value={frontage} onChange={(e) => setFrontage(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ограждение">
+                      <select value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
+                      </select>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Год постройки">
-                  <input
-                    type="number"
-                    min="0"
-                    value={yearBuilt}
-                    onChange={(e) => setYearBuilt(e.target.value)}
-                    placeholder="Например: 2018"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "commercial" && (
+                  <>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 1" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность здания">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 3" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2015" style={inputStyle} />
+                    </Field>
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="none">Без ремонта</option><option value="cosmetic">Косметический</option><option value="euro">Современный</option><option value="designer">Дизайнерский</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал здания">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="panel">Панель</option><option value="block">Блок</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Санузел">
-                  <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="combined">Совмещённый</option>
-                    <option value="separate">Раздельный</option>
-                  </select>
-                </Field>
-
-                <Field label="Балкон">
-                  <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="yes">Есть</option>
-                    <option value="no">Нет</option>
-                  </select>
-                </Field>
-
-                <Field label="Ремонт">
-                  <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="none">Без ремонта</option>
-                    <option value="cosmetic">Косметический</option>
-                    <option value="euro">Евроремонт</option>
-                    <option value="designer">Дизайнерский</option>
-                  </select>
-                </Field>
-
-                <Field label="Материал дома">
-                  <input
-                    value={buildingMaterial}
-                    onChange={(e) => setBuildingMaterial(e.target.value)}
-                    placeholder="Кирпич, монолит..."
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "garage" && (
+                  <>
+                    <Field label="Тип гаража">
+                      <select value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
+                        {currentSubtypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Электричество">
+                      <select value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
+                        <option value="no">Нет / не указано</option><option value="yes">Есть</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="metal">Металл</option><option value="concrete">Бетон</option><option value="block">Блок</option>
+                      </select>
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                  </>
+                )}
               </div>
             </section>
-
             <section style={cardStyle}>
               <SectionHeading
                 number="05"
@@ -1078,6 +1259,27 @@ const statusRadioStyle = (active: boolean): React.CSSProperties => ({
   background: "#ffffff",
   boxSizing: "border-box",
 });
+
+
+const checklistStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px 18px",
+  padding: "12px 14px",
+  border: "1px solid #dbe1e8",
+  borderRadius: 12,
+  background: "#f8fafc",
+};
+
+const checkItemStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  color: "#334155",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+};
 
 const footerStyle: React.CSSProperties = {
   display: "flex",
