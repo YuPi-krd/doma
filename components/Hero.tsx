@@ -2261,8 +2261,8 @@ export default function Hero() {
                     "grid",
                   // Поле города занимает одну колонку, как поле комнатности.
                   // Кнопки рядом равномерно заполняют оставшееся пространство.
-                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                  gap: "16px",
+                  gridTemplateColumns: "minmax(0, 3fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(160px, 1.05fr)",
+                  gap: "12px",
                   marginTop:
                     "12px",
                 }}
@@ -2279,12 +2279,16 @@ export default function Hero() {
                   style={{
                     width: "100%",
                     minWidth: 0,
-                    minHeight: "56px",
-                    border: "none",
+                    minHeight: "44px",
+                    height: "44px",
+                    border: "1px solid #eef0f4",
+                    background: "#f1f3f7",
+                    color: "#64748b",
                     outline: "none",
                     borderRadius: "999px",
-                    padding: "0 20px",
+                    padding: "0 16px",
                     boxSizing: "border-box",
+                    fontSize: "13px",
                   }}
                 />
 
@@ -2297,25 +2301,76 @@ export default function Hero() {
                         !value
                     )
                   }
+                  style={{
+                    minHeight: "44px",
+                    width: "100%",
+                    minWidth: 0,
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "0 14px",
+                    border: "1px solid #d9dee8",
+                    borderRadius: "999px",
+                    background: "#ffffff",
+                    color: "#111827",
+                    fontSize: "14px",
+                    fontWeight: 650,
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    transition: "background .18s ease, border-color .18s ease, transform .18s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#f8f9fb";
+                    e.currentTarget.style.borderColor = "#c6ccd8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#ffffff";
+                    e.currentTarget.style.borderColor = "#d9dee8";
+                  }}
                 >
-                  ☷ Все фильтры
+                  <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h7M15 7h5M4 17h3M11 17h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+                  <span>Все фильтры</span>
                 </button>
 
                 <Link
                   href="/map"
                   className="btn"
                   style={{
-                    textDecoration:
-                      "none",
-                    display:
-                      "flex",
-                    alignItems:
-                      "center",
-                    justifyContent:
-                      "center",
+                    minHeight: "44px",
+                    width: "100%",
+                    minWidth: 0,
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "0 14px",
+                    border: "1px solid #d9dee8",
+                    borderRadius: "999px",
+                    background: "#ffffff",
+                    color: "#111827",
+                    fontSize: "14px",
+                    fontWeight: 650,
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    transition: "background .18s ease, border-color .18s ease, transform .18s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#f8f9fb";
+                    e.currentTarget.style.borderColor = "#c6ccd8";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#ffffff";
+                    e.currentTarget.style.borderColor = "#d9dee8";
                   }}
                 >
-                  ◉ На карте
+                  <span aria-hidden="true" style={{ width: "28px", height: "28px", minWidth: "28px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#ef3340", color: "#ffffff", fontSize: "15px", lineHeight: 1 }}>⌖</span>
+                  <span>На карте</span>
                 </Link>
 
                 <button
@@ -2333,7 +2388,7 @@ export default function Hero() {
                     e.currentTarget.style.filter = "none";
                   }}
                   style={{
-                    minHeight: "56px",
+                    minHeight: "44px",
                     width: "100%",
                     minWidth: 0,
                     boxSizing: "border-box",
@@ -2341,7 +2396,7 @@ export default function Hero() {
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "10px",
-                    padding: "0 22px",
+                    padding: "0 14px",
                     border: "1px solid #f23843",
                     borderRadius: "999px",
                     background: "linear-gradient(135deg, #ff4b55 0%, #ed2635 100%)",
