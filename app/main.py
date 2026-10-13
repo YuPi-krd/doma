@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
 from passlib.context import CryptContext
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -163,21 +163,6 @@ DEFAULT_IMAGE = "/images/test-flat.jpg"
 # ============================================================
 
 Base.metadata.create_all(bind=engine)
-
-# Мягкая миграция для существующей PostgreSQL/SQLite базы.
-def ensure_site_content_columns() -> None:
-    try:
-        existing = {item["name"] for item in inspect(engine).get_columns("site_settings")}
-        with engine.begin() as connection:
-            for column in ("menu_services", "menu_about", "team_members"):
-                if column not in existing:
-                    connection.execute(text(
-                        f"ALTER TABLE site_settings ADD COLUMN {column} TEXT"
-                    ))
-    except Exception as exc:
-        print("Не удалось проверить поля контента сайта:", exc)
-
-ensure_site_content_columns()
 
 app = FastAPI(
     title="DOMA API",
@@ -1773,107 +1758,70 @@ async def update_property(
         db.close()
 
 
-@app.delete(
-    "/properties/{property_id}"
-)
-def delete_property(
-    property_id: int,
-):
-
+@app.delete("/properties/{property_id}")
+def delete_property(property_id: int):
+    """Delete a property and its dependent database records."""
     db = SessionLocal()
+    image_urls: list[str | None] = []
 
     try:
-
         property_obj = (
             db.query(Property)
-            .filter(
-                Property.id
-                == property_id
-            )
+            .filter(Property.id == property_id)
             .first()
         )
 
-        if not property_obj:
-
+        if property_obj is None:
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "Property not found"
-                ),
+                detail="Объект недвижимости не найден.",
             )
 
-        db.query(
-            Lead
-        ).filter(
-            Lead.property_id
-            == property_id
-        ).delete(
-            synchronize_session=False
-        )
+        # Remove dependent rows first to satisfy database foreign keys.
+        db.query(Lead).filter(
+            Lead.property_id == property_id
+        ).delete(synchronize_session=False)
 
-        db.query(
-            Sale
-        ).filter(
-            Sale.property_id
-            == property_id
-        ).delete(
-            synchronize_session=False
-        )
+        db.query(Sale).filter(
+            Sale.property_id == property_id
+        ).delete(synchronize_session=False)
 
         images = (
-            db.query(
-                PropertyImage
-            )
-            .filter(
-                PropertyImage.property_id
-                == property_id
-            )
+            db.query(PropertyImage)
+            .filter(PropertyImage.property_id == property_id)
             .all()
         )
-
+        image_urls = [image.image_url for image in images]
         for image in images:
+            db.delete(image)
 
-            delete_local_file(
-                image.image_url
-            )
-
-            db.delete(
-                image
-            )
-
-        main_image = (
-            property_obj.image_url
-        )
-
-        db.delete(
-            property_obj
-        )
-
+        image_urls.append(property_obj.image_url)
+        db.delete(property_obj)
         db.commit()
 
-        delete_local_file(
-            main_image
-        )
+        # File cleanup is best-effort: a missing file must not make the
+        # frontend believe the database deletion failed after it committed.
+        for image_url in image_urls:
+            try:
+                delete_local_file(image_url)
+            except Exception as cleanup_error:
+                print(
+                    f"Не удалось удалить файл изображения {image_url!r}: "
+                    f"{cleanup_error}"
+                )
 
-        return {
-            "status":
-                "deleted"
-        }
+        return {"status": "deleted", "id": property_id}
 
-    except SQLAlchemyError:
-
+    except SQLAlchemyError as error:
         db.rollback()
-
+        print(f"Ошибка БД при удалении объекта {property_id}: {error}")
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Ошибка базы данных "
-                "при удалении объекта."
-            ),
+            detail="Ошибка базы данных при удалении объекта.",
         )
-
     finally:
         db.close()
+
 
 @app.put("/properties/{property_id}/publish")
 def publish_property(
@@ -1901,29 +1849,6 @@ def publish_property(
         "status": "published",
         "id": property_obj.id
     }
-
-@app.delete("/properties/{property_id}")
-def delete_property(
-    property_id: int,
-    db: Session = Depends(get_db)
-):
-    property_obj = (
-        db.query(Property)
-        .filter(Property.id == property_id)
-        .first()
-    )
-
-    if not property_obj:
-        raise HTTPException(
-            status_code=404,
-            detail="Property not found"
-        )
-
-    db.delete(property_obj)
-    db.commit()
-
-    return {"status": "deleted"}
-
 
 # ============================================================
 # YANDEX GEOCODER
@@ -3760,9 +3685,6 @@ DEFAULT_SITE_SETTINGS = {
     "stat2_label": "Сделок",
     "stat3_value": "98%",
     "stat3_label": "Довольных клиентов",
-    "menu_services": '[{"title": "Подбор недвижимости", "description": "Подберём подходящие объекты", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/services"}, {"title": "Ипотека", "description": "Помощь с ипотекой", "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80", "href": "/services"}, {"title": "Оценка", "description": "Оценим рыночную стоимость", "image": "https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?auto=format&fit=crop&w=900&q=80", "href": "/services"}, {"title": "Продать объект", "description": "Сопровождение продажи", "image": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=900&q=80", "href": "/services"}, {"title": "Юридические услуги", "description": "Безопасность сделки", "image": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=80", "href": "/services"}, {"title": "Дизайн и ремонт недвижимости", "description": "Подготовка пространства", "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=900&q=80", "href": "/services"}]',
-    "menu_about": '[{"title": "История компании", "description": "Знакомство с DOMA", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/about"}, {"title": "Специалисты по недвижимости", "description": "Наша команда", "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80", "href": "/about"}, {"title": "Блог", "description": "Новости и советы", "image": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80", "href": "/about"}, {"title": "Карьера", "description": "Работа в DOMA", "image": "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80", "href": "/about"}, {"title": "Региональное партнёрство", "description": "Развиваемся вместе", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/about"}, {"title": "Служба заботы", "description": "Помогаем клиентам", "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80", "href": "/contacts"}]',
-    "team_members": '[{"name": "Имя Фамилия", "position": "Руководитель отдела", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}, {"name": "Имя Фамилия", "position": "Менеджер по недвижимости", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}, {"name": "Имя Фамилия", "position": "Специалист по новостройкам", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}, {"name": "Имя Фамилия", "position": "Юрист по сделкам", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}, {"name": "Имя Фамилия", "position": "Ипотечный специалист", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}, {"name": "Имя Фамилия", "position": "Менеджер по работе с клиентами", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": true}]',
 }
 
 
@@ -3779,19 +3701,6 @@ class SiteSettingsPayload(BaseModel):
     stat2_label: str
     stat3_value: str
     stat3_label: str
-    menu_services: list[dict[str, Any]] | None = None
-    menu_about: list[dict[str, Any]] | None = None
-    team_members: list[dict[str, Any]] | None = None
-
-
-def _decode_settings_json(value, fallback):
-    if not value:
-        return fallback
-    try:
-        parsed = json.loads(value)
-        return parsed if isinstance(parsed, list) else fallback
-    except (TypeError, ValueError):
-        return fallback
 
 
 def get_or_create_site_settings(db):
@@ -3825,18 +3734,6 @@ def site_settings_to_dict(settings):
         "stat2_label": settings.stat2_label,
         "stat3_value": settings.stat3_value,
         "stat3_label": settings.stat3_label,
-        "menu_services": _decode_settings_json(
-            getattr(settings, "menu_services", None),
-            json.loads(DEFAULT_SITE_SETTINGS["menu_services"]),
-        ),
-        "menu_about": _decode_settings_json(
-            getattr(settings, "menu_about", None),
-            json.loads(DEFAULT_SITE_SETTINGS["menu_about"]),
-        ),
-        "team_members": _decode_settings_json(
-            getattr(settings, "team_members", None),
-            json.loads(DEFAULT_SITE_SETTINGS["team_members"]),
-        ),
     }
 
 
@@ -3911,8 +3808,6 @@ def update_site_settings(
         )
 
         for field, value in payload.items():
-            if field in {"menu_services", "menu_about", "team_members"}:
-                value = json.dumps(value or [], ensure_ascii=False)
             setattr(settings, field, value)
 
         db.commit()
