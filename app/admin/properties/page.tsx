@@ -29,6 +29,8 @@ export default function PropertiesPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
   useEffect(() => {
     fetch(
       "https://doma-nq4u.onrender.com/properties"
@@ -79,37 +81,44 @@ export default function PropertiesPage() {
   }
 };
 
-const deleteProperty = async (
-  id: number
-) => {
-  if (!confirm("Удалить объект?")) {
-    return;
-  }
+const deleteProperty = async (id: number) => {
+  if (deletingId !== null) return;
+  if (!window.confirm(`Удалить объект №${id}? Это действие нельзя отменить.`)) return;
+
+  setDeletingId(id);
 
   try {
-    const res = await fetch(
+    const response = await fetch(
       `https://doma-nq4u.onrender.com/properties/${id}`,
-      {
-        method: "DELETE",
-      }
+      { method: "DELETE" }
     );
 
-    if (!res.ok) {
+    const responseText = await response.text();
+    let payload: { detail?: string; message?: string; status?: string; error?: string } = {};
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        // Backend may return plain-text error details.
+      }
+    }
+
+    if (!response.ok) {
+      const reason = payload.detail || payload.message || payload.error || responseText;
       throw new Error(
-        "Ошибка удаления"
+        reason
+          ? `Сервер не удалил объект (${response.status}): ${reason}`
+          : `Сервер не удалил объект. Код ответа: ${response.status}`
       );
     }
 
-    setProperties((prev) =>
-      prev.filter(
-        (item) => item.id !== id
-      )
-    );
-  } catch (err) {
-    console.error(err);
-    alert(
-      "Не удалось удалить объект"
-    );
+    setProperties((current) => current.filter((item) => item.id !== id));
+  } catch (error) {
+    console.error("DOMA: ошибка удаления объекта", error);
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка";
+    window.alert(`Не удалось удалить объект.\n\n${message}\n\nЕсли ошибка связана с сервером, проверьте логи backend на Render.`);
+  } finally {
+    setDeletingId(null);
   }
 };
 
@@ -150,27 +159,6 @@ const deleteProperty = async (
       >
         Объекты недвижимости
       </h1>
-
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -66, marginBottom: 28 }}>
-        <Link
-          href={activeTab === "rent" ? "/crm/rent" : "/crm/sale"}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "14px 22px",
-            borderRadius: 12,
-            background: "#16a34a",
-            color: "#fff",
-            fontWeight: 700,
-            textDecoration: "none",
-            boxShadow: "0 6px 18px rgba(22,163,74,.18)",
-          }}
-        >
-          ＋ Добавить объявление
-        </Link>
-      </div>
 
       <div
         style={{
@@ -422,7 +410,7 @@ const deleteProperty = async (
                   }}
                 >
                   <Link
-                    href={`/admin/properties/${property.id}`}
+                    href={`/admin/property/${property.id}`}
                     style={{
                       flex: 1,
                       textAlign:
@@ -441,6 +429,9 @@ const deleteProperty = async (
 
                   {property.is_draft ? (
                     <button
+                      onClick={() =>
+                        publishProperty(property.id)
+                      }
                       style={{
                         flex: 1,
                         background:
@@ -450,24 +441,28 @@ const deleteProperty = async (
                         borderRadius: 12,
                         cursor:
                           "pointer",
+                        padding: 12,
                       }}
                     >
                       Опубликовать
                     </button>
                   ) : (
                     <button
+                      type="button"
+                      onClick={() => deleteProperty(property.id)}
+                      disabled={deletingId !== null}
                       style={{
                         flex: 1,
-                        background:
-                          "#dc2626",
+                        background: deletingId === property.id ? "#991b1b" : "#dc2626",
                         color: "#fff",
                         border: "none",
                         borderRadius: 12,
-                        cursor:
-                          "pointer",
+                        cursor: deletingId !== null ? "wait" : "pointer",
+                        opacity: deletingId !== null && deletingId !== property.id ? 0.65 : 1,
+                        padding: 12,
                       }}
                     >
-                      Удалить
+                      {deletingId === property.id ? "Удаление…" : "Удалить"}
                     </button>
                   )}
                 </div>

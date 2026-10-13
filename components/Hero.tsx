@@ -1027,6 +1027,7 @@ function ApplicationForm({
 
   const [areaFrom, setAreaFrom] = useState("");
   const [areaTo, setAreaTo] = useState("");
+  const [price, setPrice] = useState("");
 
   const [
     name,
@@ -1160,6 +1161,10 @@ function ApplicationForm({
             ? `Площадь: ${areaFrom ? `от ${areaFrom} м²` : ""}${areaFrom && areaTo ? " до " : ""}${areaTo ? `${areaTo} м²` : ""}`
             : "",
 
+          price.trim()
+            ? `${applicationType === "Сдать" ? "Арендная плата" : "Цена"}: ${price.trim()} ₽${applicationType === "Сдать" ? " в месяц" : ""}`
+            : "",
+
           cleanComment
             ? `Комментарий: ${cleanComment}`
             : "",
@@ -1270,6 +1275,7 @@ function ApplicationForm({
       setRooms("");
       setAreaFrom("");
       setAreaTo("");
+      setPrice("");
       setAgreement(false);
     } catch (err) {
       console.error(err);
@@ -1287,16 +1293,16 @@ function ApplicationForm({
   return (
     <>
       <form
-        onSubmit={
-          handleSubmit
-        }
+        aria-label={title}
+        onSubmit={handleSubmit}
       >
         <div
+          className="application-form-grid"
           style={{
             display: "grid",
-            gridTemplateColumns:
-              "repeat(2, minmax(0, 1fr))",
-            gap: "12px",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: "10px",
+            alignItems: "center",
           }}
         >
           <CustomDropdown
@@ -1387,6 +1393,17 @@ function ApplicationForm({
             />
           )}
 
+          <input
+            className="search-input application-pill-input"
+            type="number"
+            min="0"
+            inputMode="numeric"
+            placeholder={applicationType === "Сдать" ? "Арендная плата, ₽/мес." : "Цена, ₽"}
+            aria-label={applicationType === "Сдать" ? "Арендная плата в рублях за месяц" : "Цена в рублях"}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+          />
+
           <RangeDropdown
             label="Площадь"
             from={areaFrom}
@@ -1404,7 +1421,7 @@ function ApplicationForm({
           />
 
           <input
-            className="search-input"
+            className="search-input application-pill-input"
             required
             placeholder="Имя"
             value={name}
@@ -1416,7 +1433,7 @@ function ApplicationForm({
           />
 
           <input
-            className="search-input"
+            className="search-input application-pill-input"
             required
             type="tel"
             placeholder="+7 (999) 999-99-99"
@@ -1429,7 +1446,7 @@ function ApplicationForm({
           />
 
           <input
-            className="search-input"
+            className="search-input application-pill-input"
             placeholder="Комментарий"
             value={
               comment
@@ -1443,21 +1460,24 @@ function ApplicationForm({
 
           <button
             type="submit"
-            className="btn btn-red"
-            disabled={
-              loading
-            }
+            className="btn btn-red application-submit"
+            disabled={loading}
             style={{
-              border:
-                "none",
-              opacity:
-                loading
-                  ? 0.7
-                  : 1,
-              cursor:
-                loading
-                  ? "not-allowed"
-                  : "pointer",
+              width: "100%",
+              minWidth: 0,
+              minHeight: "44px",
+              height: "44px",
+              boxSizing: "border-box",
+              border: "none",
+              borderRadius: "999px",
+              padding: "0 16px",
+              background: "linear-gradient(135deg, #ff4b55 0%, #ed2635 100%)",
+              boxShadow: "0 8px 18px rgba(239, 51, 64, .18)",
+              opacity: loading ? 0.72 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+              fontSize: "13px",
+              fontWeight: 700,
             }}
           >
             {loading
@@ -1467,19 +1487,15 @@ function ApplicationForm({
         </div>
 
         <label
+          className="application-consent"
           style={{
             display: "flex",
-            alignItems:
-              "flex-start",
-            gap: "10px",
-            marginTop:
-              "12px",
-            color:
-              "rgba(255,255,255,.9)",
-            fontSize:
-              "12px",
-            lineHeight:
-              1.5,
+            alignItems: "flex-start",
+            gap: "9px",
+            marginTop: "10px",
+            color: "#687487",
+            fontSize: "11px",
+            lineHeight: 1.45,
           }}
         >
           <input
@@ -1554,6 +1570,40 @@ function ApplicationForm({
           </div>
         )}
       </form>
+
+      <style>{`
+        .application-form-grid { width: 100%; }
+        .application-form-grid .application-pill-input {
+          width: 100%;
+          min-width: 0;
+          height: 44px;
+          box-sizing: border-box;
+          border: 1px solid transparent;
+          border-radius: 999px;
+          background: #f1f3f7;
+          color: #202631;
+          padding: 0 16px;
+          outline: none;
+          box-shadow: none;
+          font: inherit;
+          font-size: 13px;
+        }
+        .application-form-grid .application-pill-input::placeholder { color: #8993a2; opacity: 1; }
+        .application-form-grid .application-pill-input:focus {
+          border-color: #d7deea;
+          background: #f7f8fb;
+          box-shadow: 0 0 0 3px rgba(255, 59, 72, .07);
+        }
+        .application-form-grid .application-submit { white-space: nowrap; }
+        .application-consent input { width: 16px; height: 16px; margin: 1px 0 0; accent-color: #ff3b48; flex-shrink: 0; }
+        @media (max-width: 900px) {
+          .application-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 560px) {
+          .application-form-grid { grid-template-columns: minmax(0, 1fr) !important; }
+          .application-form-grid .application-submit { min-height: 46px; }
+        }
+      `}</style>
 
       <SuccessModal
         open={
@@ -1735,6 +1785,7 @@ export default function Hero() {
   const [requestPropertyType, setRequestPropertyType] =
     useState<PropertyType | "">("");
   const [requestRooms, setRequestRooms] = useState("");
+  const [valuationPrice, setValuationPrice] = useState("");
   const [openRequestPropertyType, setOpenRequestPropertyType] = useState(false);
   const [openRequestRooms, setOpenRequestRooms] = useState(false);
 
@@ -2093,8 +2144,7 @@ export default function Hero() {
              КУПИТЬ
           ==================================================== */}
 
-          {activeTab ===
-            "Купить" && (
+          {(activeTab === "Купить" || activeTab === "Снять") && (
             <>
               <div
                 className="search-grid"
@@ -2270,7 +2320,7 @@ export default function Hero() {
 
                 <input
                   type="text"
-                  className="search-input"
+                  className="search-input application-pill-input"
                   value={location}
                   onChange={(event) => setLocation(event.target.value)}
                   placeholder="Город, район, улица или ЖК"
@@ -2281,14 +2331,17 @@ export default function Hero() {
                     minWidth: 0,
                     minHeight: "44px",
                     height: "44px",
-                    border: "1px solid #eef0f4",
+                    border: "1px solid transparent",
                     background: "#f1f3f7",
                     color: "#64748b",
                     outline: "none",
-                    borderRadius: "999px",
-                    padding: "0 16px",
+                    borderRadius: "9999px",
+                    padding: "0 18px",
                     boxSizing: "border-box",
                     fontSize: "13px",
+                    fontFamily: "inherit",
+                    boxShadow: "none",
+                    appearance: "none",
                   }}
                 />
 
@@ -2599,17 +2652,11 @@ export default function Hero() {
                 }}
               >
                 <CategoryBlock
-                  title="Купить недвижимость"
-                  categories={
-                    buyCategories
-                  }
-                  selectedCategory={
-                    selectedCategory
-                  }
-                  setSelectedCategory={
-                    setSelectedCategory
-                  }
-                  dealType="sale"
+                  title={activeTab === "Снять" ? "Снять недвижимость" : "Купить недвижимость"}
+                  categories={activeTab === "Снять" ? rentCategories : buyCategories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  dealType={activeTab === "Снять" ? "rent" : "sale"}
                 />
               </div>
             </>
@@ -2625,51 +2672,6 @@ export default function Hero() {
               applicationType="Продать"
               title="Заявка на продажу недвижимости"
             />
-          )}
-
-          {/* ====================================================
-             СНЯТЬ
-          ==================================================== */}
-
-          {activeTab ===
-            "Снять" && (
-            <>
-              <ApplicationForm
-                applicationType="Снять"
-                title="Заявка на аренду недвижимости"
-              />
-
-              <div
-                style={{
-                  marginTop:
-                    "22px",
-                  background:
-                    "#ffffff",
-                  borderRadius:
-                    "28px",
-                  padding:
-                    "22px",
-                  boxShadow:
-                    "0 20px 50px rgba(0,0,0,.12)",
-                  color:
-                    "#111827",
-                }}
-              >
-                <CategoryBlock
-                  title="Снять недвижимость"
-                  categories={
-                    rentCategories
-                  }
-                  selectedCategory={
-                    selectedCategory
-                  }
-                  setSelectedCategory={
-                    setSelectedCategory
-                  }
-                  dealType="rent"
-                />
-              </div>
-            </>
           )}
 
           {/* ====================================================
@@ -2773,13 +2775,26 @@ export default function Hero() {
                 />
               )}
 
+              {activeTab === "Оценить" && (
+                <input
+                  className="search-input application-pill-input"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="Ориентировочная цена, ₽"
+                  aria-label="Ориентировочная цена в рублях"
+                  value={valuationPrice}
+                  onChange={(e) => setValuationPrice(e.target.value)}
+                />
+              )}
+
               <input
-                className="search-input"
+                className="search-input application-pill-input"
                 placeholder="Имя"
               />
 
               <input
-                className="search-input"
+                className="search-input application-pill-input"
                 placeholder="Телефон"
               />
 
