@@ -1027,17 +1027,6 @@ function ApplicationForm({
 
   const [areaFrom, setAreaFrom] = useState("");
   const [areaTo, setAreaTo] = useState("");
-  const [floorFrom, setFloorFrom] = useState("");
-  const [floorTo, setFloorTo] = useState("");
-  const [filterDistrict, setFilterDistrict] = useState("");
-  const [filterStatus, setFilterStatus] = useState("Любой");
-  const [renovations, setRenovations] = useState<string[]>([]);
-  const [balconies, setBalconies] = useState<string[]>([]);
-  const [roomLayouts, setRoomLayouts] = useState<string[]>([]);
-  const [wallMaterials, setWallMaterials] = useState<string[]>([]);
-  const [bathrooms, setBathrooms] = useState<string[]>([]);
-  const [mortgageOnly, setMortgageOnly] = useState(false);
-  const [exclusiveOnly, setExclusiveOnly] = useState(false);
 
   const [
     name,
@@ -1671,6 +1660,19 @@ export default function Hero() {
   const [priceTo, setPriceTo] = useState("");
   const [areaFrom, setAreaFrom] = useState("");
   const [areaTo, setAreaTo] = useState("");
+  // Состояния расширенных фильтров. Они находятся в Hero,
+  // поскольку используются окном «Все фильтры» и handleSearch.
+  const [floorFrom, setFloorFrom] = useState("");
+  const [floorTo, setFloorTo] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Любой");
+  const [renovations, setRenovations] = useState<string[]>([]);
+  const [balconies, setBalconies] = useState<string[]>([]);
+  const [roomLayouts, setRoomLayouts] = useState<string[]>([]);
+  const [wallMaterials, setWallMaterials] = useState<string[]>([]);
+  const [bathrooms, setBathrooms] = useState<string[]>([]);
+  const [mortgageOnly, setMortgageOnly] = useState(false);
+  const [exclusiveOnly, setExclusiveOnly] = useState(false);
 
   const [
     location,
