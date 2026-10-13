@@ -2278,13 +2278,66 @@ export default function Hero() {
 
                 <button
                   type="button"
-                  className="btn btn-red"
-                  onClick={
-                    handleSearch
-                  }
+                  className="btn btn-red search-submit-button"
+                  onClick={handleSearch}
+                  style={{
+                    minWidth: "184px",
+                    minHeight: "46px",
+                    padding: "0 18px",
+                    border: "none",
+                    borderRadius: "14px",
+                    background: "linear-gradient(135deg, #ff5353 0%, #ed303b 100%)",
+                    color: "#ffffff",
+                    boxShadow: "0 7px 18px rgba(237, 48, 59, 0.24)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "9px",
+                    fontSize: "14px",
+                    fontWeight: 750,
+                    letterSpacing: "-0.2px",
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    transition: "transform 180ms ease, box-shadow 180ms ease, filter 180ms ease",
+                  }}
                 >
-                  Поиск объявлений
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" strokeWidth="2.2" />
+                    <path d="m16 16 4.2 4.2" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                  </svg>
+                  <span>Поиск объявлений</span>
                 </button>
+                <style jsx>{`
+                  .search-submit-button:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 24px rgba(237, 48, 59, 0.32) !important;
+                    filter: brightness(1.03);
+                  }
+
+                  .search-submit-button:active {
+                    transform: translateY(0);
+                    box-shadow: 0 4px 12px rgba(237, 48, 59, 0.22) !important;
+                  }
+
+                  .search-submit-button:focus-visible {
+                    outline: 3px solid rgba(237, 48, 59, 0.28);
+                    outline-offset: 3px;
+                  }
+
+                  @media (max-width: 700px) {
+                    .search-submit-button {
+                      width: 100%;
+                      min-width: 0 !important;
+                    }
+                  }
+                `}</style>
               </div>
 
               <div
