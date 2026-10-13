@@ -1993,9 +1993,7 @@ export default function Hero() {
                 style={{
                   display:
                     "grid",
-                  gridTemplateColumns: isApartment
-                    ? "repeat(4, minmax(0, 1fr))"
-                    : "repeat(3, minmax(0, 1fr))",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                   gap:
                     "12px",
                 }}
@@ -2067,66 +2065,27 @@ export default function Hero() {
                     );
                   }}
                 />
-
-                <CustomDropdown
-                  label={
-                    propertyType
-                      ? "Тип"
-                      : "Выберите недвижимость"
-                  }
-                  value={
-                    subType
-                  }
-                  options={
-                    currentSubTypes
-                  }
-                  open={
-                    openSubType
-                  }
-                  onOpen={() => {
-                    if (
-                      !currentSubTypes.length
-                    ) {
-                      return;
-                    }
-
-                    setOpenSubType(
-                      (value) =>
-                        !value
-                    );
-
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
-                  }}
-                  onChange={(
-                    value
-                  ) => {
-                    setSubType(
-                      value
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-                  }}
-                />
+                {!isApartment && (
+                  <CustomDropdown
+                    label={propertyType ? "Тип" : "Выберите недвижимость"}
+                    value={subType}
+                    options={currentSubTypes}
+                    open={openSubType}
+                    onOpen={() => {
+                      if (!currentSubTypes.length) return;
+                      setOpenSubType((value) => !value);
+                      setOpenPropertyType(false);
+                      setOpenRooms(false);
+                      setOpenPrice(false);
+                      setOpenArea(false);
+                      setOpenLocation(false);
+                    }}
+                    onChange={(value) => {
+                      setSubType(value);
+                      setOpenSubType(false);
+                    }}
+                  />
+                )}
 
                 {isApartment && (
                   <CustomDropdown
@@ -2404,24 +2363,16 @@ export default function Hero() {
                     }
                   />
 
-                  <CustomDropdown
-                    label="Тип"
-                    value={
-                      subType
-                    }
-                    options={
-                      currentSubTypes
-                    }
-                    open={
-                      false
-                    }
-                    onOpen={() =>
-                      undefined
-                    }
-                    onChange={() =>
-                      undefined
-                    }
-                  />
+                  {!isApartment && (
+                    <CustomDropdown
+                      label="Тип"
+                      value={subType}
+                      options={currentSubTypes}
+                      open={false}
+                      onOpen={() => undefined}
+                      onChange={() => undefined}
+                    />
+                  )}
 
                   <CustomDropdown
                     label="Район"
