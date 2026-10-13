@@ -2334,7 +2334,7 @@ export default function Hero() {
                     "grid",
                   // Поле города занимает одну колонку, как поле комнатности.
                   // Кнопки рядом равномерно заполняют оставшееся пространство.
-                  gridTemplateColumns: "minmax(0, 3fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(160px, 1.05fr)",
+                  gridTemplateColumns: "minmax(0, 3.2fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(160px, 1fr)",
                   gap: "12px",
                   marginTop:
                     "12px",
