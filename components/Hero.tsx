@@ -2499,7 +2499,6 @@ export default function Hero() {
                     fontWeight: 700,
                     lineHeight: 1.15,
                     whiteSpace: "nowrap",
-                    minWidth: 0,
                     cursor: "pointer",
                     boxShadow: "0 8px 20px rgba(239, 51, 64, .24)",
                     transition: "transform .18s ease, box-shadow .18s ease, filter .18s ease",
