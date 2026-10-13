@@ -198,25 +198,30 @@ const deleteProperty = async (id: number) => {
       <div
         style={{
           display: "flex",
-          gap: 20,
-          marginBottom: 20,
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 30,
+          flexWrap: "wrap",
         }}
       >
         <button
-          onClick={() =>
-            setActiveTab("sale")
-          }
+          type="button"
+          onClick={() => setActiveTab("sale")}
           style={{
-            background:
-              activeTab === "sale"
-                ? "#dc2626"
-                : "#1e293b",
+            width: 168,
+            height: 56,
+            flex: "0 0 168px",
+            boxSizing: "border-box",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: activeTab === "sale" ? "#dc2626" : "#1e293b",
             color: "#fff",
             border: "none",
-            padding: "20px 40px",
-            borderRadius: 16,
-            fontSize: 20,
+            borderRadius: 999,
+            fontSize: 16,
             fontWeight: 700,
+            whiteSpace: "nowrap",
             cursor: "pointer",
           }}
         >
@@ -224,71 +229,72 @@ const deleteProperty = async (id: number) => {
         </button>
 
         <button
-          onClick={() =>
-            setActiveTab("rent")
-          }
+          type="button"
+          onClick={() => setActiveTab("rent")}
           style={{
-            background:
-              activeTab === "rent"
-                ? "#dc2626"
-                : "#1e293b",
+            width: 168,
+            height: 56,
+            flex: "0 0 168px",
+            boxSizing: "border-box",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: activeTab === "rent" ? "#dc2626" : "#1e293b",
             color: "#fff",
             border: "none",
-            padding: "20px 40px",
-            borderRadius: 16,
-            fontSize: 20,
+            borderRadius: 999,
+            fontSize: 16,
             fontWeight: 700,
+            whiteSpace: "nowrap",
             cursor: "pointer",
           }}
         >
           Аренда
         </button>
-      </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          marginBottom: 30,
-        }}
-      >
         <button
-          onClick={() =>
-            setShowDrafts(false)
-          }
+          type="button"
+          onClick={() => setShowDrafts(false)}
           style={{
-            background: !showDrafts
-              ? "#dc2626"
-              : "#e5e7eb",
-            color: !showDrafts
-              ? "#fff"
-              : "#111827",
+            width: 168,
+            height: 56,
+            flex: "0 0 168px",
+            boxSizing: "border-box",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: !showDrafts ? "#dc2626" : "#e5e7eb",
+            color: !showDrafts ? "#fff" : "#111827",
             border: "none",
-            padding: "12px 24px",
-            borderRadius: 12,
+            borderRadius: 999,
+            fontSize: 16,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
             cursor: "pointer",
-            fontWeight: 600,
           }}
         >
           Объявления
         </button>
 
         <button
-          onClick={() =>
-            setShowDrafts(true)
-          }
+          type="button"
+          onClick={() => setShowDrafts(true)}
           style={{
-            background: showDrafts
-              ? "#f59e0b"
-              : "#e5e7eb",
-            color: showDrafts
-              ? "#fff"
-              : "#111827",
+            width: 168,
+            height: 56,
+            flex: "0 0 168px",
+            boxSizing: "border-box",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: showDrafts ? "#f59e0b" : "#e5e7eb",
+            color: showDrafts ? "#fff" : "#111827",
             border: "none",
-            padding: "12px 24px",
-            borderRadius: 12,
+            borderRadius: 999,
+            fontSize: 16,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
             cursor: "pointer",
-            fontWeight: 600,
           }}
         >
           Черновики
