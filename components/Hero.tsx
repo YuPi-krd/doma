@@ -550,6 +550,8 @@ function CustomDropdown({
         style={{
           width: "100%",
           minHeight: "56px",
+          height: "56px",
+          boxSizing: "border-box",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -811,7 +813,7 @@ function RangeDropdown({ label, from, to, open, onToggle, onFromChange, onToChan
         onClick={onToggle}
         className="search-input"
         style={{
-          width: "100%", minHeight: "56px", display: "flex", alignItems: "center",
+          width: "100%", minHeight: "56px", height: "56px", boxSizing: "border-box", display: "flex", alignItems: "center",
           justifyContent: "space-between", gap: "10px", border: hasValue ? "1px solid #e7e9ef" : "1px solid transparent",
           borderRadius: "999px", background: "#f1f3f7", cursor: "pointer", textAlign: "left",
           padding: hasValue ? "8px 18px" : "0 18px", transition: "background .18s ease, border-color .18s ease",
@@ -1466,8 +1468,8 @@ function ApplicationForm({
             style={{
               width: "100%",
               minWidth: 0,
-              minHeight: "44px",
-              height: "44px",
+              minHeight: "56px",
+              height: "56px",
               boxSizing: "border-box",
               border: "none",
               borderRadius: "999px",
@@ -1577,7 +1579,10 @@ function ApplicationForm({
         .application-form-grid .application-pill-input {
           width: 100%;
           min-width: 0;
-          height: 44px;
+          height: 56px;
+          min-height: 56px;
+          max-height: 56px;
+          display: block;
           box-sizing: border-box;
           border: 1px solid transparent;
           border-radius: 999px;
@@ -1602,7 +1607,7 @@ function ApplicationForm({
         }
         @media (max-width: 560px) {
           .application-form-grid { grid-template-columns: minmax(0, 1fr) !important; }
-          .application-form-grid .application-submit { min-height: 46px; }
+          .application-form-grid .application-submit { min-height: 56px; height: 56px; }
         }
       `}</style>
 
