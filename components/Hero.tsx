@@ -2369,7 +2369,13 @@ export default function Hero() {
                     e.currentTarget.style.borderColor = "#d9dee8";
                   }}
                 >
-                  <span aria-hidden="true" style={{ width: "28px", height: "28px", minWidth: "28px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#ef3340", color: "#ffffff", fontSize: "15px", lineHeight: 1 }}>⌖</span>
+                  <span aria-hidden="true" style={{ width: "28px", height: "28px", minWidth: "28px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "#ef3340", color: "#ffffff", lineHeight: 1 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20V6.5Z" />
+                      <path d="M8.5 4v13.5M15.5 6.5V20" />
+                      <path d="M12 8.5V4.8M12 5h5l-1.4 1.5L17 8h-5" />
+                    </svg>
+                  </span>
                   <span>На карте</span>
                 </Link>
 
