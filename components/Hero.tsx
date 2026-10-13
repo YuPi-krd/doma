@@ -564,12 +564,13 @@ function CustomDropdown({
         }}
       >
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: value ? "2px" : 0, overflow: "hidden" }}>
-          {value && <span style={{ color: "#8992a0", fontSize: "10px", lineHeight: 1.1, fontWeight: 500 }}>{label}</span>}
+          {value && <span style={{ color: "#8992a0", fontSize: "11px", lineHeight: 1.15, fontWeight: 500 }}>{label}</span>}
           <span
             style={{
               color: value ? "#171b22" : "#8992a0",
               fontWeight: value ? 600 : 400,
-              fontSize: value ? "13px" : "14px",
+              fontSize: value ? "15px" : "16px",
+              lineHeight: 1.25,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -582,7 +583,7 @@ function CustomDropdown({
         <span
           style={{
             color: "#9ca3af",
-            fontSize: "15px",
+            fontSize: "18px",
           }}
         >
           {open ? "⌃" : "⌄"}
@@ -817,12 +818,12 @@ function RangeDropdown({ label, from, to, open, onToggle, onFromChange, onToChan
         }}
       >
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: hasValue ? "2px" : 0, overflow: "hidden" }}>
-          {hasValue && <span style={{ color: "#8992a0", fontSize: "10px", lineHeight: 1.1 }}>{label}</span>}
-          <span style={{ color: hasValue ? "#171b22" : "#8992a0", fontSize: hasValue ? "13px" : "14px", fontWeight: hasValue ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {hasValue && <span style={{ color: "#8992a0", fontSize: "11px", lineHeight: 1.15 }}>{label}</span>}
+          <span style={{ color: hasValue ? "#171b22" : "#8992a0", fontSize: hasValue ? "15px" : "16px", lineHeight: 1.25, fontWeight: hasValue ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {summary || label}
           </span>
         </span>
-        <span style={{ color: "#8992a0", fontSize: "14px", flexShrink: 0 }}>{open ? "⌃" : "⌄"}</span>
+        <span style={{ color: "#8992a0", fontSize: "18px", flexShrink: 0 }}>{open ? "⌃" : "⌄"}</span>
       </button>
       {open && (
         <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 1100, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", padding: "8px", borderRadius: "999px", background: "#ffffff", border: "1px solid #edf0f5", boxShadow: "0 12px 28px rgba(15,23,42,.12)" }}>
@@ -2012,6 +2013,23 @@ export default function Hero() {
           : undefined,
       }}
     >
+      <style jsx global>{`
+        .hero .search-input,
+        .hero .application-pill-input {
+          font-size: 15px !important;
+          line-height: 1.25;
+        }
+        .hero .search-tab {
+          font-size: 15px;
+        }
+        @media (max-width: 700px) {
+          .hero .search-input,
+          .hero .application-pill-input {
+            font-size: 14px !important;
+          }
+        }
+      `}</style>
+
       <div className="container hero-content">
 
         <div
@@ -2338,7 +2356,8 @@ export default function Hero() {
                     borderRadius: "9999px",
                     padding: "0 18px",
                     boxSizing: "border-box",
-                    fontSize: "13px",
+                    fontSize: "15px",
+                    lineHeight: 1.25,
                     fontFamily: "inherit",
                     boxShadow: "none",
                     appearance: "none",
