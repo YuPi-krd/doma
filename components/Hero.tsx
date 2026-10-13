@@ -2259,62 +2259,32 @@ export default function Hero() {
                 style={{
                   display:
                     "grid",
-                  gridTemplateColumns:
-                    "minmax(220px, 1.35fr) auto auto auto",
-                  gap:
-                    "12px",
+                  // Поле города занимает одну колонку, как поле комнатности.
+                  // Кнопки рядом равномерно заполняют оставшееся пространство.
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                  gap: "16px",
                   marginTop:
                     "12px",
                 }}
               >
 
-                <CustomDropdown
-                  label="Город, район"
-                  value={
-                    location
-                  }
-                  options={
-                    locationOptions
-                  }
-                  open={
-                    openLocation
-                  }
-                  onOpen={() => {
-                    setOpenLocation(
-                      (value) =>
-                        !value
-                    );
-
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-                  }}
-                  onChange={(
-                    value
-                  ) => {
-                    setLocation(
-                      value
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
+                <input
+                  type="text"
+                  className="search-input"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  placeholder="Город, район, улица или ЖК"
+                  aria-label="Город, район, улица или жилой комплекс"
+                  autoComplete="street-address"
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    minHeight: "56px",
+                    border: "none",
+                    outline: "none",
+                    borderRadius: "999px",
+                    padding: "0 20px",
+                    boxSizing: "border-box",
                   }}
                 />
 
@@ -2365,7 +2335,7 @@ export default function Hero() {
                   style={{
                     minHeight: "56px",
                     width: "100%",
-                    minWidth: "190px",
+                    minWidth: 0,
                     boxSizing: "border-box",
                     display: "inline-flex",
                     alignItems: "center",
