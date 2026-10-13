@@ -2101,7 +2101,7 @@ export default function Hero() {
                 style={{
                   display:
                     "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                   gap:
                     "12px",
                 }}
@@ -2233,21 +2233,7 @@ export default function Hero() {
                   onToChange={setPriceTo}
                   suffix=" ₽"
                 />
-              </div>
 
-              <div
-                className="search-grid"
-                style={{
-                  display:
-                    "grid",
-                  gridTemplateColumns:
-                    "1fr auto auto auto",
-                  gap:
-                    "12px",
-                  marginTop:
-                    "12px",
-                }}
-              >
 
                 <RangeDropdown
                   label="Площадь"
@@ -2265,6 +2251,71 @@ export default function Hero() {
                   onFromChange={setAreaFrom}
                   onToChange={setAreaTo}
                   suffix=" м²"
+                />
+              </div>
+
+              <div
+                className="search-grid"
+                style={{
+                  display:
+                    "grid",
+                  gridTemplateColumns:
+                    "minmax(220px, 1.35fr) auto auto auto",
+                  gap:
+                    "12px",
+                  marginTop:
+                    "12px",
+                }}
+              >
+
+                <CustomDropdown
+                  label="Город, район"
+                  value={
+                    location
+                  }
+                  options={
+                    locationOptions
+                  }
+                  open={
+                    openLocation
+                  }
+                  onOpen={() => {
+                    setOpenLocation(
+                      (value) =>
+                        !value
+                    );
+
+                    setOpenPropertyType(
+                      false
+                    );
+
+                    setOpenSubType(
+                      false
+                    );
+
+                    setOpenRooms(
+                      false
+                    );
+
+                    setOpenPrice(
+                      false
+                    );
+
+                    setOpenArea(
+                      false
+                    );
+                  }}
+                  onChange={(
+                    value
+                  ) => {
+                    setLocation(
+                      value
+                    );
+
+                    setOpenLocation(
+                      false
+                    );
+                  }}
                 />
 
                 <button
@@ -2366,66 +2417,7 @@ export default function Hero() {
                 </button>
               </div>
 
-              <div
-                style={{
-                  marginTop:
-                    "12px",
-                  position:
-                    "relative",
-                  zIndex:
-                    30,
-                }}
-              >
-                <CustomDropdown
-                  label="Город, район"
-                  value={
-                    location
-                  }
-                  options={
-                    locationOptions
-                  }
-                  open={
-                    openLocation
-                  }
-                  onOpen={() => {
-                    setOpenLocation(
-                      (value) =>
-                        !value
-                    );
 
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-                  }}
-                  onChange={(
-                    value
-                  ) => {
-                    setLocation(
-                      value
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
-                  }}
-                />
-              </div>
 
               {showFilters && (
                 <div
@@ -2460,9 +2452,9 @@ export default function Hero() {
                           closeDropdowns();
                         }} style={{
                           minHeight: "40px", border: "none", borderRadius: "999px", cursor: "pointer", fontFamily: "inherit",
-                          background: (activeTab === tab || (activeTab === "Продать" && tab === "Купить")) ? "#ffffff" : "transparent",
+                          background: (String(activeTab) === String(tab) || (String(activeTab) === "Продать" && String(tab) === "Купить")) ? "#ffffff" : "transparent",
                           color: "#4b5563", fontSize: "13px", fontWeight: 600,
-                          boxShadow: (activeTab === tab || (activeTab === "Продать" && tab === "Купить")) ? "0 2px 8px rgba(15,23,42,.08)" : "none",
+                          boxShadow: (String(activeTab) === String(tab) || (String(activeTab) === "Продать" && String(tab) === "Купить")) ? "0 2px 8px rgba(15,23,42,.08)" : "none",
                         }}>{tab}</button>
                       ))}
                     </div>
