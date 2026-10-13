@@ -150,15 +150,49 @@ const deleteProperty = async (id: number) => {
         margin: "0 auto",
       }}
     >
-      <h1
+      <div
         style={{
-          fontSize: 36,
-          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+          flexWrap: "wrap",
           marginBottom: 30,
         }}
       >
-        Объекты недвижимости
-      </h1>
+        <h1
+          style={{
+            fontSize: 36,
+            fontWeight: 700,
+            margin: 0,
+          }}
+        >
+          Объекты недвижимости
+        </h1>
+
+        <Link
+          href="/admin/properties/new"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            minHeight: 48,
+            padding: "0 22px",
+            borderRadius: 12,
+            background: "#16a34a",
+            color: "#fff",
+            fontSize: 15,
+            fontWeight: 700,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+            boxShadow: "0 6px 16px rgba(22, 163, 74, .18)",
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>+</span>
+          Добавить объявление
+        </Link>
+      </div>
 
       <div
         style={{
