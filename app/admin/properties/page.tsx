@@ -170,8 +170,9 @@ const deleteProperty = async (id: number) => {
           Объекты недвижимости
         </h1>
 
+        {/* Открываем CRM-форму создания объекта для выбранного типа сделки. */}
         <Link
-          href="/admin/properties/new"
+          href={activeTab === "rent" ? "/crm/rent" : "/crm/sale"}
           style={{
             display: "inline-flex",
             alignItems: "center",
