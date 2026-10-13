@@ -565,38 +565,37 @@ function CustomDropdown({
         type="button"
         onClick={onOpen}
         className="search-input"
+        aria-expanded={open}
         style={{
           width: "100%",
           minHeight: "56px",
           display: "flex",
           alignItems: "center",
-          justifyContent:
-            "space-between",
+          justifyContent: "space-between",
           gap: "10px",
-          border: "none",
+          border: value ? "1px solid #e7e9ef" : "1px solid transparent",
+          borderRadius: "999px",
+          background: "#f1f3f7",
           cursor: "pointer",
           textAlign: "left",
-          padding:
-            "0 16px",
+          padding: value ? "8px 18px" : "0 18px",
+          transition: "background .18s ease, border-color .18s ease, box-shadow .18s ease",
         }}
       >
-        <span
-          style={{
-            color: value
-              ? "#111827"
-              : "#9ca3af",
-            fontWeight: value
-              ? 600
-              : 400,
-            overflow:
-              "hidden",
-            textOverflow:
-              "ellipsis",
-            whiteSpace:
-              "nowrap",
-          }}
-        >
-          {value || label}
+        <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: value ? "2px" : 0, overflow: "hidden" }}>
+          {value && <span style={{ color: "#8992a0", fontSize: "10px", lineHeight: 1.1, fontWeight: 500 }}>{label}</span>}
+          <span
+            style={{
+              color: value ? "#171b22" : "#8992a0",
+              fontWeight: value ? 600 : 400,
+              fontSize: value ? "13px" : "14px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {value || label}
+          </span>
         </span>
 
         <span
@@ -617,13 +616,11 @@ function CustomDropdown({
               "calc(100% + 8px)",
             left: 0,
             right: 0,
-            background:
-              "#f1f3f7",
-            borderRadius:
-              "18px",
+            background: "#f1f3f7",
+            borderRadius: "22px",
             padding: "8px",
-            boxShadow:
-              "0 15px 35px rgba(0,0,0,.12)",
+            border: "1px solid #edf0f5",
+            boxShadow: "0 15px 35px rgba(0,0,0,.12)",
             zIndex: 1000,
             maxHeight:
               "280px",
