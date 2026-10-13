@@ -1,1001 +1,1446 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import AddressMapPicker from "@/components/AddressMapPicker";
 
-const API_URL = "https://doma-nq4u.onrender.com";
+interface PhotoPreview {
+  id: string;
+  file: File;
+  url: string;
+}
 
-type PropertyType =
-  | "apartment"
-  | "house"
-  | "land"
-  | "commercial"
-  | "garage";
-
-type PropertySubtype =
-  | "secondary"
-  | "new_building"
-  | "studio"
-  | "1_room"
-  | "2_room"
-  | "3_room"
-  | "4_room"
-  | "5_room"
-  | "penthouse"
-  | "house"
-  | "part_of_house"
-  | "townhouse"
-  | "duplex"
-  | "cottage"
-  | "dacha"
-  | "izhs"
-  | "gardening"
-  | "commercial_land"
-  | "lph"
-  | "dnp"
-  | "office"
-  | "business"
-  | "separate_building"
-  | "production"
-  | "warehouse"
-  | "retail"
-  | "garage_box"
-  | "residential_complex"
-  | "covered_parking"
-  | "separate_garage"
-  | "parking";
-
-type DealType = "sale" | "rent" | "lease";
-
-const propertyTypes: {
-  value: PropertyType;
-  label: string;
-}[] = [
-  {
-    value: "apartment",
-    label: "Квартира",
-  },
-  {
-    value: "house",
-    label: "Дом",
-  },
-  {
-    value: "land",
-    label: "Земельный участок",
-  },
-  {
-    value: "commercial",
-    label: "Коммерческая недвижимость",
-  },
-  {
-    value: "garage",
-    label: "Гараж",
-  },
-];
-
-const subtypesByType: Record<
-  PropertyType,
-  {
-    value: PropertySubtype;
-    label: string;
-  }[]
-> = {
+const subtypeOptions: Record<string, { value: string; label: string }[]> = {
   apartment: [
-    {
-      value: "secondary",
-      label: "Вторичное жильё",
-    },
-    {
-      value: "new_building",
-      label: "Новостройка",
-    },
-    {
-      value: "studio",
-      label: "Студия",
-    },
-    {
-      value: "1_room",
-      label: "1-комнатная",
-    },
-    {
-      value: "2_room",
-      label: "2-комнатная",
-    },
-    {
-      value: "3_room",
-      label: "3-комнатная",
-    },
-    {
-      value: "4_room",
-      label: "4-комнатная",
-    },
-    {
-      value: "5_room",
-      label: "5-комнатная",
-    },
-    {
-      value: "penthouse",
-      label: "Пентхаус",
-    },
+    { value: "secondary", label: "Вторичка" },
+    { value: "new_building", label: "Новостройка" },
+    { value: "studio", label: "Студия" },
+    { value: "1_room", label: "1-комнатная" },
+    { value: "2_room", label: "2-комнатная" },
+    { value: "3_room", label: "3-комнатная" },
+    { value: "4_room", label: "4-комнатная" },
+    { value: "5_room", label: "5-комнатная" },
+    { value: "penthouse", label: "Пентхаус" },
   ],
-
   house: [
-    {
-      value: "house",
-      label: "Частный дом",
-    },
-    {
-      value: "part_of_house",
-      label: "Часть дома",
-    },
-    {
-      value: "townhouse",
-      label: "Таунхаус",
-    },
-    {
-      value: "duplex",
-      label: "Дуплекс",
-    },
-    {
-      value: "cottage",
-      label: "Коттедж",
-    },
-    {
-      value: "dacha",
-      label: "Дача",
-    },
+    { value: "house", label: "Дом" },
+    { value: "part_of_house", label: "Часть дома" },
+    { value: "townhouse", label: "Таунхаус" },
+    { value: "duplex", label: "Дуплекс" },
+    { value: "cottage", label: "Коттедж" },
+    { value: "dacha", label: "Дача" },
   ],
-
   land: [
-    {
-      value: "izhs",
-      label: "ИЖС",
-    },
-    {
-      value: "gardening",
-      label: "Садовый участок",
-    },
-    {
-      value: "commercial_land",
-      label: "Земля под коммерцию",
-    },
-    {
-      value: "lph",
-      label: "ЛПХ",
-    },
-    {
-      value: "dnp",
-      label: "ДНП",
-    },
+    { value: "izhs", label: "ИЖС" },
+    { value: "gardening", label: "Садоводство" },
+    { value: "commercial_land", label: "Коммерческое" },
+    { value: "lph", label: "ЛПХ" },
+    { value: "dnp", label: "ДНП" },
   ],
-
   commercial: [
-    {
-      value: "office",
-      label: "Офис",
-    },
-    {
-      value: "business",
-      label: "Бизнес",
-    },
-    {
-      value: "separate_building",
-      label: "Отдельное здание",
-    },
-    {
-      value: "production",
-      label: "Производство",
-    },
-    {
-      value: "warehouse",
-      label: "Склад",
-    },
-    {
-      value: "retail",
-      label: "Торговое помещение",
-    },
+    { value: "office", label: "Офис" },
+    { value: "business", label: "Бизнес" },
+    { value: "separate_building", label: "Отдельное здание" },
+    { value: "production", label: "Производство" },
+    { value: "warehouse", label: "Склад" },
+    { value: "retail", label: "Торговое помещение" },
   ],
-
   garage: [
-    {
-      value: "garage_box",
-      label: "Гаражный бокс",
-    },
-    {
-      value: "residential_complex",
-      label: "Гараж в ГСК",
-    },
-    {
-      value: "covered_parking",
-      label: "Крытая парковка",
-    },
-    {
-      value: "separate_garage",
-      label: "Отдельный гараж",
-    },
-    {
-      value: "parking",
-      label: "Парковочное место",
-    },
+    { value: "garage_box", label: "Гараж-бокс" },
+    { value: "residential_complex", label: "Паркинг ЖК" },
+    { value: "covered_parking", label: "Крытый паркинг" },
+    { value: "separate_garage", label: "Отдельный гараж" },
+    { value: "parking", label: "Машино-место" },
   ],
 };
 
-const dealTypes: {
-  value: DealType;
-  label: string;
-}[] = [
-  {
-    value: "sale",
-    label: "Продажа",
-  },
-  {
-    value: "rent",
-    label: "Аренда",
-  },
-  {
-    value: "lease",
-    label: "Сдача в аренду",
-  },
-];
-
-const categorySlugs: Record<PropertyType, string> = {
-  apartment: "apartments",
-  house: "houses",
-  land: "land",
-  commercial: "commercial",
-  garage: "garages",
+const propertyTypeLabels: Record<string, string> = {
+  apartment: "Квартира",
+  house: "Дом",
+  land: "Участок",
+  commercial: "Коммерция",
+  garage: "Гараж",
 };
 
-function getDefaultSubtype(
-  propertyType: PropertyType
-): PropertySubtype {
-  return subtypesByType[propertyType][0].value;
-}
+export default function SalePage() {
+  const [title, setTitle] = useState("");
+  const [dealType] = useState("sale");
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [propertySubtype, setPropertySubtype] = useState("secondary");
+  const [district, setDistrict] = useState("");
+  const [realAddress, setRealAddress] = useState("");
+  const [publicAddress, setPublicAddress] = useState("");
+  const [realLatitude, setRealLatitude] = useState<number | null>(null);
+  const [realLongitude, setRealLongitude] = useState<number | null>(null);
+  const [publicLatitude, setPublicLatitude] = useState<number | null>(null);
+  const [publicLongitude, setPublicLongitude] = useState<number | null>(null);
+  const [price, setPrice] = useState("");
+  const [area, setArea] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [floor, setFloor] = useState("");
+  const [totalFloors, setTotalFloors] = useState("");
+  const [bathroom, setBathroom] = useState("");
+  const [balcony, setBalcony] = useState("");
+  const [renovation, setRenovation] = useState("");
+  const [buildingMaterial, setBuildingMaterial] = useState("");
+  const [yearBuilt, setYearBuilt] = useState("");
+  const [status, setStatus] = useState("Свободен");
+  const [description, setDescription] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [agentComment, setAgentComment] = useState("");
+  const [photos, setPhotos] = useState<PhotoPreview[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
-function getSubtypeLabel(
-  propertyType: PropertyType,
-  propertySubtype: PropertySubtype
-) {
-  const subtype = subtypesByType[propertyType].find(
-    (item) => item.value === propertySubtype
+  const currentSubtypes = useMemo(
+    () => subtypeOptions[propertyType] ?? subtypeOptions.apartment,
+    [propertyType]
   );
 
-  return subtype?.label ?? propertySubtype;
-}
+  useEffect(() => {
+    return () => {
+      photos.forEach((photo) => URL.revokeObjectURL(photo.url));
+    };
+  }, [photos]);
 
-function getTypeLabel(propertyType: PropertyType) {
-  return (
-    propertyTypes.find(
-      (item) => item.value === propertyType
-    )?.label ?? propertyType
-  );
-}
-
-function getDealLabel(dealType: DealType) {
-  return (
-    dealTypes.find(
-      (item) => item.value === dealType
-    )?.label ?? dealType
-  );
-}
-
-export default function NewPropertyPage() {
-  const router = useRouter();
-
-  const [title, setTitle] = useState("ЖК Самолёт");
-
-  const [propertyType, setPropertyType] =
-    useState<PropertyType>("apartment");
-
-  const [propertySubtype, setPropertySubtype] =
-    useState<PropertySubtype>("secondary");
-
-  const [dealType, setDealType] =
-    useState<DealType>("sale");
-
-  const [price, setPrice] = useState("6000000");
-
-  const [area, setArea] = useState("75");
-
-  const [rooms, setRooms] = useState("3");
-
-  const [city, setCity] = useState("Краснодар");
-
-  const [district, setDistrict] =
-    useState("Центральный");
-
-  const [address, setAddress] =
-    useState("ул. Красная 1");
-
-  const [imageUrl, setImageUrl] =
-    useState("/images/test-flat.jpg");
-
-  const [description, setDescription] =
-    useState("");
-
-  const [status, setStatus] =
-    useState("Свободен");
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] = useState("");
-
-  function handlePropertyTypeChange(
-    newType: PropertyType
-  ) {
-    setPropertyType(newType);
-
-    setPropertySubtype(
-      getDefaultSubtype(newType)
+  function addPhotos(files: FileList | File[]) {
+    const validFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
     );
 
-    if (
-      newType === "land" ||
-      newType === "commercial" ||
-      newType === "garage"
-    ) {
-      setRooms("0");
-    } else if (rooms === "0") {
-      setRooms("1");
+    const newPhotos = validFiles.map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      file,
+      url: URL.createObjectURL(file),
+    }));
+
+    setPhotos((current) => [...current, ...newPhotos]);
+  }
+
+  function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    if (event.target.files) {
+      addPhotos(event.target.files);
+      event.target.value = "";
     }
   }
 
-  const availableSubtypes =
-    subtypesByType[propertyType];
+  function removePhoto(id: string) {
+    setPhotos((current) => {
+      const photo = current.find((item) => item.id === id);
+      if (photo) URL.revokeObjectURL(photo.url);
+      return current.filter((item) => item.id !== id);
+    });
+  }
 
-  const catalogPath = `/catalog/${dealType}/${categorySlugs[propertyType]}/${propertySubtype}`;
+  function setMainPhoto(id: string) {
+    setPhotos((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index <= 0) return current;
+      const copy = [...current];
+      const [main] = copy.splice(index, 1);
+      copy.unshift(main);
+      return copy;
+    });
+  }
 
-  async function handleSubmit(
-    e: FormEvent<HTMLFormElement>
-  ) {
-    e.preventDefault();
+  function handlePropertyTypeChange(value: string) {
+    setPropertyType(value);
+    const firstSubtype = subtypeOptions[value]?.[0]?.value ?? "secondary";
+    setPropertySubtype(firstSubtype);
+  }
 
-    setLoading(true);
-    setError("");
+  async function saveDraft() {
+  try {
+    const res = await fetch(
+      "https://doma-nq4u.onrender.com/properties",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+
+          price: Number(price) || 0,
+          area: Number(area) || 0,
+          rooms: Number(rooms) || 0,
+
+          city: "Краснодар",
+          district,
+
+          address: publicAddress,
+
+          real_address: realAddress,
+          public_address: publicAddress,
+          latitude: publicLatitude,
+          longitude: publicLongitude,
+
+          owner_name: ownerName,
+          owner_phone: ownerPhone,
+
+          agent_comment: agentComment,
+
+          property_type: propertyType,
+          property_subtype: propertySubtype,
+          deal_type: dealType,
+
+          status,
+
+          is_draft: true,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error();
+    }
+
+    alert("Черновик сохранён в CRM");
+
+    window.location.href =
+      "/admin/properties";
+  } catch (err) {
+    console.error(err);
+
+    alert(
+      "Ошибка сохранения черновика"
+    );
+  }
+}
+
+
+  async function saveProperty() {
+    if (!title.trim()) {
+      alert("Введите название объекта.");
+      return;
+    }
+
+    if (!realAddress.trim()) {
+      alert("Введите реальный адрес объекта.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSavedId(null);
 
     try {
-      const formData = new FormData();
+      const res = await fetch("https://doma-nq4u.onrender.com/properties", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+          price: Number(price) || 0,
+          area: Number(area) || 0,
+          rooms: Number(rooms) || 0,
+          floor: Number(floor) || 0,
+          total_floors: Number(totalFloors) || 0,
+          bathroom,
+          balcony,
+          renovation,
+          building_material: buildingMaterial,
+          year_built: Number(yearBuilt) || 0,
+          city: "Краснодар",
+          district,
+          address: publicAddress,
+          real_address: realAddress,
+          public_address: publicAddress,
+          latitude: publicLatitude,
+          longitude: publicLongitude,
+          owner_name: ownerName,
+          owner_phone: ownerPhone,
+          agent_comment: agentComment,
+          property_type: propertyType,
+          property_subtype: propertySubtype,
+          deal_type: dealType,
+          status,
+          is_draft: false,
+        }),
+      });
 
-      formData.append("title", title);
-      formData.append(
-        "property_type",
-        propertyType
-      );
-      formData.append(
-        "property_subtype",
-        propertySubtype
-      );
-      formData.append("deal_type", dealType);
+      const data = await res.json();
 
-      formData.append("price", price);
-      formData.append("area", area);
-
-      formData.append(
-        "rooms",
-        rooms || "0"
-      );
-
-      formData.append("city", city);
-      formData.append("district", district);
-      formData.append("address", address);
-
-      formData.append(
-        "image_url",
-        imageUrl
-      );
-
-      formData.append(
-        "description",
-        description
-      );
-
-      formData.append("status", status);
-
-      const token =
-        localStorage.getItem("token");
-
-      const headers: HeadersInit = {};
-
-      if (token) {
-        headers.Authorization =
-          `Bearer ${token}`;
+      if (!res.ok) {
+        alert(data.detail || "Не удалось сохранить объект.");
+        return;
       }
 
-      const response = await fetch(
-        `${API_URL}/properties`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        }
-      );
-
-      const responseText =
-        await response.text();
-
-      let data: any = null;
-
-      try {
-        data = responseText
-          ? JSON.parse(responseText)
-          : null;
-      } catch {
-        data = null;
-      }
-
-      if (!response.ok) {
-        let message =
-          "Не удалось сохранить объект";
-
-        if (typeof data?.detail === "string") {
-          message = data.detail;
-        } else if (Array.isArray(data?.detail)) {
-          message = data.detail
-            .map(
-              (item: any) =>
-                item?.msg ?? "Ошибка в данных"
-            )
-            .join(", ");
-        } else if (responseText) {
-          message = responseText;
-        }
-
-        throw new Error(message);
-      }
-
-      router.push(
-        "/admin/properties"
-      );
-
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Произошла ошибка"
-      );
+      setSavedId(data.id ?? null);
+      alert(`Объект сохранён. ID: ${data.id}`);
+    } catch (error) {
+      console.error(error);
+      alert("Не удалось подключиться к серверу CRM.");
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   }
 
   return (
-    <main className="page">
-      <div className="container">
-        <div className="header">
-          <h1>🏠 Новый объект</h1>
-
-          <p>
-            Добавьте новый объект
-            недвижимости в каталог
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="form"
-        >
-          {error && (
-            <div className="error">
-              {error}
-            </div>
-          )}
-
-          {/* ОСНОВНЫЕ ПАРАМЕТРЫ */}
-
-          <div className="section-title">
-            Основные параметры
+    <main style={pageStyle}>
+      <div style={shellStyle}>
+        <header style={headerStyle}>
+          <div>
+            <div style={eyebrowStyle}>CRM DOMA · ОБЪЕКТ</div>
+            <h1 style={titleStyle}>Создание объекта</h1>
+            <p style={subtitleStyle}>
+              Заполните данные для продажи недвижимости
+            </p>
           </div>
 
-          <div className="main-grid">
-            {/* Название */}
+          <div style={saleBadgeStyle}>
+            <span style={saleDotStyle} />
+            Продажа
+          </div>
+        </header>
 
-            <div>
-              <label style={labelStyle}>
-                Название объекта
-              </label>
-
-              <input
-                required
-                value={title}
-                onChange={(e) =>
-                  setTitle(e.target.value)
-                }
-                placeholder="ЖК Самолёт"
-                style={inputStyle}
-              />
+        <section style={progressCardStyle}>
+          <div>
+            <div style={progressTitleStyle}>Новый объект</div>
+            <div style={progressTextStyle}>
+              Основная информация · характеристики · медиа · собственник
             </div>
+          </div>
+          <div style={progressNumberStyle}>01 / 01</div>
+        </section>
 
-            {/* Операция */}
+        <section style={layoutStyle}>
+          <div style={columnStyle}>
+            <section style={cardStyle}>
+              <SectionHeading
+                number="01"
+                title="Основная информация"
+                description="Базовые сведения об объекте"
+              />
 
-            <div>
-              <label style={labelStyle}>
-                Операция
-              </label>
+              <div style={formGridStyle}>
+                <Field label="Название объекта" required full>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Например: Светлая квартира в центре"
+                    style={inputStyle}
+                  />
+                </Field>
 
-              <select
-                required
-                value={dealType}
-                onChange={(e) =>
-                  setDealType(
-                    e.target.value as DealType
-                  )
-                }
-                style={selectStyle}
-              >
-                {dealTypes.map((type) => (
-                  <option
-                    key={type.value}
-                    value={type.value}
+                <Field label="Тип недвижимости" required>
+                  <select
+                    value={propertyType}
+                    onChange={(e) => handlePropertyTypeChange(e.target.value)}
+                    style={inputStyle}
                   >
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                    {Object.entries(propertyTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-            {/* Тип */}
+                <Field label="Подтип недвижимости">
+                  <select
+                    value={propertySubtype}
+                    onChange={(e) => setPropertySubtype(e.target.value)}
+                    style={inputStyle}
+                  >
+                    {currentSubtypes.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-            <div>
-              <label style={labelStyle}>
-                Тип недвижимости
-              </label>
+                <Field label="Район">
+                  <input
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    placeholder="Например: Центральный"
+                    style={inputStyle}
+                  />
+                </Field>
 
-              <select
-                required
-                value={propertyType}
-                onChange={(e) =>
-                  handlePropertyTypeChange(
-                    e.target.value as PropertyType
-                  )
-                }
-                style={selectStyle}
-              >
-                {propertyTypes.map(
-                  (type) => (
-                    <option
-                      key={type.value}
-                      value={type.value}
-                    >
-                      {type.label}
-                    </option>
-                  )
+                <Field label="Цена" required>
+                  <div style={inputWithSuffixStyle}>
+                    <input
+                      type="number"
+                      min="0"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0"
+                      style={inputBareStyle}
+                    />
+                    <span style={suffixStyle}>₽</span>
+                  </div>
+                </Field>
+
+                <Field label="Площадь" required>
+                  <div style={inputWithSuffixStyle}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={area}
+                      onChange={(e) => setArea(e.target.value)}
+                      placeholder="0"
+                      style={inputBareStyle}
+                    />
+                    <span style={suffixStyle}>м²</span>
+                  </div>
+                </Field>
+
+                <Field label="Реальный адрес" required full>
+                  <div style={privateFieldWrapStyle}>
+                    <input
+                      value={realAddress}
+                      onChange={(e) => setRealAddress(e.target.value)}
+                      placeholder="Полный фактический адрес"
+                      style={{ ...inputStyle, borderColor: "#fecaca" }}
+                    />
+                    <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
+                  </div>
+                </Field>
+                {realAddress.trim() && (
+                  <div style={{ gridColumn: "1 / -1", marginTop: -8 }}>
+                    <AddressMapPicker
+                      title="Местоположение по реальному адресу"
+                      address={realAddress}
+                      latitude={realLatitude}
+                      longitude={realLongitude}
+                      onSelect={(lat, lng) => {
+                        setRealLatitude(lat);
+                        setRealLongitude(lng);
+                      }}
+                      onAddressChange={setRealAddress}
+                    />
+                  </div>
                 )}
-              </select>
-            </div>
 
-            {/* Подтип */}
-
-            <div>
-              <label style={labelStyle}>
-                Подтип недвижимости
-              </label>
-
-              <select
-                required
-                value={propertySubtype}
-                onChange={(e) =>
-                  setPropertySubtype(
-                    e.target
-                      .value as PropertySubtype
-                  )
-                }
-                style={selectStyle}
-              >
-                {availableSubtypes.map(
-                  (subtype) => (
-                    <option
-                      key={subtype.value}
-                      value={subtype.value}
-                    >
-                      {subtype.label}
-                    </option>
-                  )
+                <Field label="Рекламный адрес" full>
+                  <div style={publicFieldWrapStyle}>
+                    <input
+                      value={publicAddress}
+                      onChange={(e) => setPublicAddress(e.target.value)}
+                      placeholder="Адрес для публикации на сайте"
+                      style={{ ...inputStyle, borderColor: "#bbf7d0" }}
+                    />
+                    <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
+                  </div>
+                </Field>
+                {publicAddress.trim() && (
+                  <div style={{ gridColumn: "1 / -1", marginTop: -8 }}>
+                    <AddressMapPicker
+                      title="Местоположение для клиента"
+                      address={publicAddress}
+                      latitude={publicLatitude}
+                      longitude={publicLongitude}
+                      onSelect={(lat, lng) => {
+                        setPublicLatitude(lat);
+                        setPublicLongitude(lng);
+                      }}
+                      onAddressChange={setPublicAddress}
+                    />
+                    <div style={{ marginTop: 7, color: "#64748b", fontSize: 11 }}>
+                      Эта точка будет сохранена и использована на публичной карте DOMA.
+                    </div>
+                  </div>
                 )}
-              </select>
-            </div>
-
-            {/* Цена */}
-
-            <div>
-              <label style={labelStyle}>
-                Цена
-              </label>
-
-              <input
-                required
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) =>
-                  setPrice(e.target.value)
-                }
-                placeholder="6000000"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Площадь */}
-
-            <div>
-              <label style={labelStyle}>
-                Площадь (м²)
-              </label>
-
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={area}
-                onChange={(e) =>
-                  setArea(e.target.value)
-                }
-                placeholder="75"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Комнаты */}
-
-            {(propertyType ===
-              "apartment" ||
-              propertyType ===
-                "house") && (
-              <div>
-                <label
-                  style={labelStyle}
-                >
-                  Количество комнат
-                </label>
-
-                <input
-                  type="number"
-                  min="0"
-                  value={rooms}
-                  onChange={(e) =>
-                    setRooms(
-                      e.target.value
-                    )
-                  }
-                  placeholder="3"
-                  style={inputStyle}
-                />
               </div>
-            )}
+            </section>
 
-            {/* Статус */}
+            <section style={cardStyle}>
+              <SectionHeading
+                number="02"
+                title="Описание"
+                description="Текст для карточки объекта"
+              />
 
-            <div>
-              <label style={labelStyle}>
-                Статус
-              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={11}
+                placeholder="Опишите объект: состояние, планировку, преимущества, инфраструктуру и важные детали..."
+                style={textareaStyle}
+              />
+              <div style={counterStyle}>{description.length} символов</div>
+            </section>
 
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value)
-                }
-                style={selectStyle}
+            <section style={cardStyle}>
+              <SectionHeading
+                number="03"
+                title="Фотографии"
+                description="Добавьте фотографии объекта для будущей публикации"
+              />
+
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files.length) {
+                    addPhotos(e.dataTransfer.files);
+                  }
+                }}
+                style={dropzoneStyle(dragActive)}
               >
-                <option value="Свободен">
-                  Свободен
-                </option>
+                <div style={uploadIconStyle}>↥</div>
+                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
+                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
+                <label style={uploadButtonStyle}>
+                  Выбрать фотографии
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFiles}
+                    hidden
+                  />
+                </label>
+                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              </div>
 
-                <option value="Забронирован">
-                  Забронирован
-                </option>
-
-                <option value="Продан">
-                  Продан
-                </option>
-
-                <option value="Скрыт">
-                  Скрыт
-                </option>
-              </select>
-            </div>
-
-            {/* Город */}
-
-            <div>
-              <label style={labelStyle}>
-                Город
-              </label>
-
-              <input
-                required
-                value={city}
-                onChange={(e) =>
-                  setCity(e.target.value)
-                }
-                placeholder="Краснодар"
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Район */}
-
-            <div>
-              <label style={labelStyle}>
-                Район
-              </label>
-
-              <input
-                value={district}
-                onChange={(e) =>
-                  setDistrict(e.target.value)
-                }
-                placeholder="Центральный"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* ПРЕДПРОСМОТР КАТАЛОГА */}
-
-          <div className="catalog-preview">
-            <div className="catalog-preview-title">
-              Объявление попадёт в раздел
-            </div>
-
-            <div className="catalog-preview-main">
-              {getDealLabel(dealType)}
-              {" → "}
-              {getTypeLabel(propertyType)}
-              {" → "}
-              {getSubtypeLabel(
-                propertyType,
-                propertySubtype
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} style={photoCardStyle}>
+                      <img
+                        src={photo.url}
+                        alt={photo.file.name}
+                        style={photoImageStyle}
+                      />
+                      <div style={photoOverlayStyle}>
+                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMainPhoto(photo.id)}
+                          style={photoActionStyle}
+                          title="Сделать главным"
+                        >
+                          ★
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          style={photoActionDangerStyle}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-
-            <div className="catalog-preview-path">
-              {catalogPath}
-            </div>
+            </section>
           </div>
 
-          {/* АДРЕС */}
+          <div style={columnStyle}>
+            <section style={cardStyle}>
+              <SectionHeading
+                number="04"
+                title="Характеристики"
+                description={characteristicsDescription(propertyType)}
+              />
 
-          <div className="full-field">
-            <label style={labelStyle}>
-              Адрес
-            </label>
+              <div style={characteristicsNoticeStyle}>
+                <span style={characteristicsNoticeDotStyle} />
+                <span>
+                  Поля меняются автоматически в зависимости от типа недвижимости.
+                </span>
+              </div>
 
-            <input
-              value={address}
-              onChange={(e) =>
-                setAddress(e.target.value)
-              }
-              placeholder="ул. Красная 1"
-              style={inputStyle}
-            />
+              <div style={formGridStyle}>
+                {propertyType === "apartment" && (
+                  <>
+                    <Field label="Комнат">
+                      <input
+                        type="number"
+                        min="0"
+                        value={rooms}
+                        onChange={(e) => setRooms(e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Этаж">
+                      <input
+                        type="number"
+                        min="0"
+                        value={floor}
+                        onChange={(e) => setFloor(e.target.value)}
+                        placeholder="Например: 7"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Этажность дома">
+                      <input
+                        type="number"
+                        min="0"
+                        value={totalFloors}
+                        onChange={(e) => setTotalFloors(e.target.value)}
+                        placeholder="Например: 16"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Год постройки">
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearBuilt}
+                        onChange={(e) => setYearBuilt(e.target.value)}
+                        placeholder="Например: 2018"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="combined">Совмещённый</option>
+                        <option value="separate">Раздельный</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Балкон / лоджия">
+                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="yes">Есть</option>
+                        <option value="no">Нет</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="none">Без ремонта</option>
+                        <option value="cosmetic">Косметический</option>
+                        <option value="euro">Евроремонт</option>
+                        <option value="designer">Дизайнерский</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Материал дома">
+                      <input
+                        value={buildingMaterial}
+                        onChange={(e) => setBuildingMaterial(e.target.value)}
+                        placeholder="Кирпич, монолит..."
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "house" && (
+                  <>
+                    <Field label="Комнат">
+                      <input
+                        type="number"
+                        min="0"
+                        value={rooms}
+                        onChange={(e) => setRooms(e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Этажей">
+                      <input
+                        type="number"
+                        min="0"
+                        value={totalFloors}
+                        onChange={(e) => setTotalFloors(e.target.value)}
+                        placeholder="Например: 2"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Год постройки">
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearBuilt}
+                        onChange={(e) => setYearBuilt(e.target.value)}
+                        placeholder="Например: 2020"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="combined">Совмещённый</option>
+                        <option value="separate">Раздельный</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Балкон / терраса">
+                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="yes">Есть</option>
+                        <option value="no">Нет</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="none">Без ремонта</option>
+                        <option value="cosmetic">Косметический</option>
+                        <option value="euro">Евроремонт</option>
+                        <option value="designer">Дизайнерский</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Материал дома">
+                      <input
+                        value={buildingMaterial}
+                        onChange={(e) => setBuildingMaterial(e.target.value)}
+                        placeholder="Кирпич, газобетон, монолит..."
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "land" && (
+                  <>
+                    <Field label="Площадь участка" full>
+                      <div style={inputWithSuffixStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={area}
+                          onChange={(e) => setArea(e.target.value)}
+                          placeholder="0"
+                          style={inputBareStyle}
+                        />
+                        <span style={suffixStyle}>м²</span>
+                      </div>
+                    </Field>
+
+                    <Field label="Год образования / освоения">
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearBuilt}
+                        onChange={(e) => setYearBuilt(e.target.value)}
+                        placeholder="Необязательно"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Текущее состояние">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="none">Не освоен</option>
+                        <option value="cosmetic">Частично освоен</option>
+                        <option value="euro">Освоен</option>
+                        <option value="designer">Полностью подготовлен</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Материал построек / основания" full>
+                      <input
+                        value={buildingMaterial}
+                        onChange={(e) => setBuildingMaterial(e.target.value)}
+                        placeholder="Например: кирпичные хозпостройки"
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "commercial" && (
+                  <>
+                    <Field label="Этаж">
+                      <input
+                        type="number"
+                        min="0"
+                        value={floor}
+                        onChange={(e) => setFloor(e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Этажность здания">
+                      <input
+                        type="number"
+                        min="0"
+                        value={totalFloors}
+                        onChange={(e) => setTotalFloors(e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Год постройки">
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearBuilt}
+                        onChange={(e) => setYearBuilt(e.target.value)}
+                        placeholder="Например: 2015"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="combined">Совмещённый</option>
+                        <option value="separate">Раздельный</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Ремонт / состояние">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="none">Требует ремонта</option>
+                        <option value="cosmetic">Рабочее состояние</option>
+                        <option value="euro">После ремонта</option>
+                        <option value="designer">Премиальная отделка</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Материал здания">
+                      <input
+                        value={buildingMaterial}
+                        onChange={(e) => setBuildingMaterial(e.target.value)}
+                        placeholder="Кирпич, монолит..."
+                        style={inputStyle}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "garage" && (
+                  <>
+                    <Field label="Этаж">
+                      <input
+                        type="number"
+                        min="0"
+                        value={floor}
+                        onChange={(e) => setFloor(e.target.value)}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Год постройки">
+                      <input
+                        type="number"
+                        min="0"
+                        value={yearBuilt}
+                        onChange={(e) => setYearBuilt(e.target.value)}
+                        placeholder="Например: 2022"
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Материал">
+                      <input
+                        value={buildingMaterial}
+                        onChange={(e) => setBuildingMaterial(e.target.value)}
+                        placeholder="Кирпич, бетон, металл..."
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Состояние">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="none">Требует ремонта</option>
+                        <option value="cosmetic">Хорошее</option>
+                        <option value="euro">Отличное</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="05"
+                title="Собственник"
+                description="Контактная информация доступна только сотрудникам"
+              />
+
+              <div style={privateNoticeStyle}>
+                <span style={{ fontSize: 18 }}>🔒</span>
+                <div>
+                  <div style={privateNoticeTitleStyle}>Внутренние данные CRM</div>
+                  <div style={privateNoticeTextStyle}>
+                    Эти данные не используются в публичной карточке объекта.
+                  </div>
+                </div>
+              </div>
+
+              <div style={formGridStyle}>
+                <Field label="ФИО собственника">
+                  <input
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="Иванов Иван Иванович"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Телефон">
+                  <input
+                    type="tel"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    placeholder="+7 (999) 999-99-99"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Комментарий агента" full>
+                  <textarea
+                    value={agentComment}
+                    onChange={(e) => setAgentComment(e.target.value)}
+                    rows={7}
+                    placeholder="История общения, договорённости, условия собственника..."
+                    style={textareaSmallStyle}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="06"
+                title="Статус объекта"
+                description="Текущий этап работы объекта"
+              />
+
+              <div style={statusListStyle}>
+                {[
+                  ["Свободен", "Объект доступен для продажи"],
+                  ["Бронь", "Есть временная договорённость"],
+                  ["Задаток", "Получен задаток"],
+                  ["Продан", "Сделка завершена"],
+                ].map(([value, descriptionText]) => {
+                  const active = status === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setStatus(value)}
+                      style={statusButtonStyle(active)}
+                    >
+                      <span style={statusRadioStyle(active)} />
+                      <span style={{ textAlign: "left" }}>
+                        <strong style={{ display: "block", fontSize: 14 }}>{value}</strong>
+                        <span style={{ display: "block", fontSize: 12, color: "#64748b", marginTop: 3 }}>
+                          {descriptionText}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <footer style={footerStyle}>
+          <div>
+            {savedId ? (
+              <div style={savedMessageStyle}>✓ Объект №{savedId} успешно создан</div>
+            ) : (
+              <div style={footerHintStyle}>Перед сохранением проверьте реальный и рекламный адрес.</div>
+            )}
           </div>
 
-          {/* ФОТО */}
-
-          <div className="full-field">
-            <label style={labelStyle}>
-              Путь к фото
-            </label>
-
-            <input
-              value={imageUrl}
-              onChange={(e) =>
-                setImageUrl(e.target.value)
-              }
-              placeholder="/images/test-flat.jpg"
-              style={inputStyle}
-            />
-
-            <div className="hint">
-              Например: /images/test-flat.jpg
-            </div>
+          <div style={footerActionsStyle}>
+            <button type="button" onClick={saveDraft} style={secondaryButtonStyle}>
+              Сохранить черновик
+            </button>
+            <button
+              type="button"
+              onClick={saveProperty}
+              disabled={isSaving}
+              style={{ ...primaryButtonStyle, opacity: isSaving ? 0.7 : 1 }}
+            >
+              {isSaving ? "Сохранение..." : "Сохранить объект"}
+            </button>
           </div>
-
-          {/* ОПИСАНИЕ */}
-
-          <div className="full-field">
-            <label style={labelStyle}>
-              Описание
-            </label>
-
-            <textarea
-              value={description}
-              onChange={(e) =>
-                setDescription(
-                  e.target.value
-                )
-              }
-              placeholder="Описание объекта..."
-              rows={7}
-              style={{
-                ...inputStyle,
-                resize: "vertical",
-                minHeight: "170px",
-              }}
-            />
-          </div>
-
-          {/* КНОПКА */}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="submit"
-          >
-            {loading
-              ? "Сохраняем..."
-              : "💾 Сохранить объект"}
-          </button>
-        </form>
+        </footer>
       </div>
-
-      <style jsx>{`
-        .page {
-          min-height: 100vh;
-          background: #f8fafc;
-          padding: 40px 20px 70px;
-        }
-
-        .container {
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-
-        .header {
-          margin-bottom: 30px;
-        }
-
-        .header h1 {
-          margin: 0;
-          font-size: clamp(36px, 5vw, 48px);
-          font-weight: 700;
-          color: #111827;
-          letter-spacing: -1px;
-        }
-
-        .header p {
-          margin-top: 10px;
-          margin-bottom: 0;
-          color: #64748b;
-          font-size: 16px;
-        }
-
-        .form {
-          background: #ffffff;
-          border-radius: 26px;
-          padding: 36px;
-          box-shadow:
-            0 12px 35px rgba(0, 0, 0, 0.06);
-        }
-
-        .section-title {
-          margin-bottom: 20px;
-          color: #111827;
-          font-size: 20px;
-          font-weight: 700;
-        }
-
-        .main-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 24px;
-        }
-
-        .full-field {
-          margin-top: 24px;
-        }
-
-        .error {
-          background: #fee2e2;
-          color: #991b1b;
-          border-radius: 14px;
-          padding: 14px 16px;
-          margin-bottom: 24px;
-          font-weight: 500;
-        }
-
-        .hint {
-          margin-top: 7px;
-          color: #94a3b8;
-          font-size: 13px;
-        }
-
-        .catalog-preview {
-          margin-top: 28px;
-          padding: 20px;
-          border-radius: 16px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-        }
-
-        .catalog-preview-title {
-          color: #64748b;
-          font-size: 13px;
-          margin-bottom: 7px;
-        }
-
-        .catalog-preview-main {
-          color: #111827;
-          font-size: 16px;
-          font-weight: 700;
-        }
-
-        .catalog-preview-path {
-          margin-top: 8px;
-          color: #94a3b8;
-          font-size: 13px;
-          word-break: break-all;
-        }
-
-        .submit {
-          width: 100%;
-          margin-top: 28px;
-          border: none;
-          border-radius: 15px;
-          padding: 17px 24px;
-          background: ${loading
-            ? "#fca5a5"
-            : "#ef4444"};
-          color: #ffffff;
-          font-size: 17px;
-          font-weight: 700;
-          cursor: ${loading
-            ? "not-allowed"
-            : "pointer"};
-          transition: 0.2s;
-        }
-
-        .submit:hover {
-          opacity: ${loading ? "1" : "0.92"};
-        }
-
-        @media (max-width: 700px) {
-          .page {
-            padding: 25px 14px 50px;
-          }
-
-          .form {
-            padding: 22px;
-          }
-
-          .main-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .header h1 {
-            font-size: 36px;
-          }
-        }
-      `}</style>
     </main>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  color: "#111827",
-  fontSize: "15px",
-  fontWeight: 500,
+function characteristicsDescription(propertyType: string) {
+  switch (propertyType) {
+    case "house":
+      return "Параметры дома, участка и состояния объекта";
+    case "land":
+      return "Параметры земельного участка и его состояния";
+    case "commercial":
+      return "Параметры коммерческого помещения или здания";
+    case "garage":
+      return "Параметры гаража, паркинга или машино-места";
+    default:
+      return "Параметры квартиры, дома и инженерных характеристик";
+  }
+}
+
+function SectionHeading({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <div style={sectionHeadingStyle}>
+      <div style={sectionNumberStyle}>{number}</div>
+      <div>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+        <p style={sectionDescriptionStyle}>{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  full,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  full?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label style={{ ...(full ? fullFieldStyle : fieldStyle) }}>
+      <span style={labelStyle}>
+        {label}
+        {required && <span style={requiredStyle}> *</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#f6f7f9",
+  padding: "32px 24px 48px",
+  color: "#0f172a",
+};
+
+const shellStyle: React.CSSProperties = {
+  maxWidth: 1500,
+  margin: "0 auto",
+};
+
+const headerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 24,
+  marginBottom: 24,
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: "0.12em",
+  color: "#dc2626",
+  marginBottom: 8,
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 36,
+  lineHeight: 1.1,
+  letterSpacing: "-0.03em",
+};
+
+const subtitleStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  color: "#64748b",
+  fontSize: 15,
+};
+
+const saleBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 9,
+  padding: "11px 16px",
+  borderRadius: 999,
+  background: "#fff1f2",
+  border: "1px solid #fecdd3",
+  color: "#be123c",
+  fontWeight: 700,
+  fontSize: 14,
+};
+
+const saleDotStyle: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: "#ef4444",
+};
+
+const progressCardStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "18px 22px",
+  marginBottom: 24,
+  borderRadius: 18,
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+};
+
+const progressTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 15 };
+const progressTextStyle: React.CSSProperties = { marginTop: 4, color: "#64748b", fontSize: 13 };
+const progressNumberStyle: React.CSSProperties = { fontWeight: 800, color: "#94a3b8", fontSize: 13 };
+
+const layoutStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.25fr) minmax(380px, 0.85fr)",
+  gap: 24,
+  alignItems: "start",
+};
+
+const columnStyle: React.CSSProperties = { display: "grid", gap: 24 };
+
+const cardStyle: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 22,
+  padding: 26,
+  boxShadow: "0 12px 34px rgba(15,23,42,.045)",
+};
+
+const sectionHeadingStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 14,
+  alignItems: "flex-start",
+  marginBottom: 22,
+};
+
+const sectionNumberStyle: React.CSSProperties = {
+  width: 34,
+  height: 34,
+  flex: "0 0 auto",
+  display: "grid",
+  placeItems: "center",
+  borderRadius: 10,
+  background: "#0f172a",
+  color: "#ffffff",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const sectionTitleStyle: React.CSSProperties = { margin: 0, fontSize: 19, fontWeight: 750 };
+const sectionDescriptionStyle: React.CSSProperties = { margin: "5px 0 0", color: "#64748b", fontSize: 13 };
+
+const formGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 16,
+};
+
+const fieldStyle: React.CSSProperties = { display: "grid", gap: 8 };
+const fullFieldStyle: React.CSSProperties = { ...fieldStyle, gridColumn: "1 / -1" };
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 750, color: "#334155" };
+const requiredStyle: React.CSSProperties = { color: "#dc2626" };
+
+const characteristicsNoticeStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 18,
+  padding: "10px 12px",
+  borderRadius: 10,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#64748b",
+  fontSize: 12,
+};
+
+const characteristicsNoticeDotStyle: React.CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  background: "#dc2626",
+  flex: "0 0 auto",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  boxSizing: "border-box",
-  padding: "15px 16px",
-  border: "1px solid #dbe3ec",
-  borderRadius: "12px",
+  minHeight: 48,
+  padding: "0 14px",
+  borderRadius: 12,
+  border: "1px solid #dbe1e8",
   background: "#ffffff",
-  color: "#111827",
-  fontSize: "15px",
+  color: "#0f172a",
+  fontSize: 14,
   outline: "none",
+  boxSizing: "border-box",
 };
 
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
+const inputBareStyle: React.CSSProperties = {
+  border: 0,
+  outline: 0,
+  flex: 1,
+  width: "100%",
+  background: "transparent",
+  fontSize: 14,
+  minHeight: 46,
+};
+
+const inputWithSuffixStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  minHeight: 48,
+  padding: "0 12px 0 14px",
+  borderRadius: 12,
+  border: "1px solid #dbe1e8",
+  background: "#ffffff",
+};
+
+const suffixStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 13, fontWeight: 700 };
+
+const privateFieldWrapStyle: React.CSSProperties = { position: "relative" };
+const publicFieldWrapStyle: React.CSSProperties = { position: "relative" };
+
+const privateTagStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 10,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: 10,
+  fontWeight: 800,
+  color: "#b91c1c",
+  background: "#fff1f2",
+  padding: "5px 7px",
+  borderRadius: 7,
+};
+
+const publicTagStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 10,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: 10,
+  fontWeight: 800,
+  color: "#15803d",
+  background: "#f0fdf4",
+  padding: "5px 7px",
+  borderRadius: 7,
+};
+
+const textareaStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 220,
+  resize: "vertical",
+  padding: 16,
+  borderRadius: 14,
+  border: "1px solid #dbe1e8",
+  fontSize: 14,
+  lineHeight: 1.6,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const textareaSmallStyle: React.CSSProperties = {
+  ...textareaStyle,
+  minHeight: 150,
+};
+
+const counterStyle: React.CSSProperties = {
+  marginTop: 8,
+  textAlign: "right",
+  fontSize: 11,
+  color: "#94a3b8",
+};
+
+const dropzoneStyle = (active: boolean): React.CSSProperties => ({
+  minHeight: 235,
+  borderRadius: 18,
+  border: `2px dashed ${active ? "#dc2626" : "#cbd5e1"}`,
+  background: active ? "#fff7f7" : "#f8fafc",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 24,
+  textAlign: "center",
+  transition: ".2s ease",
+});
+
+const uploadIconStyle: React.CSSProperties = {
+  width: 56,
+  height: 56,
+  display: "grid",
+  placeItems: "center",
+  borderRadius: 16,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  fontSize: 30,
+  color: "#dc2626",
+  marginBottom: 14,
+};
+
+const uploadTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 16 };
+const uploadTextStyle: React.CSSProperties = { color: "#64748b", marginTop: 5, fontSize: 13 };
+
+const uploadButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 16,
+  padding: "11px 16px",
+  borderRadius: 10,
+  background: "#0f172a",
+  color: "#ffffff",
+  fontWeight: 700,
+  fontSize: 13,
   cursor: "pointer",
+};
+
+const hintStyle: React.CSSProperties = { marginTop: 10, fontSize: 11, color: "#94a3b8" };
+
+const photoGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const photoCardStyle: React.CSSProperties = {
+  position: "relative",
+  aspectRatio: "4 / 3",
+  overflow: "hidden",
+  borderRadius: 14,
+  background: "#e2e8f0",
+};
+
+const photoImageStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
+
+const photoOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: "8px 8px auto 8px",
+  display: "flex",
+  gap: 5,
+  alignItems: "center",
+};
+
+const photoIndexStyle: React.CSSProperties = {
+  marginRight: "auto",
+  padding: "5px 7px",
+  borderRadius: 7,
+  background: "rgba(15,23,42,.78)",
+  color: "#ffffff",
+  fontSize: 10,
+  fontWeight: 800,
+};
+
+const photoActionStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  border: 0,
+  borderRadius: 8,
+  background: "rgba(255,255,255,.92)",
+  cursor: "pointer",
+  fontWeight: 800,
+};
+
+const photoActionDangerStyle: React.CSSProperties = {
+  ...photoActionStyle,
+  color: "#b91c1c",
+};
+
+const privateNoticeStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  alignItems: "flex-start",
+  padding: 14,
+  borderRadius: 14,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  marginBottom: 18,
+};
+
+const privateNoticeTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 13 };
+const privateNoticeTextStyle: React.CSSProperties = { marginTop: 3, color: "#64748b", fontSize: 12 };
+
+const statusListStyle: React.CSSProperties = { display: "grid", gap: 10 };
+
+const statusButtonStyle = (active: boolean): React.CSSProperties => ({
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  width: "100%",
+  padding: "13px 14px",
+  borderRadius: 13,
+  border: `1px solid ${active ? "#fecaca" : "#e2e8f0"}`,
+  background: active ? "#fff7f7" : "#ffffff",
+  cursor: "pointer",
+});
+
+const statusRadioStyle = (active: boolean): React.CSSProperties => ({
+  width: 16,
+  height: 16,
+  borderRadius: "50%",
+  border: `4px solid ${active ? "#dc2626" : "#cbd5e1"}`,
+  background: "#ffffff",
+  boxSizing: "border-box",
+});
+
+const footerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 20,
+  marginTop: 24,
+  padding: 20,
+  borderRadius: 20,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+};
+
+const footerActionsStyle: React.CSSProperties = { display: "flex", gap: 12 };
+const footerHintStyle: React.CSSProperties = { fontSize: 12, color: "#64748b" };
+const savedMessageStyle: React.CSSProperties = { fontSize: 13, color: "#15803d", fontWeight: 750 };
+
+const secondaryButtonStyle: React.CSSProperties = {
+  padding: "13px 18px",
+  borderRadius: 12,
+  border: "1px solid #dbe1e8",
+  background: "#ffffff",
+  color: "#334155",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const primaryButtonStyle: React.CSSProperties = {
+  padding: "13px 22px",
+  borderRadius: 12,
+  border: 0,
+  background: "linear-gradient(135deg, #dc2626, #ef4444)",
+  color: "#ffffff",
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow: "0 12px 24px rgba(220,38,38,.22)",
 };

@@ -1,6 +1,5 @@
 "use client";
 
-import { YandexAddressPreview } from "@/components/YandexMap";
 import { useEffect, useMemo, useState } from "react";
 
 interface PhotoPreview {
@@ -191,7 +190,7 @@ export default function RentPage() {
     setSavedId(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/properties", {
+      const res = await fetch("https://doma-nq4u.onrender.com/properties", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -235,7 +234,7 @@ export default function RentPage() {
       alert(`Объект сохранён. ID: ${data.id}`);
     } catch (error) {
       console.error(error);
-      alert("Не удалось подключиться к серверу CRM.");
+      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
     } finally {
       setIsSaving(false);
     }
@@ -381,7 +380,6 @@ export default function RentPage() {
                     />
                     <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
                   </div>
-                  <YandexAddressPreview address={realAddress} />
                 </Field>
 
                 <Field label="Рекламный адрес" full>

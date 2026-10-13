@@ -1,35 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-const API_URL =
-  "https://doma-nq4u.onrender.com";
-
-const DEFAULT_CENTER: [
-  number,
-  number
-] = [38.9769, 45.0355];
-
-interface AddressMapPickerProps {
-  city: string;
-  address: string;
-
-  latitude: number | null;
-  longitude: number | null;
-
-  onAddressChange: (
-    value: string
-  ) => void;
-
-  onCoordinatesChange: (
-    latitude: number | null,
-    longitude: number | null
-  ) => void;
-}
+import { useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -37,1227 +8,254 @@ declare global {
   }
 }
 
-let yandexMapsPromise:
-  Promise<any> | null = null;
+const API_URL = "https://doma-nq4u.onrender.com";
+const DEFAULT_CENTER: [number, number] = [38.9769, 45.0355];
+let mapsPromise: Promise<any> | null = null;
 
 function loadYandexMaps(): Promise<any> {
-  if (
-    typeof window === "undefined"
-  ) {
-    return Promise.reject(
-      new Error(
-        "Яндекс.Карты доступны только в браузере."
-      )
-    );
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Карта доступна только в браузере."));
   }
+  if (window.ymaps3) return Promise.resolve(window.ymaps3);
+  if (mapsPromise) return mapsPromise;
 
-  if (window.ymaps3) {
-    return Promise.resolve(
-      window.ymaps3
-    );
-  }
-
-  if (yandexMapsPromise) {
-    return yandexMapsPromise;
-  }
-
-  const apiKey =
-    process.env
-      .NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
-
+  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
   if (!apiKey) {
-    return Promise.reject(
-      new Error(
-        "Не найден NEXT_PUBLIC_YANDEX_MAPS_API_KEY."
-      )
-    );
+    return Promise.reject(new Error("Не задан NEXT_PUBLIC_YANDEX_MAPS_API_KEY."));
   }
 
-  yandexMapsPromise =
-    new Promise(
-      (
-        resolve,
-        reject
-      ) => {
-        const existingScript =
-          document.querySelector(
-            'script[data-doma-yandex-maps="true"]'
-          ) as HTMLScriptElement | null;
+  mapsPromise = new Promise((resolve, reject) => {
+    let script = document.querySelector<HTMLScriptElement>('script[data-yandex-maps="true"]');
 
-        if (
-          existingScript
-        ) {
-          existingScript.addEventListener(
-            "load",
-            async () => {
-              try {
-                if (
-                  !window.ymaps3
-                ) {
-                  throw new Error(
-                    "ymaps3 не найден после загрузки."
-                  );
-                }
+    // If a previous load failed, clear its stale script and allow a fresh attempt.
+    if (script && !window.ymaps3 && script.dataset.yandexMapsFailed === "true") {
+      script.remove();
+      script = null;
+    }
 
-                await window.ymaps3
-                  .ready;
-
-                resolve(
-                  window.ymaps3
-                );
-              } catch (
-                error
-              ) {
-                reject(
-                  error
-                );
-              }
-            },
-            {
-              once: true,
-            }
-          );
-
-          existingScript.addEventListener(
-            "error",
-            () => {
-              reject(
-                new Error(
-                  "Не удалось загрузить Яндекс.Карты."
-                )
-              );
-            },
-            {
-              once: true,
-            }
-          );
-
-          return;
-        }
-
-        const script =
-          document.createElement(
-            "script"
-          );
-
-        script.src =
-          `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(
-            apiKey
-          )}&lang=ru_RU`;
-
-        script.async = true;
-
-        script.dataset.domaYandexMaps =
-          "true";
-
-        script.onload =
-          async () => {
-            try {
-              if (
-                !window.ymaps3
-              ) {
-                throw new Error(
-                  "ymaps3 не найден после загрузки."
-                );
-              }
-
-              await window.ymaps3
-                .ready;
-
-              resolve(
-                window.ymaps3
-              );
-            } catch (
-              error
-            ) {
-              reject(
-                error
-              );
-            }
-          };
-
-        script.onerror =
-          () => {
-            reject(
-              new Error(
-                "Не удалось загрузить Яндекс.Карты."
-              )
-            );
-          };
-
-        document.head.appendChild(
-          script
-        );
+    const handleLoad = async () => {
+      try {
+        if (!window.ymaps3) throw new Error("Яндекс.Карты загрузились без объекта ymaps3.");
+        await window.ymaps3.ready;
+        if (script) script.dataset.yandexMapsLoaded = "true";
+        resolve(window.ymaps3);
+      } catch (error) {
+        mapsPromise = null;
+        reject(error);
       }
-    );
+    };
 
-  return yandexMapsPromise;
-}
+    const handleError = () => {
+      if (script) script.dataset.yandexMapsFailed = "true";
+      mapsPromise = null;
+      reject(new Error("Не удалось загрузить API Яндекс.Карт. Проверьте NEXT_PUBLIC_YANDEX_MAPS_API_KEY и ограничения HTTP Referer."));
+    };
 
-export default function AddressMapPicker({
-  city,
-  address,
-  latitude,
-  longitude,
-  onAddressChange,
-  onCoordinatesChange,
-}: AddressMapPickerProps) {
-  const mapContainerRef =
-    useRef<HTMLDivElement | null>(
-      null
-    );
-
-  const mapRef =
-    useRef<any>(null);
-
-  const markerRef =
-    useRef<any>(null);
-
-  const listenerRef =
-    useRef<any>(null);
-
-  const ymapsRef =
-    useRef<any>(null);
-
-  const [
-    mapReady,
-    setMapReady,
-  ] = useState(false);
-
-  const [
-    searching,
-    setSearching,
-  ] = useState(false);
-
-  const [
-    message,
-    setMessage,
-  ] = useState("");
-
-  const [
-    mapError,
-    setMapError,
-  ] = useState("");
-
-  const [
-    markerCoordinates,
-    setMarkerCoordinates,
-  ] = useState<
-    [
-      number,
-      number
-    ] | null
-  >(
-    latitude !== null &&
-      longitude !== null
-      ? [
-          longitude,
-          latitude,
-        ]
-      : null
-  );
-
-  /*
-   * =========================================================
-   * Создание / обновление маркера
-   * =========================================================
-   */
-
-  function setMarker(
-    coordinates: [
-      number,
-      number
-    ],
-    ymaps: any
-  ) {
-    const map =
-      mapRef.current;
-
-    if (!map) {
+    if (script && window.ymaps3) {
+      handleLoad();
       return;
     }
 
-    /*
-     * Старый маркер удаляем.
-     */
-
-    if (
-      markerRef.current
-    ) {
-      try {
-        map.removeChild(
-          markerRef.current
-        );
-      } catch {
-        // ignore
-      }
-
-      markerRef.current =
-        null;
+    if (script && script.dataset.yandexMapsLoaded === "true" && !window.ymaps3) {
+      script.remove();
+      script = null;
     }
 
-    /*
-     * Создаём элемент маркера.
-     */
+    const shouldAppend = !script;
+    if (!script) {
+      script = document.createElement("script");
+      script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+      script.async = true;
+      script.dataset.yandexMaps = "true";
+    }
 
-    const markerElement =
-      document.createElement(
-        "div"
-      );
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    if (shouldAppend) document.head.appendChild(script);
+  });
 
-    markerElement.className =
-      "doma-address-marker";
+  return mapsPromise;
+}
 
-    markerElement.innerHTML = `
-      <div class="doma-address-marker-pin">
-        <div class="doma-address-marker-center"></div>
-      </div>
-    `;
+interface AddressMapPickerProps {
+  title: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  onSelect: (latitude: number, longitude: number) => void;
+  onAddressChange: (address: string) => void;
+}
 
-    /*
-     * В Yandex Maps v3 маркер поддерживает
-     * draggable и onDragEnd.
-     */
+export default function AddressMapPicker({
+  title,
+  address,
+  latitude,
+  longitude,
+  onSelect,
+  onAddressChange,
+}: AddressMapPickerProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const ymapsRef = useRef<any>(null);
+  const callbacksRef = useRef({ onSelect, onAddressChange });
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("Можно передвинуть флажок на точное место.");
 
-    const marker =
-      new ymaps.YMapMarker(
-        {
-          coordinates,
-          draggable: true,
-          mapFollowsOnDrag: true,
-
-          onDragEnd: async (
-            newCoordinates: [
-              number,
-              number
-            ]
-          ) => {
-            const [
-              newLongitude,
-              newLatitude,
-            ] = newCoordinates;
-
-            setMarkerCoordinates(
-              [
-                newLongitude,
-                newLatitude,
-              ]
-            );
-
-            onCoordinatesChange(
-              newLatitude,
-              newLongitude
-            );
-
-            await reverseGeocode(
-              newLatitude,
-              newLongitude
-            );
-          },
-        },
-        markerElement
-      );
-
-    map.addChild(
-      marker
-    );
-
-    markerRef.current =
-      marker;
-  }
-
-  /*
-   * =========================================================
-   * Инициализация карты
-   * =========================================================
-   */
+  useEffect(() => {
+    callbacksRef.current = { onSelect, onAddressChange };
+  }, [onSelect, onAddressChange]);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function initMap() {
+    const setMarker = (coords: [number, number], zoom = 16) => {
+      const map = mapRef.current;
+      const ymaps = ymapsRef.current;
+      if (!map || !ymaps) return;
+
+      if (markerRef.current) {
+        try { map.removeChild(markerRef.current); } catch { /* already removed */ }
+      }
+
+      const pin = document.createElement("div");
+      pin.style.width = "22px";
+      pin.style.height = "22px";
+      pin.style.borderRadius = "50% 50% 50% 0";
+      pin.style.background = "#f43f4f";
+      pin.style.border = "3px solid #fff";
+      pin.style.boxShadow = "0 3px 12px rgba(15,23,42,.3)";
+      pin.style.transform = "rotate(-45deg)";
+      pin.style.cursor = "grab";
+
+      markerRef.current = new ymaps.YMapMarker({ coordinates: coords }, pin);
+      map.addChild(markerRef.current);
+      map.setLocation({ center: coords, zoom, duration: 250 });
+    };
+
+    async function init() {
       try {
-        setMapError("");
+        setStatus("loading");
+        const ymaps = await loadYandexMaps();
+        if (cancelled || !containerRef.current) return;
 
-        const ymaps =
-          await loadYandexMaps();
+        const map = new ymaps.YMap(containerRef.current, {
+          location: {
+            center: latitude != null && longitude != null
+              ? [longitude, latitude]
+              : DEFAULT_CENTER,
+            zoom: latitude != null && longitude != null ? 16 : 11,
+          },
+          mode: "vector",
+        });
+        map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
+        map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
+        const listener = new ymaps.YMapListener({
+          onClick: (_object: any, event: any) => {
+            const coords = event?.coordinates as [number, number] | undefined;
+            if (!coords || coords.length < 2) return;
+            setMarker(coords);
+            callbacksRef.current.onSelect(coords[1], coords[0]);
+            setMessage("Точка выбрана. Флажок можно передвинуть повторным нажатием на карту.");
+            void fetch(`${API_URL}/reverse-geocode?latitude=${coords[1]}&longitude=${coords[0]}`)
+              .then((response) => response.ok ? response.json() : null)
+              .then((data) => {
+                if (data?.found && data?.formatted) callbacksRef.current.onAddressChange(data.formatted);
+              })
+              .catch(() => {});
+          },
+        });
+        map.addChild(listener);
+        mapRef.current = map;
+        ymapsRef.current = ymaps;
 
-        if (
-          cancelled ||
-          !mapContainerRef.current
-        ) {
-          return;
+        if (latitude != null && longitude != null) {
+          setMarker([longitude, latitude]);
         }
-
-        ymapsRef.current =
-          ymaps;
-
-        if (
-          mapRef.current
-        ) {
-          setMapReady(true);
-          return;
-        }
-
-        const {
-          YMap,
-          YMapDefaultSchemeLayer,
-          YMapDefaultFeaturesLayer,
-          YMapListener,
-        } = ymaps;
-
-        const initialCenter =
-          latitude !== null &&
-          longitude !== null
-            ? [
-                longitude,
-                latitude,
-              ]
-            : DEFAULT_CENTER;
-
-        const initialZoom =
-          latitude !== null &&
-          longitude !== null
-            ? 17
-            : 11;
-
-        const map =
-          new YMap(
-            mapContainerRef.current,
-            {
-              location: {
-                center:
-                  initialCenter,
-                zoom:
-                  initialZoom,
-              },
-              mode: "vector",
-            }
-          );
-
-        map.addChild(
-          new YMapDefaultSchemeLayer(
-            {}
-          )
-        );
-
-        map.addChild(
-          new YMapDefaultFeaturesLayer(
-            {}
-          )
-        );
-
-        /*
-         * Клик по карте создаёт / перемещает
-         * маркер.
-         */
-
-        const mapListener =
-          new YMapListener({
-            layer: "any",
-
-            onClick: (
-              object: any,
-              event: any
-            ) => {
-              /*
-               * Если кликнули по существующему
-               * маркеру — ничего не делаем.
-               */
-              if (
-                object?.type ===
-                "marker"
-              ) {
-                return;
-              }
-
-              const coordinates =
-                event?.coordinates;
-
-              if (
-                !Array.isArray(
-                  coordinates
-                ) ||
-                coordinates.length !==
-                  2
-              ) {
-                return;
-              }
-
-              const [
-                clickedLongitude,
-                clickedLatitude,
-              ] = coordinates;
-
-              setMarkerCoordinates(
-                [
-                  clickedLongitude,
-                  clickedLatitude,
-                ]
-              );
-
-              onCoordinatesChange(
-                clickedLatitude,
-                clickedLongitude
-              );
-
-              setMarker(
-                [
-                  clickedLongitude,
-                  clickedLatitude,
-                ],
-                ymaps
-              );
-
-              reverseGeocode(
-                clickedLatitude,
-                clickedLongitude
-              );
-            },
-          });
-
-        map.addChild(
-          mapListener
-        );
-
-        mapRef.current =
-          map;
-
-        listenerRef.current =
-          mapListener;
-
-        /*
-         * Если координаты уже есть —
-         * ставим существующий маркер.
-         */
-
-        if (
-          latitude !== null &&
-          longitude !== null
-        ) {
-          setMarker(
-            [
-              longitude,
-              latitude,
-            ],
-            ymaps
-          );
-        }
-
-        setMapReady(true);
-      } catch (
-        error
-      ) {
-        console.error(
-          "DOMA map error:",
-          error
-        );
-
-        if (!cancelled) {
-          setMapError(
-            error instanceof Error
-              ? error.message
-              : "Не удалось загрузить карту."
-          );
-        }
+        setStatus("ready");
+      } catch (cause) {
+        if (cancelled) return;
+        setStatus("error");
+        setError(cause instanceof Error ? cause.message : "Не удалось загрузить карту.");
       }
     }
 
-    initMap();
-
+    void init();
     return () => {
       cancelled = true;
-
-      if (
-        mapRef.current
-      ) {
-        try {
-          mapRef.current.destroy();
-        } catch {
-          // ignore
-        }
-
-        mapRef.current =
-          null;
+      if (mapRef.current) {
+        try { mapRef.current.destroy(); } catch { /* ignore */ }
       }
-
-      markerRef.current =
-        null;
-
-      listenerRef.current =
-        null;
+      mapRef.current = null;
+      markerRef.current = null;
+      ymapsRef.current = null;
     };
+  // initialize one map per picker; marker updates are handled below
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /*
-   * =========================================================
-   * ПОИСК АДРЕСА
-   * =========================================================
-   */
+  useEffect(() => {
+    if (status !== "ready" || latitude == null || longitude == null) return;
+    const map = mapRef.current;
+    const ymaps = ymapsRef.current;
+    if (!map || !ymaps) return;
 
-  async function geocodeAddress() {
-    const cleanCity =
-      city.trim();
-
-    const cleanAddress =
-      address.trim();
-
-    if (!cleanAddress) {
-      setMessage(
-        "Введите адрес."
-      );
-
-      return;
+    if (markerRef.current) {
+      try { map.removeChild(markerRef.current); } catch { /* ignore */ }
     }
+    const pin = document.createElement("div");
+    pin.style.width = "22px";
+    pin.style.height = "22px";
+    pin.style.borderRadius = "50% 50% 50% 0";
+    pin.style.background = "#f43f4f";
+    pin.style.border = "3px solid #fff";
+    pin.style.boxShadow = "0 3px 12px rgba(15,23,42,.3)";
+    pin.style.transform = "rotate(-45deg)";
+    pin.style.cursor = "grab";
+    markerRef.current = new ymaps.YMapMarker({ coordinates: [longitude, latitude] }, pin);
+    map.addChild(markerRef.current);
+    map.setLocation({ center: [longitude, latitude], zoom: 16, duration: 250 });
+  }, [latitude, longitude, status]);
 
-    const fullAddress = [
-      cleanCity,
-      cleanAddress,
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-    try {
-      setSearching(true);
-      setMessage("");
-
-      const response =
-        await fetch(
-          `${API_URL}/geocode?address=${encodeURIComponent(
-            fullAddress
-          )}`
-        );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok
-      ) {
-        throw new Error(
-          data?.detail ||
-            "Ошибка геокодирования."
-        );
-      }
-
-      if (
-        !data?.found
-      ) {
-        setMessage(
-          "Адрес не найден. Попробуйте уточнить улицу и номер дома."
-        );
-
-        return;
-      }
-
-      const foundLatitude =
-        Number(
-          data.latitude
-        );
-
-      const foundLongitude =
-        Number(
-          data.longitude
-        );
-
-      if (
-        !Number.isFinite(
-          foundLatitude
-        ) ||
-        !Number.isFinite(
-          foundLongitude
-        )
-      ) {
-        throw new Error(
-          "Яндекс не вернул корректные координаты."
-        );
-      }
-
-      const coordinates: [
-        number,
-        number
-      ] = [
-        foundLongitude,
-        foundLatitude,
-      ];
-
-      setMarkerCoordinates(
-        coordinates
-      );
-
-      onCoordinatesChange(
-        foundLatitude,
-        foundLongitude
-      );
-
-      /*
-       * Берём нормализованный адрес
-       * Яндекса, если он есть.
-       */
-
-      if (
-        data.formatted
-      ) {
-        onAddressChange(
-          data.formatted
-        );
-      }
-
-      /*
-       * Перемещаем карту.
-       */
-
-      if (
-        mapRef.current
-      ) {
-        mapRef.current.setLocation(
-          {
-            center:
-              coordinates,
-            zoom: 17,
-            duration: 500,
-          }
-        );
-      }
-
-      /*
-       * Ставим маркер.
-       */
-
-      if (
-        ymapsRef.current
-      ) {
-        setMarker(
-          coordinates,
-          ymapsRef.current
-        );
-      }
-
-      if (
-        data.precision ===
-        "exact"
-      ) {
-        setMessage(
-          "✓ Точный адрес найден. При необходимости перетащи метку."
-        );
-      } else {
-        setMessage(
-          "✓ Адрес найден. Проверь положение метки на карте."
-        );
-      }
-    } catch (
-      error
-    ) {
-      console.error(
-        "Geocode error:",
-        error
-      );
-
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Не удалось найти адрес."
-      );
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  /*
-   * =========================================================
-   * ОБРАТНОЕ ГЕОКОДИРОВАНИЕ
-   * =========================================================
-   */
-
-  async function reverseGeocode(
-    nextLatitude: number,
-    nextLongitude: number
-  ) {
-    try {
-      const response =
-        await fetch(
-          `${API_URL}/reverse-geocode?latitude=${encodeURIComponent(
-            nextLatitude
-          )}&longitude=${encodeURIComponent(
-            nextLongitude
-          )}`
-        );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok
-      ) {
-        throw new Error(
-          data?.detail ||
-            "Ошибка обратного геокодирования."
-        );
-      }
-
-      if (
-        data?.found &&
-        data.formatted
-      ) {
-        onAddressChange(
-          data.formatted
-        );
-
-        setMessage(
-          "✓ Точка и адрес обновлены."
-        );
-      } else {
-        setMessage(
-          "Точка установлена. Точный адрес не найден."
-        );
-      }
-    } catch (
-      error
-    ) {
-      console.error(
-        "Reverse geocode error:",
-        error
-      );
-
-      setMessage(
-        "Точка сохранена, но адрес автоматически определить не удалось."
-      );
-    }
-  }
-
-  /*
-   * =========================================================
-   * Сброс точки
-   * =========================================================
-   */
-
-  function clearLocation() {
-    if (
-      mapRef.current &&
-      markerRef.current
-    ) {
+  // Geocode the entered address after the user pauses typing; this does not overwrite their text.
+  useEffect(() => {
+    if (!address.trim()) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
       try {
-        mapRef.current.removeChild(
-          markerRef.current
-        );
+        const response = await fetch(`${API_URL}/geocode?address=${encodeURIComponent(address.trim())}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled || !data?.found || !Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) return;
+        callbacksRef.current.onSelect(Number(data.latitude), Number(data.longitude));
+        setMessage("Адрес найден. При необходимости уточните точку на карте.");
       } catch {
-        // ignore
+        // The user can still choose the location manually on the map.
       }
-    }
-
-    markerRef.current =
-      null;
-
-    setMarkerCoordinates(
-      null
-    );
-
-    onCoordinatesChange(
-      null,
-      null
-    );
-
-    setMessage(
-      "Точка на карте удалена."
-    );
-
-    if (
-      mapRef.current
-    ) {
-      mapRef.current.setLocation(
-        {
-          center:
-            DEFAULT_CENTER,
-          zoom: 11,
-          duration: 400,
-        }
-      );
-    }
-  }
+    }, 650);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [address]);
 
   return (
-    <div className="picker">
-
-      {/* ====================================================
-          ПОИСК
-      ==================================================== */}
-
-      <div className="search-row">
-
-        <input
-          value={address}
-          onChange={(e) =>
-            onAddressChange(
-              e.target.value
-            )
-          }
-          placeholder="Например: ул. Красная, 1"
-          className="address-input"
-        />
-
-        <button
-          type="button"
-          className="find-button"
-          onClick={
-            geocodeAddress
-          }
-          disabled={
-            searching
-          }
-        >
-          {searching
-            ? "Ищем..."
-            : "🔎 Найти на карте"}
-        </button>
-
+    <section style={{ marginTop: 10, border: "1px solid #e2e8f0", borderRadius: 16, padding: 10, background: "#f8fafc" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+        <strong style={{ fontSize: 11, color: "#334155" }}>{title}</strong>
+        <span style={{ fontSize: 10, color: "#64748b" }}>
+          {latitude != null && longitude != null ? "Точка выбрана" : "Выберите точку"}
+        </span>
       </div>
-
-      {/* ====================================================
-          КАРТА
-      ==================================================== */}
-
-      <div className="map-box">
-
-        <div
-          ref={
-            mapContainerRef
-          }
-          className="map"
-        />
-
-        {!mapReady &&
-          !mapError && (
-            <div className="map-overlay">
-              <div className="loader" />
-
-              <span>
-                Загружаем карту...
-              </span>
-            </div>
-          )}
-
-        {mapError && (
-          <div className="map-overlay error">
-
-            <div className="error-icon">
-              ⚠
-            </div>
-
-            <strong>
-              Не удалось загрузить карту
-            </strong>
-
-            <p>
-              {mapError}
-            </p>
-
-          </div>
-        )}
-
-      </div>
-
-      {/* ====================================================
-          СТАТУС
-      ==================================================== */}
-
-      <div
-        className={
-          message.startsWith("✓")
-            ? "message success"
-            : "message"
-        }
-      >
-        {message ||
-          "Введи адрес и нажми «Найти на карте». Метку можно переместить вручную."}
-      </div>
-
-      {/* ====================================================
-          КООРДИНАТЫ НЕ ПОКАЗЫВАЕМ
-      ==================================================== */}
-
-      {markerCoordinates && (
-        <div className="location-actions">
-
-          <span>
-            📍 Точка объекта установлена
-          </span>
-
-          <button
-            type="button"
-            onClick={
-              clearLocation
-            }
-          >
-            Удалить точку
-          </button>
-
+      <div ref={containerRef} style={{ width: "100%", height: 220, borderRadius: 12, overflow: "hidden", background: "#e9edf2" }} />
+      {status === "loading" && <div style={{ padding: "8px 2px", fontSize: 11, color: "#64748b" }}>Загружаем карту…</div>}
+      {status === "error" && (
+        <div style={{ padding: "10px 2px", color: "#dc2626", fontSize: 11, lineHeight: 1.5 }}>
+          {error}
         </div>
       )}
-
-      <style jsx>{`
-        .picker {
-          display: grid;
-          gap: 10px;
-        }
-
-        .search-row {
-          display: grid;
-          grid-template-columns:
-            minmax(0, 1fr)
-            auto;
-          gap: 8px;
-        }
-
-        .address-input {
-          width: 100%;
-          height: 48px;
-          box-sizing: border-box;
-          padding:
-            0
-            15px;
-          border:
-            1px solid
-            #d8dee6;
-          border-radius: 13px;
-          outline: none;
-          background: #ffffff;
-          color: #202832;
-          font-size: 14px;
-        }
-
-        .address-input:focus {
-          border-color: #ef4444;
-          box-shadow:
-            0 0 0 3px
-              rgba(
-                239,
-                68,
-                68,
-                0.08
-              );
-        }
-
-        .find-button {
-          height: 48px;
-          min-width: 175px;
-          padding:
-            0
-            17px;
-          border: 0;
-          border-radius: 13px;
-          background: #ef4444;
-          color: #ffffff;
-          cursor: pointer;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .find-button:hover:not(
-          :disabled
-        ) {
-          background: #dc3741;
-        }
-
-        .find-button:disabled {
-          cursor: wait;
-          opacity: 0.65;
-        }
-
-        .map-box {
-          position: relative;
-          width: 100%;
-          height: 370px;
-          overflow: hidden;
-          border-radius: 20px;
-          background: #edf1f4;
-        }
-
-        .map {
-          width: 100%;
-          height: 100%;
-        }
-
-        .map-overlay {
-          position: absolute;
-          inset: 0;
-          z-index: 20;
-
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          gap: 12px;
-
-          background: #edf1f4;
-          color: #667382;
-          font-size: 14px;
-        }
-
-        .map-overlay.error {
-          padding: 30px;
-          box-sizing: border-box;
-          text-align: center;
-        }
-
-        .map-overlay.error p {
-          max-width: 600px;
-          margin:
-            5px
-            0
-            0;
-          color: #7a8491;
-          font-size: 13px;
-          line-height: 1.6;
-        }
-
-        .error-icon {
-          font-size: 35px;
-        }
-
-        .loader {
-          width: 32px;
-          height: 32px;
-          border:
-            3px solid
-            #dce2e8;
-          border-top-color:
-            #ef4444;
-          border-radius: 50%;
-          animation:
-            doma-map-spin
-            0.8s linear infinite;
-        }
-
-        @keyframes doma-map-spin {
-          to {
-            transform: rotate(
-              360deg
-            );
-          }
-        }
-
-        .message {
-          padding:
-            10px
-            13px;
-          border-radius: 10px;
-          background: #f1f3f6;
-          color: #687482;
-          font-size: 12px;
-          line-height: 1.5;
-        }
-
-        .message.success {
-          background: #dcfce7;
-          color: #166534;
-        }
-
-        .location-actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 15px;
-          padding:
-            10px
-            13px;
-          border-radius: 10px;
-          background: #f8fafc;
-          color: #475569;
-          font-size: 12px;
-        }
-
-        .location-actions button {
-          border: 0;
-          background: transparent;
-          color: #ef4444;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        /*
-         * ====================================================
-         * CUSTOM MARKER
-         * ====================================================
-         */
-
-        :global(.doma-address-marker) {
-          transform:
-            translate(
-              -50%,
-              -50%
-            );
-          cursor: grab;
-        }
-
-        :global(
-          .doma-address-marker:active
-        ) {
-          cursor: grabbing;
-        }
-
-        :global(
-          .doma-address-marker-pin
-        ) {
-          position: relative;
-          width: 34px;
-          height: 34px;
-
-          display: grid;
-          place-items: center;
-
-          border:
-            4px solid
-            #ffffff;
-
-          border-radius: 50% 50%
-            50% 0;
-
-          transform:
-            rotate(-45deg);
-
-          background: #ef4444;
-
-          box-shadow:
-            0 5px 15px
-              rgba(
-                0,
-                0,
-                0,
-                0.28
-              );
-        }
-
-        :global(
-          .doma-address-marker-center
-        ) {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: #ffffff;
-          transform:
-            rotate(45deg);
-        }
-
-        @media (max-width: 650px) {
-          .search-row {
-            grid-template-columns: 1fr;
-          }
-
-          .find-button {
-            width: 100%;
-          }
-
-          .map-box {
-            height: 310px;
-          }
-
-          .location-actions {
-            align-items: flex-start;
-            flex-direction: column;
-          }
-        }
-      `}</style>
-    </div>
+      <div style={{ marginTop: 7, fontSize: 10, color: "#64748b" }}>{message}</div>
+    </section>
   );
 }
