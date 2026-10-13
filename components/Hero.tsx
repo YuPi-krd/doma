@@ -571,7 +571,7 @@ function CustomDropdown({
             style={{
               color: value ? "#171b22" : "#8992a0",
               fontWeight: value ? 600 : 400,
-              fontSize: value ? "15px" : "16px",
+              fontSize: value ? "16px" : "17px",
               lineHeight: 1.25,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -821,7 +821,7 @@ function RangeDropdown({ label, from, to, open, onToggle, onFromChange, onToChan
       >
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: hasValue ? "2px" : 0, overflow: "hidden" }}>
           {hasValue && <span style={{ color: "#8992a0", fontSize: "11px", lineHeight: 1.15 }}>{label}</span>}
-          <span style={{ color: hasValue ? "#171b22" : "#8992a0", fontSize: hasValue ? "15px" : "16px", lineHeight: 1.25, fontWeight: hasValue ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: hasValue ? "#171b22" : "#8992a0", fontSize: hasValue ? "16px" : "17px", lineHeight: 1.25, fontWeight: hasValue ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {summary || label}
           </span>
         </span>
@@ -2352,20 +2352,31 @@ export default function Hero() {
                   style={{
                     width: "100%",
                     minWidth: 0,
-                    minHeight: "44px",
-                    height: "44px",
-                    border: "1px solid transparent",
+                    minHeight: "56px",
+                    height: "56px",
+                    maxHeight: "56px",
+                    flexShrink: 0,
+                    border: "1px solid #d9dee8",
                     background: "#f1f3f7",
                     color: "#64748b",
                     outline: "none",
                     borderRadius: "9999px",
                     padding: "0 18px",
                     boxSizing: "border-box",
-                    fontSize: "15px",
+                    fontSize: "16px",
                     lineHeight: 1.25,
                     fontFamily: "inherit",
                     boxShadow: "none",
                     appearance: "none",
+                    transition: "border-color .18s ease, background .18s ease",
+                  }}
+                  onFocus={(event) => {
+                    event.currentTarget.style.borderColor = "#c7cfdd";
+                    event.currentTarget.style.background = "#ffffff";
+                  }}
+                  onBlur={(event) => {
+                    event.currentTarget.style.borderColor = "#d9dee8";
+                    event.currentTarget.style.background = "#f1f3f7";
                   }}
                 />
 
@@ -2379,7 +2390,7 @@ export default function Hero() {
                     )
                   }
                   style={{
-                    minHeight: "44px",
+                    minHeight: "56px",
                     width: "100%",
                     minWidth: 0,
                     boxSizing: "border-box",
@@ -2392,7 +2403,7 @@ export default function Hero() {
                     borderRadius: "999px",
                     background: "#ffffff",
                     color: "#111827",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: 650,
                     lineHeight: 1.2,
                     whiteSpace: "nowrap",
@@ -2416,7 +2427,7 @@ export default function Hero() {
                   href="/map"
                   className="btn"
                   style={{
-                    minHeight: "44px",
+                    minHeight: "56px",
                     width: "100%",
                     minWidth: 0,
                     boxSizing: "border-box",
@@ -2429,7 +2440,7 @@ export default function Hero() {
                     borderRadius: "999px",
                     background: "#ffffff",
                     color: "#111827",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: 650,
                     lineHeight: 1.2,
                     whiteSpace: "nowrap",
@@ -2471,7 +2482,7 @@ export default function Hero() {
                     e.currentTarget.style.filter = "none";
                   }}
                   style={{
-                    minHeight: "44px",
+                    minHeight: "56px",
                     width: "100%",
                     minWidth: 0,
                     boxSizing: "border-box",
@@ -2484,7 +2495,7 @@ export default function Hero() {
                     borderRadius: "999px",
                     background: "linear-gradient(135deg, #ff4b55 0%, #ed2635 100%)",
                     color: "#ffffff",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: 700,
                     lineHeight: 1.2,
                     whiteSpace: "nowrap",
