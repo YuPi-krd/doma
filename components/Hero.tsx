@@ -1743,6 +1743,10 @@ export default function Hero() {
     setShowFilters,
   ] = useState(false);
 
+  // Управление выпадающими списками в модальном окне поиска.
+  const [modalPropertyMenuOpen, setModalPropertyMenuOpen] = useState(false);
+  const [modalSubtypeMenuOpen, setModalSubtypeMenuOpen] = useState(false);
+
   const [
     selectedCategory,
     setSelectedCategory,
@@ -2587,62 +2591,250 @@ export default function Hero() {
                       <button
                         type="button"
                         aria-label="Закрыть фильтры"
-                        onClick={() => setShowFilters(false)}
+                        onClick={() => { setShowFilters(false); setModalPropertyMenuOpen(false); setModalSubtypeMenuOpen(false); }}
                         style={{ width: 28, height: 28, border: 0, background: "transparent", color: "#111827", fontSize: 20, lineHeight: 1, cursor: "pointer", padding: 0 }}
                       >×</button>
                     </div>
 
                     <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: "#536174" }}>Основные</div>
                     <div className="filters-modal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
-                      <label style={{ display: "grid", gap: 3, minWidth: 0, fontSize: 10, color: "#8a94a3" }}>
-                        Тип недвижимости
-                        <select
-                          value={propertyType === "Квартиры" && subType ? subType : propertyType}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const apartmentSubtypes = ["Квартиры во вторичке", "Квартиры в новостройке", "Квартиры от застройщика", "Студии", "Пентхаусы"];
-                            if (apartmentSubtypes.includes(value)) {
-                              setPropertyType("Квартиры");
-                              setSubType(value);
-                            } else {
-                              setPropertyType(value as PropertyType | "");
-                              setSubType("");
-                              if (value !== "Квартиры") setRooms("");
-                            }
-                            setMortgageOnly(false);
-                            setPoolOnly(false);
-                            setGasOnly(false);
-                            setGarageOnly(false);
+                      <div style={{ ...fieldLabelStyle, position: "relative", zIndex: modalPropertyMenuOpen ? 40 : 1 }}>
+                        <span>Тип недвижимости</span>
+                        <button
+                          type="button"
+                          aria-expanded={modalPropertyMenuOpen}
+                          onClick={() => {
+                            setModalPropertyMenuOpen((open) => !open);
+                            setModalSubtypeMenuOpen(false);
                           }}
-                          style={{ ...modalSelectStyle, height: 44, fontSize: 12, color: propertyType ? "#111827" : "#8a94a3", fontWeight: propertyType ? 600 : 400 }}
+                          style={{
+                            ...modalInputStyle,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            height: 44,
+                            textAlign: "left",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            color: (propertyType || subType) ? "#111827" : "#8490a1",
+                            fontWeight: (propertyType || subType) ? 600 : 400,
+                          }}
                         >
-                          <option value="">Тип недвижимости</option>
-                          {propertyTypes.map((item) => <option key={item} value={item}>{item}</option>)}
-                          <optgroup label="Квартиры">
-                            {["Квартиры во вторичке", "Квартиры в новостройке", "Квартиры от застройщика", "Студии", "Пентхаусы"].map((item) => <option key={item} value={item}>{item}</option>)}
-                          </optgroup>
-                        </select>
-                      </label>
-                      <label style={{ display: "grid", gap: 3, minWidth: 0, fontSize: 10, color: "#8a94a3" }}>
-                        {propertyType === "Квартиры" ? "Комнатность" : "Тип"}
-                        <select
-                          value={propertyType === "Квартиры" ? rooms : subType}
-                          onChange={(e) => propertyType === "Квартиры" ? setRooms(e.target.value) : setSubType(e.target.value)}
-                          style={{ ...modalSelectStyle, height: 44, fontSize: 12, color: (propertyType === "Квартиры" ? rooms : subType) ? "#111827" : "#8a94a3" }}
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {subType || propertyType || "Тип недвижимости"}
+                          </span>
+                          <span aria-hidden="true" style={{ color: "#8490a1", fontSize: 12 }}>⌄</span>
+                        </button>
+
+                        {modalPropertyMenuOpen && (
+                          <div
+                            role="listbox"
+                            aria-label="Тип недвижимости"
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 8px)",
+                              left: 0,
+                              right: 0,
+                              maxHeight: 300,
+                              overflowY: "auto",
+                              padding: "8px 7px",
+                              background: "#f1f3f7",
+                              border: "1px solid rgba(211,217,227,.85)",
+                              borderRadius: 22,
+                              boxShadow: "0 8px 18px rgba(31,41,55,.10)",
+                              zIndex: 50,
+                              color: "#111827",
+                              fontSize: 12,
+                            }}
+                          >
+                            <div style={{ padding: "5px 9px 8px", marginBottom: 2, color: "#8a94a3", fontSize: 10, fontWeight: 500 }}>
+                              Тип недвижимости
+                            </div>
+                            {[
+                              ...subTypes["Квартиры"].filter((item) => item !== "Квартиры").map((item) => ({
+                                label: item,
+                                type: "Квартиры" as PropertyType,
+                                subtype: item,
+                              })),
+                              ...propertyTypes.filter((item) => item !== "Квартиры").map((item) => ({
+                                label: item === "Земельные участки" ? "Участки" : item,
+                                type: item,
+                                subtype: "",
+                              })),
+                            ].map((item) => {
+                              const checked = propertyType === item.type &&
+                                (item.type === "Квартиры" ? subType === item.subtype : true);
+                              return (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={checked}
+                                  onClick={() => {
+                                    setPropertyType(item.type);
+                                    setSubType(item.subtype);
+                                    if (item.type !== "Квартиры") setRooms("");
+                                    setModalPropertyMenuOpen(false);
+                                    setMortgageOnly(false);
+                                    setPoolOnly(false);
+                                    setGasOnly(false);
+                                    setGarageOnly(false);
+                                  }}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    width: "100%",
+                                    minHeight: 43,
+                                    padding: "7px 12px",
+                                    border: 0,
+                                    borderRadius: 10,
+                                    background: "transparent",
+                                    color: "#111827",
+                                    textAlign: "left",
+                                    fontFamily: "inherit",
+                                    fontSize: 12,
+                                    lineHeight: 1.35,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <span aria-hidden="true" style={{
+                                    flex: "0 0 13px",
+                                    width: 13,
+                                    height: 13,
+                                    boxSizing: "border-box",
+                                    border: "1px solid #ff3b49",
+                                    borderRadius: 3,
+                                    background: checked ? "#f23845" : "transparent",
+                                    color: "#fff",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 9,
+                                    fontWeight: 800,
+                                  }}>{checked ? "✓" : ""}</span>
+                                  <span>{item.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ ...fieldLabelStyle, position: "relative", zIndex: modalSubtypeMenuOpen ? 40 : 1 }}>
+                        <span>{propertyType === "Квартиры" ? "Комнатность" : "Тип"}</span>
+                        <button
+                          type="button"
+                          aria-expanded={modalSubtypeMenuOpen}
+                          disabled={!propertyType}
+                          onClick={() => {
+                            if (!propertyType) return;
+                            setModalSubtypeMenuOpen((open) => !open);
+                            setModalPropertyMenuOpen(false);
+                          }}
+                          style={{
+                            ...modalInputStyle,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            height: 44,
+                            textAlign: "left",
+                            cursor: propertyType ? "pointer" : "not-allowed",
+                            opacity: propertyType ? 1 : .9,
+                            fontSize: 12,
+                            color: (propertyType === "Квартиры" ? rooms : subType) ? "#111827" : "#8490a1",
+                          }}
                         >
-                          {propertyType === "Квартиры" ? (
-                            <>
-                              <option value="">Комнатность</option>
-                              {roomOptions.filter((item) => item !== "Не важно").map((item) => <option key={item} value={item}>{item}</option>)}
-                            </>
-                          ) : (
-                            <>
-                              <option value="">{propertyType ? "Тип" : "Выберите недвижимость"}</option>
-                              {(propertyType ? subTypes[propertyType] || [] : []).map((item) => <option key={item} value={item}>{item}</option>)}
-                            </>
-                          )}
-                        </select>
-                      </label>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {propertyType === "Квартиры"
+                              ? (rooms || "Комнатность")
+                              : (subType || (propertyType ? "Тип" : "Выберите недвижимость"))}
+                          </span>
+                          <span aria-hidden="true" style={{ color: "#8490a1", fontSize: 12 }}>⌄</span>
+                        </button>
+
+                        {modalSubtypeMenuOpen && propertyType && (
+                          <div
+                            role="listbox"
+                            aria-label={propertyType === "Квартиры" ? "Комнатность" : "Подтип недвижимости"}
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 8px)",
+                              left: 0,
+                              right: 0,
+                              maxHeight: 270,
+                              overflowY: "auto",
+                              padding: "8px 7px",
+                              background: "#f1f3f7",
+                              border: "1px solid rgba(211,217,227,.85)",
+                              borderRadius: 22,
+                              boxShadow: "0 8px 18px rgba(31,41,55,.10)",
+                              zIndex: 50,
+                              color: "#111827",
+                              fontSize: 12,
+                            }}
+                          >
+                            <div style={{ padding: "5px 9px 8px", marginBottom: 2, color: "#8a94a3", fontSize: 10, fontWeight: 500 }}>
+                              {propertyType === "Квартиры" ? "Комнатность" : "Тип"}
+                            </div>
+                            {(propertyType === "Квартиры"
+                              ? roomOptions.filter((item) => item !== "Не важно")
+                              : (subTypes[propertyType] || [])
+                            ).map((item) => {
+                              const checked = propertyType === "Квартиры" ? rooms === item : subType === item;
+                              return (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={checked}
+                                  onClick={() => {
+                                    if (propertyType === "Квартиры") setRooms(item);
+                                    else setSubType(item);
+                                    setModalSubtypeMenuOpen(false);
+                                  }}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    width: "100%",
+                                    minHeight: 43,
+                                    padding: "7px 12px",
+                                    border: 0,
+                                    borderRadius: 10,
+                                    background: "transparent",
+                                    color: "#111827",
+                                    textAlign: "left",
+                                    fontFamily: "inherit",
+                                    fontSize: 12,
+                                    lineHeight: 1.35,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <span aria-hidden="true" style={{
+                                    flex: "0 0 13px",
+                                    width: 13,
+                                    height: 13,
+                                    boxSizing: "border-box",
+                                    border: "1px solid #ff3b49",
+                                    borderRadius: 3,
+                                    background: checked ? "#f23845" : "transparent",
+                                    color: "#fff",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 9,
+                                    fontWeight: 800,
+                                  }}>{checked ? "✓" : ""}</span>
+                                  <span>{item}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <input
