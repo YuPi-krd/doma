@@ -2489,16 +2489,17 @@ export default function Hero() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "10px",
-                    padding: "0 14px",
+                    gap: "7px",
+                    padding: "0 10px",
                     border: "1px solid #f23843",
                     borderRadius: "999px",
                     background: "linear-gradient(135deg, #ff4b55 0%, #ed2635 100%)",
                     color: "#ffffff",
-                    fontSize: "16px",
+                    fontSize: "13px",
                     fontWeight: 700,
-                    lineHeight: 1.2,
+                    lineHeight: 1.15,
                     whiteSpace: "nowrap",
+                    minWidth: 0,
                     cursor: "pointer",
                     boxShadow: "0 8px 20px rgba(239, 51, 64, .24)",
                     transition: "transform .18s ease, box-shadow .18s ease, filter .18s ease",
@@ -2507,9 +2508,9 @@ export default function Hero() {
                   <span
                     aria-hidden="true"
                     style={{
-                      width: "30px",
-                      height: "30px",
-                      minWidth: "30px",
+                      width: "26px",
+                      height: "26px",
+                      minWidth: "26px",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -2532,7 +2533,7 @@ export default function Hero() {
                     </svg>
                   </span>
                   <span>Поиск объявлений</span>
-                  <span aria-hidden="true" style={{ fontSize: "17px", marginLeft: "1px" }}>→</span>
+                  <span aria-hidden="true" style={{ fontSize: "14px", marginLeft: "0px", flexShrink: 0 }}>→</span>
                 </button>
               </div>
 
