@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { CSSProperties } from "react";
 
 interface MapMarker {
   id: number;
@@ -156,6 +157,219 @@ function loadYandexMaps() {
 
   return ymapsPromise;
 }
+
+type YandexAddressPreviewProps = {
+  address: string;
+  height?: string;
+  onCoordinatesChange?: (coordinates: [number, number]) => void;
+};
+
+/**
+ * Карта для формы CRM. Она показывается под полем адреса,
+ * центрируется по введённому адресу и позволяет уточнить точку кликом.
+ * Основной компонент YandexMap ниже оставлен без изменений.
+ */
+export function YandexAddressPreview({
+  address,
+  height = "260px",
+  onCoordinatesChange,
+}: YandexAddressPreviewProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedCoordinates, setSelectedCoordinates] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      try {
+        setStatus("loading");
+        const ymaps = await loadYandexMaps();
+        if (cancelled || !containerRef.current) return;
+
+        // The component may remount in React Strict Mode.
+        if (mapRef.current) {
+          setStatus("ready");
+          return;
+        }
+
+        const map = new ymaps.YMap(containerRef.current, {
+          location: { center: KRASNODAR_CENTER, zoom: 11 },
+          mode: "vector",
+        });
+        map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
+        map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
+
+        const listener = new ymaps.YMapListener({
+          onClick: (_object: unknown, event: any) => {
+            const coordinates = event?.coordinates;
+            if (!Array.isArray(coordinates) || coordinates.length !== 2) return;
+            const point: [number, number] = [Number(coordinates[0]), Number(coordinates[1])];
+            if (!point.every(Number.isFinite)) return;
+
+            setSelectedCoordinates(point);
+            onCoordinatesChange?.(point);
+
+            if (markerRef.current) {
+              try { map.removeChild(markerRef.current); } catch { /* marker already removed */ }
+            }
+            const pin = document.createElement("div");
+            pin.className = "doma-address-pin";
+            pin.setAttribute("aria-label", "Выбранное местоположение");
+            pin.innerHTML = '<span></span>';
+            markerRef.current = new ymaps.YMapMarker({ coordinates: point }, pin);
+            map.addChild(markerRef.current);
+          },
+        });
+        map.addChild(listener);
+        mapRef.current = map;
+        setStatus("ready");
+      } catch (error) {
+        console.error("Yandex address preview error:", error);
+        if (!cancelled) {
+          setStatus("error");
+          setErrorMessage(error instanceof Error ? error.message : "Не удалось загрузить карту");
+        }
+      }
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        try { mapRef.current.destroy(); } catch { /* ignore */ }
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+    // The map instance is created once; address geocoding is handled separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const cleanAddress = address.trim();
+    if (!cleanAddress || status !== "ready" || !mapRef.current) return;
+
+    async function locateAddress() {
+      const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+      if (!apiKey) return;
+      try {
+        const query = new URLSearchParams({
+          apikey: apiKey,
+          geocode: cleanAddress,
+          format: "json",
+          lang: "ru_RU",
+          results: "1",
+        });
+        const response = await fetch(`https://geocode-maps.yandex.ru/v1/?${query.toString()}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
+        if (typeof pos !== "string") return;
+        const [longitudeText, latitudeText] = pos.split(" ");
+        const longitude = Number(longitudeText);
+        const latitude = Number(latitudeText);
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+
+        const point: [number, number] = [longitude, latitude];
+        mapRef.current?.update({ location: { center: point, zoom: 16, duration: 250 } });
+        setSelectedCoordinates(point);
+        onCoordinatesChange?.(point);
+
+        const ymaps = window.ymaps3;
+        if (ymaps && mapRef.current) {
+          if (markerRef.current) {
+            try { mapRef.current.removeChild(markerRef.current); } catch { /* ignore */ }
+          }
+          const pin = document.createElement("div");
+          pin.className = "doma-address-pin";
+          pin.setAttribute("aria-label", "Выбранное местоположение");
+          pin.innerHTML = '<span></span>';
+          markerRef.current = new ymaps.YMapMarker({ coordinates: point }, pin);
+          mapRef.current.addChild(markerRef.current);
+        }
+      } catch (error) {
+        // Keep the interactive map available if address lookup fails.
+        console.warn("Не удалось определить координаты адреса:", error);
+      }
+    }
+
+    const delay = window.setTimeout(() => { void locateAddress(); }, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(delay);
+    };
+  }, [address, status, onCoordinatesChange]);
+
+  if (!address.trim()) return null;
+
+  return (
+    <div style={{ marginTop: "12px", width: "100%" }}>
+      <div style={{ position: "relative", height, width: "100%", overflow: "hidden", borderRadius: "16px", border: "1px solid #e6ebf2", background: "#eef1f4" }}>
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {status === "loading" && (
+          <div style={addressMapOverlayStyle}>Загружаем карту…</div>
+        )}
+        {status === "error" && (
+          <div style={addressMapOverlayStyle}>
+            <strong>Не удалось загрузить карту</strong>
+            <span style={{ maxWidth: "90%", textAlign: "center" }}>{errorMessage}</span>
+          </div>
+        )}
+        {status === "ready" && (
+          <div style={{ position: "absolute", left: "10px", bottom: "10px", zIndex: 5, padding: "7px 10px", borderRadius: "9px", background: "rgba(255,255,255,.96)", color: "#475569", fontSize: "11px", boxShadow: "0 2px 8px rgba(15,23,42,.12)" }}>
+            Нажмите на карту, чтобы уточнить точку
+          </div>
+        )}
+      </div>
+      {selectedCoordinates && (
+        <div style={{ marginTop: "6px", color: "#64748b", fontSize: "11px" }}>
+          Координаты: {selectedCoordinates[1].toFixed(6)}, {selectedCoordinates[0].toFixed(6)}
+        </div>
+      )}
+      <style jsx global>{`
+        .doma-address-pin {
+          width: 22px;
+          height: 22px;
+          border: 3px solid #fff;
+          border-radius: 50% 50% 50% 0;
+          background: #ef3340;
+          box-shadow: 0 2px 8px rgba(0,0,0,.28);
+          transform: translate(-50%, -100%) rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .doma-address-pin span {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: white;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+const addressMapOverlayStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 5,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "column",
+  gap: "8px",
+  padding: "20px",
+  background: "#eef1f4",
+  color: "#657180",
+  fontSize: "13px",
+};
 
 export default function YandexMap({
   markers,

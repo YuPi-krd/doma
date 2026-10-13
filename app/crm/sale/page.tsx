@@ -1,5 +1,6 @@
 "use client";
 
+import AddressMapPicker from "@/components/AddressMapPicker";
 import { useEffect, useMemo, useState } from "react";
 
 interface PhotoPreview {
@@ -68,6 +69,8 @@ export default function SalePage() {
   const [district, setDistrict] = useState("");
   const [realAddress, setRealAddress] = useState("");
   const [publicAddress, setPublicAddress] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [price, setPrice] = useState("");
   const [area, setArea] = useState("");
   const [rooms, setRooms] = useState("");
@@ -154,6 +157,8 @@ export default function SalePage() {
       district,
       realAddress,
       publicAddress,
+      latitude,
+      longitude,
       price,
       area,
       rooms,
@@ -190,7 +195,7 @@ export default function SalePage() {
     setSavedId(null);
 
     try {
-      const res = await fetch("https://doma-nq4u.onrender.com/properties", {
+      const res = await fetch("http://127.0.0.1:8000/properties", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -213,6 +218,8 @@ export default function SalePage() {
           address: publicAddress,
           real_address: realAddress,
           public_address: publicAddress,
+          latitude,
+          longitude,
           owner_name: ownerName,
           owner_phone: ownerPhone,
           owner_comment: agentComment,
@@ -234,7 +241,7 @@ export default function SalePage() {
       alert(`Объект сохранён. ID: ${data.id}`);
     } catch (error) {
       console.error(error);
-      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
+      alert("Не удалось подключиться к серверу CRM.");
     } finally {
       setIsSaving(false);
     }
@@ -380,6 +387,17 @@ export default function SalePage() {
                     />
                     <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
                   </div>
+                  <AddressMapPicker
+                    title="Местоположение объекта на карте"
+                    address={realAddress}
+                    latitude={latitude}
+                    longitude={longitude}
+                    onSelect={(lat, lon) => {
+                      setLatitude(lat);
+                      setLongitude(lon);
+                    }}
+                    onAddressChange={(address) => setRealAddress(address)}
+                  />
                 </Field>
 
                 <Field label="Рекламный адрес" full>

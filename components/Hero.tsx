@@ -2881,10 +2881,10 @@ export default function Hero() {
                       <>
                         <div style={{ fontSize: 12, fontWeight: 600, margin: "15px 0 9px", color: "#536174" }}>Дополнительные</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                          <MultiSelectDropdown label="Ремонт" value={renovations} onChange={setRenovations} options={["Евроремонт", "Косметический", "Дизайнерский", "Требует ремонта", "Современный"]} />
-                          {propertyType === "Квартиры" && <MultiSelectDropdown label="Балконы" value={balconies} onChange={setBalconies} options={["Балкон", "Лоджия", "2 балкона", "2 лоджии", "Французский балкон"]} />}
+                          <MultiSelectDropdown label="Ремонт" value={renovations} onChange={setRenovations} options={["Евроремонт", "Косметический", "Дизайнерский", "Требует ремонта", "Современный", "Частичный", "На стадии ремонта", "Предчистовая отделка", "Без отделки", "Черновая отделка", "Подготовка под чистовую отделку", "Чистовая отделка"]} />
+                          {propertyType === "Квартиры" && <MultiSelectDropdown label="Балконы" value={balconies} onChange={setBalconies} options={["Балкон", "Лоджия", "2 балкона", "2 лоджии", "Французский балкон", "Терраса", "Застекленная лоджия", "Застекленный балкон", "Эркер", "Несколько"]} />}
                           {propertyType === "Квартиры" && <MultiSelectDropdown label="Типы комнат" value={roomLayouts} onChange={setRoomLayouts} options={["Изолированная", "Смежно-изолированная", "Смежная"]} />}
-                          <MultiSelectDropdown label="Материал стен" value={wallMaterials} onChange={setWallMaterials} options={["Деревянный", "Кирпичный", "Монолитный", "Панельный", "Блочный", "Каркасный"]} />
+                          <MultiSelectDropdown label="Материал стен" value={wallMaterials} onChange={setWallMaterials} options={["Деревянный", "Бревно, сруб, лафет, брус", "Кирпичный", "Монолитный", "Панельный", "Сендвич-панель", "Строительный кирпич", "Силикатный кирпич", "Поризованный кирпич", "Съемная опалубка", "Несъемная опалубка", "Ммонолитно-кирпичный", "Металлический", "Блочный", "Бетон", "Пеноблок/пенобетон", "Газоблок/газобетон/газосиликатный", "Керамзитобетон", "Каркасный", "Каркасно-щитовой", "Каркасно-панельный", ]} />
                           <MultiSelectDropdown label="Санузел" value={bathrooms} onChange={setBathrooms} options={["Совмещенный", "Раздельный", "1", "2", "3"]} />
                         </div>
                       </>
