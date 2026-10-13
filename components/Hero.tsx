@@ -138,26 +138,6 @@ const roomOptions = [
   "4+",
 ];
 
-const priceOptions = [
-  "Не важно",
-  "До 3 млн ₽",
-  "3–5 млн ₽",
-  "5–8 млн ₽",
-  "8–12 млн ₽",
-  "12–20 млн ₽",
-  "От 20 млн ₽",
-];
-
-const areaOptions = [
-  "Не важно",
-  "До 40 м²",
-  "40–60 м²",
-  "60–80 м²",
-  "80–120 м²",
-  "120–200 м²",
-  "От 200 м²",
-];
-
 const locationOptions = [
   "Краснодар",
   "Центральный район",
@@ -565,38 +545,37 @@ function CustomDropdown({
         type="button"
         onClick={onOpen}
         className="search-input"
+        aria-expanded={open}
         style={{
           width: "100%",
           minHeight: "56px",
           display: "flex",
           alignItems: "center",
-          justifyContent:
-            "space-between",
+          justifyContent: "space-between",
           gap: "10px",
-          border: "none",
+          border: value ? "1px solid #e7e9ef" : "1px solid transparent",
+          borderRadius: "999px",
+          background: "#f1f3f7",
           cursor: "pointer",
           textAlign: "left",
-          padding:
-            "0 16px",
+          padding: value ? "8px 18px" : "0 18px",
+          transition: "background .18s ease, border-color .18s ease, box-shadow .18s ease",
         }}
       >
-        <span
-          style={{
-            color: value
-              ? "#111827"
-              : "#9ca3af",
-            fontWeight: value
-              ? 600
-              : 400,
-            overflow:
-              "hidden",
-            textOverflow:
-              "ellipsis",
-            whiteSpace:
-              "nowrap",
-          }}
-        >
-          {value || label}
+        <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: value ? "2px" : 0, overflow: "hidden" }}>
+          {value && <span style={{ color: "#8992a0", fontSize: "10px", lineHeight: 1.1, fontWeight: 500 }}>{label}</span>}
+          <span
+            style={{
+              color: value ? "#171b22" : "#8992a0",
+              fontWeight: value ? 600 : 400,
+              fontSize: value ? "13px" : "14px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {value || label}
+          </span>
         </span>
 
         <span
@@ -619,9 +598,9 @@ function CustomDropdown({
             right: 0,
             background:
               "#f1f3f7",
-            borderRadius:
-              "18px",
+            borderRadius: "22px",
             padding: "8px",
+            border: "1px solid #edf0f5",
             boxShadow:
               "0 15px 35px rgba(0,0,0,.12)",
             zIndex: 1000,
@@ -663,13 +642,10 @@ function CustomDropdown({
                     style={{
                       width:
                         "100%",
-                      background:
-                        selected ? "#fee2e2" : "#ffffff",
+                      background: selected ? "#fff0f1" : "#ffffff",
                       border: selected ? "1px solid #ef4440" : "1px solid transparent",
-                      borderRadius:
-                        "12px",
-                      padding:
-                        "11px 10px",
+                      borderRadius: "999px",
+                      padding: "11px 14px",
                       display:
                         "flex",
                       alignItems:
@@ -687,16 +663,11 @@ function CustomDropdown({
                   >
                     <span
                       style={{
-                        width:
-                          "14px",
-                        height:
-                          "14px",
-                        minWidth:
-                          "14px",
-                        border:
-                          "1.5px solid #ef3340",
-                        borderRadius:
-                          "4px",
+                        width: "17px",
+                        height: "17px",
+                        minWidth: "17px",
+                        border: selected ? "1.5px solid #ef3340" : "1.5px solid #c7cdd7",
+                        borderRadius: "50%",
                         display:
                           "flex",
                         alignItems:
@@ -735,6 +706,59 @@ function CustomDropdown({
               }
             )
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   RANGE DROPDOWN — PRICE / AREA
+============================================================ */
+
+type RangeDropdownProps = {
+  label: string;
+  from: string;
+  to: string;
+  open: boolean;
+  onToggle: () => void;
+  onFromChange: (value: string) => void;
+  onToChange: (value: string) => void;
+  suffix?: string;
+};
+
+function RangeDropdown({ label, from, to, open, onToggle, onFromChange, onToChange, suffix }: RangeDropdownProps) {
+  const hasValue = Boolean(from || to);
+  const summary = from || to
+    ? `${from ? `От ${from}${suffix || ""}` : ""}${from && to ? " · " : ""}${to ? `До ${to}${suffix || ""}` : ""}`
+    : "";
+
+  return (
+    <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="search-input"
+        style={{
+          width: "100%", minHeight: "56px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: "10px", border: hasValue ? "1px solid #e7e9ef" : "1px solid transparent",
+          borderRadius: "999px", background: "#f1f3f7", cursor: "pointer", textAlign: "left",
+          padding: hasValue ? "8px 18px" : "0 18px", transition: "background .18s ease, border-color .18s ease",
+        }}
+      >
+        <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: hasValue ? "2px" : 0, overflow: "hidden" }}>
+          {hasValue && <span style={{ color: "#8992a0", fontSize: "10px", lineHeight: 1.1 }}>{label}</span>}
+          <span style={{ color: hasValue ? "#171b22" : "#8992a0", fontSize: hasValue ? "13px" : "14px", fontWeight: hasValue ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {summary || label}
+          </span>
+        </span>
+        <span style={{ color: "#8992a0", fontSize: "14px", flexShrink: 0 }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 1100, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px", padding: "8px", borderRadius: "999px", background: "#ffffff", border: "1px solid #edf0f5", boxShadow: "0 12px 28px rgba(15,23,42,.12)" }}>
+          <input aria-label={`${label}: от`} inputMode="numeric" type="number" min="0" placeholder="От" value={from} onChange={(e) => onFromChange(e.target.value)} style={{ width: "100%", minWidth: 0, height: "46px", boxSizing: "border-box", border: "none", outline: "none", borderRadius: "999px", padding: "0 14px", background: "#f1f3f7", color: "#202631", fontSize: "14px" }} />
+          <input aria-label={`${label}: до`} inputMode="numeric" type="number" min="0" placeholder="До" value={to} onChange={(e) => onToChange(e.target.value)} style={{ width: "100%", minWidth: 0, height: "46px", boxSizing: "border-box", border: "none", outline: "none", borderRadius: "999px", padding: "0 14px", background: "#f1f3f7", color: "#202631", fontSize: "14px" }} />
         </div>
       )}
     </div>
@@ -932,7 +956,9 @@ function ApplicationForm({
     setRooms,
   ] = useState("");
 
-  const [area, setArea] = useState("");
+  const [areaFrom, setAreaFrom] = useState("");
+  const [areaTo, setAreaTo] = useState("");
+  const [openAreaRange, setOpenAreaRange] = useState(false);
 
   const [
     name,
@@ -983,8 +1009,6 @@ function ApplicationForm({
     openRooms,
     setOpenRooms,
   ] = useState(false);
-
-  const [openArea, setOpenArea] = useState(false);
 
   const [
     showSuccessModal,
@@ -1062,8 +1086,8 @@ function ApplicationForm({
             ? `Комнатность: ${rooms}`
             : "",
 
-          area && area !== "Не важно"
-            ? `Площадь: ${area}`
+          areaFrom || areaTo
+            ? `Площадь: ${areaFrom ? `от ${areaFrom} м²` : ""}${areaFrom && areaTo ? " до " : ""}${areaTo ? `${areaTo} м²` : ""}`
             : "",
 
           cleanComment
@@ -1174,7 +1198,8 @@ function ApplicationForm({
       setPropertyType("");
       setSubType("");
       setRooms("");
-      setArea("");
+      setAreaFrom("");
+      setAreaTo("");
       setAgreement(false);
     } catch (err) {
       console.error(err);
@@ -1229,7 +1254,7 @@ function ApplicationForm({
                 false
               );
 
-              setOpenArea(false);
+              setOpenAreaRange(false);
             }}
             onChange={(
               value
@@ -1264,7 +1289,7 @@ function ApplicationForm({
                 setOpenSubType((value) => !value);
                 setOpenType(false);
                 setOpenRooms(false);
-                setOpenArea(false);
+                setOpenAreaRange(false);
               }}
               onChange={(value) => {
                 setSubType(value);
@@ -1283,7 +1308,7 @@ function ApplicationForm({
                 setOpenRooms((value) => !value);
                 setOpenType(false);
                 setOpenSubType(false);
-                setOpenArea(false);
+                setOpenAreaRange(false);
               }}
               onChange={(value) => {
                 setRooms(value);
@@ -1292,21 +1317,19 @@ function ApplicationForm({
             />
           )}
 
-          <CustomDropdown
+          <RangeDropdown
             label="Площадь"
-            value={area}
-            options={areaOptions}
-            open={openArea}
-            onOpen={() => {
-              setOpenArea((value) => !value);
+            from={areaFrom}
+            to={areaTo}
+            open={openAreaRange}
+            onToggle={() => {
+              setOpenAreaRange((value) => !value);
               setOpenType(false);
               setOpenSubType(false);
               setOpenRooms(false);
             }}
-            onChange={(value) => {
-              setArea(value);
-              setOpenArea(false);
-            }}
+            onFromChange={setAreaFrom}
+            onToChange={setAreaTo}
           />
 
           <input
@@ -1542,15 +1565,10 @@ export default function Hero() {
     setRooms,
   ] = useState("");
 
-  const [
-    price,
-    setPrice,
-  ] = useState("");
-
-  const [
-    area,
-    setArea,
-  ] = useState("");
+  const [priceFrom, setPriceFrom] = useState("");
+  const [priceTo, setPriceTo] = useState("");
+  const [areaFrom, setAreaFrom] = useState("");
+  const [areaTo, setAreaTo] = useState("");
 
   const [
     location,
@@ -1742,26 +1760,16 @@ export default function Hero() {
         );
       }
 
-      if (
-        price &&
-        price !==
-          "Не важно"
-      ) {
-        params.set(
-          "price",
-          price
-        );
+      if (priceFrom) params.set("price_from", priceFrom);
+      if (priceTo) params.set("price_to", priceTo);
+      if (priceFrom || priceTo) {
+        params.set("price", `${priceFrom || "0"}-${priceTo || ""}`);
       }
 
-      if (
-        area &&
-        area !==
-          "Не важно"
-      ) {
-        params.set(
-          "area",
-          area
-        );
+      if (areaFrom) params.set("area_from", areaFrom);
+      if (areaTo) params.set("area_to", areaTo);
+      if (areaFrom || areaTo) {
+        params.set("area", `${areaFrom || "0"}-${areaTo || ""}`);
       }
 
       if (
@@ -2131,54 +2139,21 @@ export default function Hero() {
                   />
                 )}
 
-                <CustomDropdown
+                <RangeDropdown
                   label="Цена"
-                  value={
-                    price
-                  }
-                  options={
-                    priceOptions
-                  }
-                  open={
-                    openPrice
-                  }
-                  onOpen={() => {
-                    setOpenPrice(
-                      (value) =>
-                        !value
-                    );
-
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
+                  from={priceFrom}
+                  to={priceTo}
+                  open={openPrice}
+                  onToggle={() => {
+                    setOpenPrice((value) => !value);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenArea(false);
+                    setOpenLocation(false);
                   }}
-                  onChange={(
-                    value
-                  ) => {
-                    setPrice(
-                      value
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-                  }}
+                  onFromChange={setPriceFrom}
+                  onToChange={setPriceTo}
                 />
               </div>
 
@@ -2196,54 +2171,21 @@ export default function Hero() {
                 }}
               >
 
-                <CustomDropdown
+                <RangeDropdown
                   label="Площадь"
-                  value={
-                    area
-                  }
-                  options={
-                    areaOptions
-                  }
-                  open={
-                    openArea
-                  }
-                  onOpen={() => {
-                    setOpenArea(
-                      (value) =>
-                        !value
-                    );
-
-                    setOpenPropertyType(
-                      false
-                    );
-
-                    setOpenSubType(
-                      false
-                    );
-
-                    setOpenRooms(
-                      false
-                    );
-
-                    setOpenPrice(
-                      false
-                    );
-
-                    setOpenLocation(
-                      false
-                    );
+                  from={areaFrom}
+                  to={areaTo}
+                  open={openArea}
+                  onToggle={() => {
+                    setOpenArea((value) => !value);
+                    setOpenPropertyType(false);
+                    setOpenSubType(false);
+                    setOpenRooms(false);
+                    setOpenPrice(false);
+                    setOpenLocation(false);
                   }}
-                  onChange={(
-                    value
-                  ) => {
-                    setArea(
-                      value
-                    );
-
-                    setOpenArea(
-                      false
-                    );
-                  }}
+                  onFromChange={setAreaFrom}
+                  onToChange={setAreaTo}
                 />
 
                 <button
