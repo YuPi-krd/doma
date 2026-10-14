@@ -33,127 +33,127 @@ const KRASNODAR_CENTER: [
   number
 ] = [38.9769, 45.0355];
 
-let ymapsPromise: Promise<any> | null =
-  null;
+let ymapsPromise: Promise<any> | null = null;
 
-function loadYandexMaps() {
-  if (
-    typeof window ===
-    "undefined"
-  ) {
-    return Promise.reject(
-      new Error(
-        "Yandex Maps доступен только в браузере"
-      )
-    );
+function loadYandexMaps(): Promise<any> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Яндекс.Карты можно загрузить только в браузере."));
   }
 
   if (window.ymaps3) {
-    return Promise.resolve(
-      window.ymaps3
-    );
+    return Promise.resolve(window.ymaps3);
   }
 
   if (ymapsPromise) {
     return ymapsPromise;
   }
 
-  const apiKey =
-    process.env
-      .NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY?.trim();
 
   if (!apiKey) {
     return Promise.reject(
       new Error(
-        "Не найден NEXT_PUBLIC_YANDEX_MAPS_API_KEY"
+        "Не задан NEXT_PUBLIC_YANDEX_MAPS_API_KEY. Добавьте ключ в переменные окружения Vercel и пересоберите проект."
       )
     );
   }
 
-  ymapsPromise =
-    new Promise(
-      (
-        resolve,
-        reject
-      ) => {
-        const existingScript =
-          document.querySelector(
-            'script[data-yandex-maps="true"]'
-          ) as HTMLScriptElement | null;
+  ymapsPromise = new Promise((resolve, reject) => {
+    let timeoutId: number | undefined;
+    let settled = false;
 
-        const script =
-          existingScript ??
-          document.createElement(
-            "script"
+    const finishWithError = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      ymapsPromise = null; // Позволяет повторить попытку после исправления конфигурации.
+      reject(error);
+    };
+
+    const finishWithSuccess = (ymaps: any) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      resolve(ymaps);
+    };
+
+    let script = document.querySelector(
+      'script[data-yandex-maps="true"]'
+    ) as HTMLScriptElement | null;
+
+    // Если в документе остался скрипт с другим ключом, используем новый.
+    // Сам ключ не выводим в сообщения и консоль.
+    const expectedUrl = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+    if (script && !script.src.includes(`apikey=${encodeURIComponent(apiKey)}`)) {
+      script.remove();
+      script = null;
+    }
+
+    const handleLoad = async () => {
+      try {
+        const ymaps = window.ymaps3;
+        if (!ymaps) {
+          throw new Error(
+            "Скрипт Яндекс.Карт загрузился, но API ymaps3 не доступен. Проверьте ключ и доступность API v3."
           );
-
-        const handleLoad =
-          async () => {
-            try {
-              if (
-                !window.ymaps3
-              ) {
-                throw new Error(
-                  "ymaps3 не появился после загрузки API"
-                );
-              }
-
-              await window.ymaps3
-                .ready;
-
-              resolve(
-                window.ymaps3
-              );
-            } catch (error) {
-              reject(error);
-            }
-          };
-
-        const handleError =
-          () => {
-            reject(
-              new Error(
-                "Не удалось загрузить API Яндекс.Карт. Проверь API-ключ и ограничения HTTP Referer."
-              )
-            );
-          };
-
-        script.addEventListener(
-          "load",
-          handleLoad,
-          {
-            once: true,
-          }
-        );
-
-        script.addEventListener(
-          "error",
-          handleError,
-          {
-            once: true,
-          }
-        );
-
-        if (!existingScript) {
-          script.src =
-            `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(
-              apiKey
-            )}&lang=ru_RU`;
-
-          script.async = true;
-          script.dataset.yandexMaps =
-            "true";
-
-          document.head.appendChild(
-            script
-          );
-        } else if (
-          window.ymaps3
-        ) {
-          handleLoad();
         }
+
+        await ymaps.ready;
+        if (!ymaps.YMap || !ymaps.YMapDefaultSchemeLayer) {
+          throw new Error(
+            "Яндекс.Карты загрузились не полностью. Проверьте, что для ключа доступен JavaScript API v3."
+          );
+        }
+
+        if (script) script.dataset.loaded = "true";
+        finishWithSuccess(ymaps);
+      } catch (error) {
+        finishWithError(
+          error instanceof Error ? error : new Error("Не удалось инициализировать Яндекс.Карты.")
+        );
       }
-    );
+    };
+
+    const handleError = () => {
+      finishWithError(
+        new Error(
+          "Браузер не смог загрузить API Яндекс.Карт. Проверьте NEXT_PUBLIC_YANDEX_MAPS_API_KEY в Vercel, доступность JavaScript API v3 и разрешённый HTTP Referer для doma-fawn.vercel.app."
+        )
+      );
+    };
+
+    const shouldAppendScript = !script;
+    if (!script) {
+      script = document.createElement("script");
+      script.src = expectedUrl;
+      script.async = true;
+      script.dataset.yandexMaps = "true";
+    }
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+
+    // Обработчики устанавливаются до добавления скрипта в документ.
+    if (shouldAppendScript) {
+      document.head.appendChild(script);
+    }
+
+    // Не оставляем интерфейс навсегда в состоянии «Загружаем карту…».
+    timeoutId = window.setTimeout(() => {
+      finishWithError(
+        new Error(
+          "Истекло время ожидания Яндекс.Карт. Проверьте интернет, блокировщики запросов, API-ключ и ограничения HTTP Referer."
+        )
+      );
+    }, 15000);
+
+    // Скрипт мог успеть загрузиться до того, как обработчики были установлены.
+    if (window.ymaps3) {
+      void handleLoad();
+    } else if (script.dataset.loaded === "true") {
+      handleError();
+    }
+  });
 
   return ymapsPromise;
 }
