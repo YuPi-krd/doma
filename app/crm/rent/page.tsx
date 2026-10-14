@@ -1,7 +1,8 @@
 "use client";
 
-import { YandexAddressPreview } from "@/components/YandexMap";
 import { useEffect, useMemo, useState } from "react";
+
+const API_URL = "https://doma-nq4u.onrender.com";
 
 interface PhotoPreview {
   id: string;
@@ -84,6 +85,25 @@ export default function RentPage() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agentComment, setAgentComment] = useState("");
+  const [roomLayout, setRoomLayout] = useState("");
+  const [livingArea, setLivingArea] = useState("");
+  const [kitchenArea, setKitchenArea] = useState("");
+  const [plotArea, setPlotArea] = useState("");
+  const [plotLength, setPlotLength] = useState("");
+  const [plotWidth, setPlotWidth] = useState("");
+  const [frontage, setFrontage] = useState("");
+  const [landPurpose, setLandPurpose] = useState("");
+  const [heating, setHeating] = useState("");
+  const [gas, setGas] = useState(false);
+  const [water, setWater] = useState(false);
+  const [electricity, setElectricity] = useState(false);
+  const [sewerage, setSewerage] = useState(false);
+  const [fenced, setFenced] = useState("");
+  const [terrace, setTerrace] = useState(false);
+  const [bathhouse, setBathhouse] = useState(false);
+  const [sauna, setSauna] = useState(false);
+  const [pool, setPool] = useState(false);
+  const [garage, setGarage] = useState(false);
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
@@ -170,6 +190,25 @@ export default function RentPage() {
       ownerName,
       ownerPhone,
       agentComment,
+      roomLayout,
+      livingArea,
+      kitchenArea,
+      plotArea,
+      plotLength,
+      plotWidth,
+      frontage,
+      landPurpose,
+      heating,
+      gas,
+      water,
+      electricity,
+      sewerage,
+      fenced,
+      terrace,
+      bathhouse,
+      sauna,
+      pool,
+      garage,
     };
 
     localStorage.setItem("doma-rent-draft", JSON.stringify(draft));
@@ -221,6 +260,25 @@ export default function RentPage() {
           property_subtype: propertySubtype,
           deal_type: dealType,
           status,
+          room_layout: roomLayout,
+          living_area: Number(livingArea) || 0,
+          kitchen_area: Number(kitchenArea) || 0,
+          plot_area: Number(plotArea) || 0,
+          plot_length: Number(plotLength) || 0,
+          plot_width: Number(plotWidth) || 0,
+          frontage: Number(frontage) || 0,
+          land_purpose: landPurpose,
+          heating,
+          gas,
+          water,
+          electricity,
+          sewerage,
+          fenced,
+          terrace,
+          bathhouse,
+          sauna,
+          pool,
+          garage,
         }),
       });
 
@@ -231,8 +289,41 @@ export default function RentPage() {
         return;
       }
 
-      setSavedId(data.id ?? null);
-      alert(`Объект сохранён. ID: ${data.id}`);
+      const propertyId = Number(data.id ?? data.property?.id);
+      if (!propertyId) {
+        throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
+      }
+
+      // Сначала устанавливаем главное фото, затем сохраняем все выбранные фото в галерею.
+      // Оригинальный выбор файлов и превью остаются без изменений.
+      if (photos.length > 0) {
+        const coverForm = new FormData();
+        coverForm.append("file", photos[0].file, photos[0].file.name);
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
+          method: "POST",
+          body: coverForm,
+        });
+        if (!coverResponse.ok) {
+          const detail = await coverResponse.text();
+          throw new Error(`Объект №${propertyId} создан, но главное фото не загрузилось: ${detail}`);
+        }
+
+        for (const photo of photos) {
+          const imageForm = new FormData();
+          imageForm.append("file", photo.file, photo.file.name);
+          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+            method: "POST",
+            body: imageForm,
+          });
+          if (!imageResponse.ok) {
+            const detail = await imageResponse.text();
+            throw new Error(`Объект №${propertyId} создан, но фотография «${photo.file.name}» не загрузилась: ${detail}`);
+          }
+        }
+      }
+
+      setSavedId(propertyId);
+      alert(`Объект сохранён. ID: ${propertyId}${photos.length ? `. Фотографий загружено: ${photos.length}` : ""}`);
     } catch (error) {
       console.error(error);
       alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
@@ -317,7 +408,29 @@ export default function RentPage() {
                 </Field>
 
                 <Field label="Район">
-                  <DistrictPicker value={district} onChange={setDistrict} />
+                  <select
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">Выберите район</option>
+                    <option key="Центральный" value="Центральный">Центральный</option>
+                    <option key="Западный" value="Западный">Западный</option>
+                    <option key="Прикубанский" value="Прикубанский">Прикубанский</option>
+                    <option key="Карасунский" value="Карасунский">Карасунский</option>
+                    <option key="Юбилейный" value="Юбилейный">Юбилейный</option>
+                    <option key="Фестивальный" value="Фестивальный">Фестивальный</option>
+                    <option key="Черёмушки" value="Черёмушки">Черёмушки</option>
+                    <option key="Гидростроителей" value="Гидростроителей">Гидростроителей</option>
+                    <option key="Комсомольский" value="Комсомольский">Комсомольский</option>
+                    <option key="Пашковский" value="Пашковский">Пашковский</option>
+                    <option key="Славянский" value="Славянский">Славянский</option>
+                    <option key="Энка" value="Энка">Энка</option>
+                    <option key="40 лет Победы" value="40 лет Победы">40 лет Победы</option>
+                    <option key="РМЗ" value="РМЗ">РМЗ</option>
+                    <option key="Музыкальный микрорайон" value="Музыкальный микрорайон">Музыкальный микрорайон</option>
+                    <option key="Другой район" value="Другой район">Другой район</option>
+                  </select>
                 </Field>
 
                 <Field label="Цена аренды, ₽/мес." required>
@@ -359,8 +472,8 @@ export default function RentPage() {
                     />
                     <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
                   </div>
-                  <YandexAddressPreview address={realAddress} />
                 </Field>
+                <AddressMap address={realAddress} label="Карта реального адреса" />
 
                 <Field label="Рекламный адрес" full>
                   <div style={publicFieldWrapStyle}>
@@ -373,6 +486,8 @@ export default function RentPage() {
                     <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
                   </div>
                 </Field>
+                <AddressMap address={publicAddress} label="Карта рекламного адреса" />
+
               </div>
             </section>
 
@@ -475,91 +590,349 @@ export default function RentPage() {
               <SectionHeading
                 number="04"
                 title="Характеристики"
-                description="Параметры и состояние объекта"
+                description={`Параметры объекта: ${propertyTypeLabels[propertyType] ?? "недвижимость"}`}
               />
 
               <div style={formGridStyle}>
-                <Field label="Комнат">
-                  <input
-                    type="number"
-                    min="0"
-                    value={rooms}
-                    onChange={(e) => setRooms(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "apartment" && (
+                  <>
+                    <Field label="Комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 5" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность дома">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 9" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                    <Field label="Планировка комнат">
+                      <select value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Изолированная">Изолированная</option>
+                        <option value="Смежно-изолированная">Смежно-изолированная</option>
+                        <option value="Смежная">Смежная</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </select>
+                    </Field>
+                    <Field label="Балкон / лоджия">
+                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Балкон">Балкон</option>
+                        <option value="Лоджия">Лоджия</option>
+                        <option value="2 балкона">2 балкона</option>
+                        <option value="2 лоджии">2 лоджии</option>
+                        <option value="Французский балкон">Французский балкон</option>
+                        <option value="Терраса">Терраса</option>
+                        <option value="Застекленная лоджия">Застекленная лоджия</option>
+                        <option value="Застекленный балкон">Застекленный балкон</option>
+                        <option value="Эркер">Эркер</option>
+                        <option value="Несколько">Несколько</option>
+                      </select>
+                    </Field>
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал дома">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Этаж">
-                  <input
-                    type="number"
-                    min="0"
-                    value={floor}
-                    onChange={(e) => setFloor(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "house" && (
+                  <>
+                    <Field label="Количество комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 4" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь жилая, м²">
+                      <input type="number" min="0" step="0.1" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} placeholder="Например: 90" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь кухни, м²">
+                      <input type="number" min="0" step="0.1" value={kitchenArea} onChange={(e) => setKitchenArea(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2022" style={inputStyle} />
+                    </Field>
+                    <Field label="Материал дома">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </select>
+                    </Field>
+                    <Field label="Отопление">
+                      <select value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="gas">Газовое</option><option value="electric">Электрическое</option><option value="solid_fuel">Твердотопливное</option><option value="central">Центральное</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </select>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                    <Field label="Дополнительно" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Бассейн", pool, setPool],
+                          ["Гараж", garage, setGarage],
+                          ["Терраса", terrace, setTerrace],
+                          ["Баня", bathhouse, setBathhouse],
+                          ["Сауна", sauna, setSauna],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Этажность">
-                  <input
-                    type="number"
-                    min="0"
-                    value={totalFloors}
-                    onChange={(e) => setTotalFloors(e.target.value)}
-                    placeholder="0"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "land" && (
+                  <>
+                    <Field label="Площадь участка, соток">
+                      <input type="number" min="0" step="0.1" value={plotArea} onChange={(e) => setPlotArea(e.target.value)} placeholder="Например: 6" style={inputStyle} />
+                    </Field>
+                    <Field label="Назначение земли">
+                      <select value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
+                        <option value="izhs">ИЖС</option><option value="lph">ЛПХ</option><option value="gardening">Садоводство</option><option value="dnp">ДНП</option><option value="commercial_land">Коммерческое</option>
+                      </select>
+                    </Field>
+                    <Field label="Длина, м">
+                      <input type="number" min="0" step="0.1" value={plotLength} onChange={(e) => setPlotLength(e.target.value)} placeholder="Например: 30" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина, м">
+                      <input type="number" min="0" step="0.1" value={plotWidth} onChange={(e) => setPlotWidth(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина фасада, м">
+                      <input type="number" min="0" step="0.1" value={frontage} onChange={(e) => setFrontage(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ограждение">
+                      <select value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
+                      </select>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Год постройки">
-                  <input
-                    type="number"
-                    min="0"
-                    value={yearBuilt}
-                    onChange={(e) => setYearBuilt(e.target.value)}
-                    placeholder="Например: 2018"
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "commercial" && (
+                  <>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 1" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность здания">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 3" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2015" style={inputStyle} />
+                    </Field>
+                    <Field label="Ремонт">
+                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал здания">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </select>
+                    </Field>
+                    <Field label="Санузел">
+                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
 
-                <Field label="Санузел">
-                  <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="combined">Совмещённый</option>
-                    <option value="separate">Раздельный</option>
-                  </select>
-                </Field>
-
-                <Field label="Балкон">
-                  <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="yes">Есть</option>
-                    <option value="no">Нет</option>
-                  </select>
-                </Field>
-
-                <Field label="Ремонт">
-                  <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option>
-                    <option value="none">Без ремонта</option>
-                    <option value="cosmetic">Косметический</option>
-                    <option value="euro">Евроремонт</option>
-                    <option value="designer">Дизайнерский</option>
-                  </select>
-                </Field>
-
-                <Field label="Материал дома">
-                  <input
-                    value={buildingMaterial}
-                    onChange={(e) => setBuildingMaterial(e.target.value)}
-                    placeholder="Кирпич, монолит..."
-                    style={inputStyle}
-                  />
-                </Field>
+                {propertyType === "garage" && (
+                  <>
+                    <Field label="Тип гаража">
+                      <select value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
+                        {currentSubtypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Электричество">
+                      <select value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
+                        <option value="no">Нет / не указано</option><option value="yes">Есть</option>
+                      </select>
+                    </Field>
+                    <Field label="Материал">
+                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </select>
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                  </>
+                )}
               </div>
             </section>
-
             <section style={cardStyle}>
               <SectionHeading
                 number="05"
@@ -674,176 +1047,39 @@ export default function RentPage() {
   );
 }
 
-
-const krasnodarDistrictTree: { label: string; children?: string[] }[] = [
-  {
-    label: "Центральный",
-    children: [
-      "мкр Центральный",
-      "микрорайон Центр Аврора",
-      "микрорайон Центр Исторический",
-      "мкр Кожзавод",
-      "мкр Город-город",
-      "мкр Центральный",
-      "СНТ Урожай",
-    ],
-  },
-  {
-    label: "Фестивальный",
-    children: ["Фестивальный мкр", "мкр 9-й километр", "мкр Авиагородок"],
-  },
-  {
-    label: "мкр Юбилейный",
-    children: [
-      "мкр Сельскохозяйственный Институт",
-      "мкр Юбилейный",
-      "жилой городок Аграрного Университета",
-      "ЖК Виктория",
-      "ЖК Новый Город",
-    ],
-  },
-  { label: "Славянский" },
-  { label: "Немецкая деревня" },
-  { label: "ЭНКА" },
-  { label: "Северный" },
-  { label: "Витаминкомбинат" },
-  { label: "Ростовское шоссе дачи" },
-  { label: "п. Российский" },
-  { label: "п. Индустриальный" },
-  { label: "п. Победитель" },
-  { label: "п. Дружелюбный" },
-  { label: "РИП" },
-  { label: "ЗИП" },
-  { label: "40 лет Победы" },
-  { label: "Восточно-Кругликовский" },
-  { label: "Черёмушки" },
-  { label: "Комсомольский" },
-  { label: "Гидростроителей" },
-  { label: "Пашковский" },
-  { label: "п. Знаменский" },
-  { label: "х. Ленина" },
-  { label: "ст. Елизаветинская" },
-  { label: "СТ Аргон" },
-  { label: "СТ Янтарь" },
-];
-
-function DistrictPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [expanded, setExpanded] = useState<string[]>(["Центральный", "Фестивальный", "мкр Юбилейный"]);
-  const [search, setSearch] = useState("");
-
-  const filteredTree = krasnodarDistrictTree
-    .map((group) => ({
-      ...group,
-      children: group.children?.filter((child) =>
-        `${group.label} ${child}`.toLocaleLowerCase("ru").includes(search.trim().toLocaleLowerCase("ru"))
-      ),
-    }))
-    .filter((group) =>
-      !search.trim() || group.label.toLocaleLowerCase("ru").includes(search.trim().toLocaleLowerCase("ru")) || (group.children?.length ?? 0) > 0
-    );
-
-  function chooseDistrict(label: string) {
-    onChange(label);
-    setIsOpen(false);
-    setSearch("");
-  }
-
-  function toggleExpanded(label: string) {
-    setExpanded((current) => current.includes(label)
-      ? current.filter((item) => item !== label)
-      : [...current, label]
+function AddressMap({ address, label }: { address: string; label: string }) {
+  const query = address.trim();
+  if (!query) {
+    return (
+      <div style={addressMapHintStyle}>
+        Введите адрес, чтобы увидеть его на карте.
+      </div>
     );
   }
+
+  // Виджет Яндекс.Карт работает в iframe и не требует загрузки JS API-ключа.
+  // Это исключает вечное состояние «Загружаем карту…» из-за неверного API-ключа.
+  const mapUrl = `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent(
+    query + ", Краснодар"
+  )}&z=15&lang=ru_RU`;
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-expanded={isOpen}
-        style={{
-          ...inputStyle,
-          width: "100%",
-          minHeight: 42,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          textAlign: "left",
-          cursor: "pointer",
-          background: "#fff",
-          color: value ? "#0f172a" : "#64748b",
-        }}
-      >
-        <span>{value || "Выберите район"}</span>
-        <span style={{ marginLeft: 10, fontSize: 12 }}>{isOpen ? "▲" : "▼"}</span>
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            zIndex: 50,
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            maxHeight: 360,
-            overflowY: "auto",
-            padding: 10,
-            border: "1px solid #dbe2ea",
-            borderRadius: 12,
-            background: "#fff",
-            boxShadow: "0 16px 40px rgba(15,23,42,.16)",
-          }}
-        >
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Поиск района или микрорайона..."
-            aria-label="Поиск района"
-            style={{ ...inputStyle, width: "100%", marginBottom: 8, position: "sticky", top: 0, background: "#fff" }}
-          />
-          {filteredTree.map((group) => {
-            const hasChildren = Boolean(group.children?.length);
-            const isExpanded = expanded.includes(group.label) || Boolean(search.trim());
-            return (
-              <div key={group.label}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, minHeight: 30 }}>
-                  {hasChildren ? (
-                    <button
-                      type="button"
-                      aria-label={`${isExpanded ? "Свернуть" : "Развернуть"} ${group.label}`}
-                      onClick={() => toggleExpanded(group.label)}
-                      style={{ width: 22, height: 24, border: 0, background: "transparent", cursor: "pointer", color: "#475569", padding: 0 }}
-                    >{isExpanded ? "−" : "+"}</button>
-                  ) : <span style={{ display: "inline-block", width: 22 }} />}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer", fontSize: 13, color: "#1e293b" }}>
-                    <input type="checkbox" checked={value === group.label} onChange={() => chooseDistrict(group.label)} />
-                    <span onClick={() => chooseDistrict(group.label)}>{group.label}</span>
-                  </div>
-                </div>
-                {hasChildren && isExpanded && group.children?.map((child) => (
-                  <div key={child} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 29, paddingLeft: 29, cursor: "pointer", fontSize: 12, color: "#334155" }}>
-                    <input type="checkbox" checked={value === child} onChange={() => chooseDistrict(child)} />
-                    <span onClick={() => chooseDistrict(child)}>{child}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => chooseDistrict("")}
-            style={{ marginTop: 8, padding: "7px 10px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", color: "#475569", fontSize: 12, cursor: "pointer" }}
-          >Сбросить район</button>
-        </div>
-      )}
+    <div style={addressMapWrapStyle}>
+      <div style={addressMapTitleStyle}>{label}</div>
+      <iframe
+        key={mapUrl}
+        title={label}
+        src={mapUrl}
+        width="100%"
+        height="260"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        style={addressMapFrameStyle}
+        allowFullScreen
+      />
+      <div style={addressMapCaptionStyle}>
+        Если адрес не найден точно, уточните его в поле выше.
+      </div>
     </div>
   );
 }
@@ -1044,6 +1280,47 @@ const inputWithSuffixStyle: React.CSSProperties = {
 
 const suffixStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 13, fontWeight: 700 };
 
+const addressMapWrapStyle: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  minWidth: 0,
+  marginTop: -4,
+  padding: 12,
+  border: "1px solid #e2e8f0",
+  borderRadius: 16,
+  background: "#f8fafc",
+};
+
+const addressMapTitleStyle: React.CSSProperties = {
+  marginBottom: 10,
+  fontSize: 12,
+  fontWeight: 750,
+  color: "#334155",
+};
+
+const addressMapFrameStyle: React.CSSProperties = {
+  display: "block",
+  border: 0,
+  borderRadius: 12,
+  background: "#eef2f7",
+};
+
+const addressMapCaptionStyle: React.CSSProperties = {
+  marginTop: 8,
+  fontSize: 11,
+  color: "#64748b",
+};
+
+const addressMapHintStyle: React.CSSProperties = {
+  gridColumn: "1 / -1",
+  marginTop: -4,
+  padding: "12px 14px",
+  border: "1px dashed #cbd5e1",
+  borderRadius: 12,
+  color: "#64748b",
+  fontSize: 12,
+  background: "#f8fafc",
+};
+
 const privateFieldWrapStyle: React.CSSProperties = { position: "relative" };
 const publicFieldWrapStyle: React.CSSProperties = { position: "relative" };
 
@@ -1230,6 +1507,27 @@ const statusRadioStyle = (active: boolean): React.CSSProperties => ({
   background: "#ffffff",
   boxSizing: "border-box",
 });
+
+
+const checklistStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px 18px",
+  padding: "12px 14px",
+  border: "1px solid #dbe1e8",
+  borderRadius: 12,
+  background: "#f8fafc",
+};
+
+const checkItemStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  color: "#334155",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+};
 
 const footerStyle: React.CSSProperties = {
   display: "flex",
