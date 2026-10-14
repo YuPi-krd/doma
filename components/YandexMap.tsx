@@ -33,127 +33,127 @@ const KRASNODAR_CENTER: [
   number
 ] = [38.9769, 45.0355];
 
-let ymapsPromise: Promise<any> | null = null;
+let ymapsPromise: Promise<any> | null =
+  null;
 
-function loadYandexMaps(): Promise<any> {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("Яндекс.Карты можно загрузить только в браузере."));
+function loadYandexMaps() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return Promise.reject(
+      new Error(
+        "Yandex Maps доступен только в браузере"
+      )
+    );
   }
 
   if (window.ymaps3) {
-    return Promise.resolve(window.ymaps3);
+    return Promise.resolve(
+      window.ymaps3
+    );
   }
 
   if (ymapsPromise) {
     return ymapsPromise;
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY?.trim();
+  const apiKey =
+    process.env
+      .NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
 
   if (!apiKey) {
     return Promise.reject(
       new Error(
-        "Не задан NEXT_PUBLIC_YANDEX_MAPS_API_KEY. Добавьте ключ в переменные окружения Vercel и пересоберите проект."
+        "Не найден NEXT_PUBLIC_YANDEX_MAPS_API_KEY"
       )
     );
   }
 
-  ymapsPromise = new Promise((resolve, reject) => {
-    let timeoutId: number | undefined;
-    let settled = false;
+  ymapsPromise =
+    new Promise(
+      (
+        resolve,
+        reject
+      ) => {
+        const existingScript =
+          document.querySelector(
+            'script[data-yandex-maps="true"]'
+          ) as HTMLScriptElement | null;
 
-    const finishWithError = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      ymapsPromise = null; // Позволяет повторить попытку после исправления конфигурации.
-      reject(error);
-    };
-
-    const finishWithSuccess = (ymaps: any) => {
-      if (settled) return;
-      settled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      resolve(ymaps);
-    };
-
-    let script = document.querySelector(
-      'script[data-yandex-maps="true"]'
-    ) as HTMLScriptElement | null;
-
-    // Если в документе остался скрипт с другим ключом, используем новый.
-    // Сам ключ не выводим в сообщения и консоль.
-    const expectedUrl = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
-    if (script && !script.src.includes(`apikey=${encodeURIComponent(apiKey)}`)) {
-      script.remove();
-      script = null;
-    }
-
-    const handleLoad = async () => {
-      try {
-        const ymaps = window.ymaps3;
-        if (!ymaps) {
-          throw new Error(
-            "Скрипт Яндекс.Карт загрузился, но API ymaps3 не доступен. Проверьте ключ и доступность API v3."
+        const script =
+          existingScript ??
+          document.createElement(
+            "script"
           );
-        }
 
-        await ymaps.ready;
-        if (!ymaps.YMap || !ymaps.YMapDefaultSchemeLayer) {
-          throw new Error(
-            "Яндекс.Карты загрузились не полностью. Проверьте, что для ключа доступен JavaScript API v3."
-          );
-        }
+        const handleLoad =
+          async () => {
+            try {
+              if (
+                !window.ymaps3
+              ) {
+                throw new Error(
+                  "ymaps3 не появился после загрузки API"
+                );
+              }
 
-        if (script) script.dataset.loaded = "true";
-        finishWithSuccess(ymaps);
-      } catch (error) {
-        finishWithError(
-          error instanceof Error ? error : new Error("Не удалось инициализировать Яндекс.Карты.")
+              await window.ymaps3
+                .ready;
+
+              resolve(
+                window.ymaps3
+              );
+            } catch (error) {
+              reject(error);
+            }
+          };
+
+        const handleError =
+          () => {
+            reject(
+              new Error(
+                "Не удалось загрузить API Яндекс.Карт. Проверь API-ключ и ограничения HTTP Referer."
+              )
+            );
+          };
+
+        script.addEventListener(
+          "load",
+          handleLoad,
+          {
+            once: true,
+          }
         );
+
+        script.addEventListener(
+          "error",
+          handleError,
+          {
+            once: true,
+          }
+        );
+
+        if (!existingScript) {
+          script.src =
+            `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(
+              apiKey
+            )}&lang=ru_RU`;
+
+          script.async = true;
+          script.dataset.yandexMaps =
+            "true";
+
+          document.head.appendChild(
+            script
+          );
+        } else if (
+          window.ymaps3
+        ) {
+          handleLoad();
+        }
       }
-    };
-
-    const handleError = () => {
-      finishWithError(
-        new Error(
-          "Браузер не смог загрузить API Яндекс.Карт. Проверьте NEXT_PUBLIC_YANDEX_MAPS_API_KEY в Vercel, доступность JavaScript API v3 и разрешённый HTTP Referer для doma-fawn.vercel.app."
-        )
-      );
-    };
-
-    const shouldAppendScript = !script;
-    if (!script) {
-      script = document.createElement("script");
-      script.src = expectedUrl;
-      script.async = true;
-      script.dataset.yandexMaps = "true";
-    }
-
-    script.addEventListener("load", handleLoad, { once: true });
-    script.addEventListener("error", handleError, { once: true });
-
-    // Обработчики устанавливаются до добавления скрипта в документ.
-    if (shouldAppendScript) {
-      document.head.appendChild(script);
-    }
-
-    // Не оставляем интерфейс навсегда в состоянии «Загружаем карту…».
-    timeoutId = window.setTimeout(() => {
-      finishWithError(
-        new Error(
-          "Истекло время ожидания Яндекс.Карт. Проверьте интернет, блокировщики запросов, API-ключ и ограничения HTTP Referer."
-        )
-      );
-    }, 15000);
-
-    // Скрипт мог успеть загрузиться до того, как обработчики были установлены.
-    if (window.ymaps3) {
-      void handleLoad();
-    } else if (script.dataset.loaded === "true") {
-      handleError();
-    }
-  });
+    );
 
   return ymapsPromise;
 }
@@ -171,7 +171,7 @@ type YandexAddressPreviewProps = {
  */
 export function YandexAddressPreview({
   address,
-  height = "260px",
+  height = "220px",
   onCoordinatesChange,
 }: YandexAddressPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -180,11 +180,13 @@ export function YandexAddressPreview({
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedCoordinates, setSelectedCoordinates] = useState<[number, number] | null>(null);
+  const hasAddress = address.trim().length > 0;
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
+      if (!hasAddress || !containerRef.current) return;
       try {
         setStatus("loading");
         const ymaps = await loadYandexMaps();
@@ -245,9 +247,8 @@ export function YandexAddressPreview({
         markerRef.current = null;
       }
     };
-    // The map instance is created once; address geocoding is handled separately.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Reinitialize when the address field changes from empty to non-empty.
+  }, [hasAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -306,11 +307,25 @@ export function YandexAddressPreview({
     };
   }, [address, status, onCoordinatesChange]);
 
-  if (!address.trim()) return null;
+  if (!hasAddress) return null;
 
   return (
-    <div style={{ marginTop: "12px", width: "100%" }}>
-      <div style={{ position: "relative", height, width: "100%", overflow: "hidden", borderRadius: "16px", border: "1px solid #e6ebf2", background: "#eef1f4" }}>
+    // Нулевой контейнер не сдвигает форму: карта открывается поверх формы
+    // сразу под полем реального адреса и не занимает постоянное место.
+    <div style={{ position: "relative", width: "100%", height: 0, zIndex: 30 }}>
+      <div style={{
+        position: "absolute",
+        top: "8px",
+        left: 0,
+        width: "min(360px, calc(100vw - 48px))",
+        height,
+        zIndex: 30,
+        overflow: "hidden",
+        borderRadius: "14px",
+        border: "1px solid #e6ebf2",
+        background: "#eef1f4",
+        boxShadow: "0 16px 40px rgba(15, 23, 42, .20)",
+      }}>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         {status === "loading" && (
           <div style={addressMapOverlayStyle}>Загружаем карту…</div>
@@ -322,16 +337,16 @@ export function YandexAddressPreview({
           </div>
         )}
         {status === "ready" && (
-          <div style={{ position: "absolute", left: "10px", bottom: "10px", zIndex: 5, padding: "7px 10px", borderRadius: "9px", background: "rgba(255,255,255,.96)", color: "#475569", fontSize: "11px", boxShadow: "0 2px 8px rgba(15,23,42,.12)" }}>
+          <div style={{ position: "absolute", left: "8px", bottom: "8px", zIndex: 5, padding: "6px 8px", borderRadius: "8px", background: "rgba(255,255,255,.96)", color: "#475569", fontSize: "10px", boxShadow: "0 2px 8px rgba(15,23,42,.12)" }}>
             Нажмите на карту, чтобы уточнить точку
           </div>
         )}
+        {selectedCoordinates && status === "ready" && (
+          <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 5, padding: "5px 7px", borderRadius: "7px", background: "rgba(255,255,255,.96)", color: "#475569", fontSize: "10px" }}>
+            Точка выбрана
+          </div>
+        )}
       </div>
-      {selectedCoordinates && (
-        <div style={{ marginTop: "6px", color: "#64748b", fontSize: "11px" }}>
-          Координаты: {selectedCoordinates[1].toFixed(6)}, {selectedCoordinates[0].toFixed(6)}
-        </div>
-      )}
       <style jsx global>{`
         .doma-address-pin {
           width: 22px;
