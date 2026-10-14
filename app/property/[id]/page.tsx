@@ -244,6 +244,70 @@ export default function PropertyPage() {
     value: string;
   }[] = [];
 
+  const valueLabels: Record<string, Record<string, string>> = {
+    "Планировка комнат": {
+      isolated: "Изолированная",
+      isolated_rooms: "Изолированная",
+      adjacent: "Смежная",
+      kitchen_living: "Кухня-гостиная",
+      free: "Свободная планировка",
+      "Изолированные": "Изолированная",
+      "Смежно-изолированная": "Смежно-изолированная",
+      "Смежная": "Смежная",
+    },
+    "Санузел": {
+      combined: "Совмещённый",
+      separate: "Раздельный",
+      multiple: "Несколько",
+      "combined bathroom": "Совмещённый",
+    },
+    "Балкон / лоджия": {
+      yes: "Есть",
+      no: "Нет",
+      balcony: "Балкон",
+      loggia: "Лоджия",
+    },
+    "Ремонт": {
+      none: "Без отделки",
+      cosmetic: "Косметический",
+      euro: "Евроремонт",
+      designer: "Дизайнерский",
+      "pre-finish": "Предчистовая отделка",
+      "no_finish": "Без отделки",
+    },
+    "Материал стен": {
+      brick: "Кирпичный",
+      monolith: "Монолитный",
+      panel: "Панельный",
+      block: "Блочный",
+      wood: "Деревянный",
+      frame: "Каркасный",
+      concrete: "Бетон",
+    },
+    "Материал дома": {
+      brick: "Кирпичный",
+      monolith: "Монолитный",
+      panel: "Панельный",
+      block: "Блочный",
+      wood: "Деревянный",
+      frame: "Каркасный",
+      concrete: "Бетон",
+    },
+    "Отопление": {
+      gas: "Газовое",
+      electric: "Электрическое",
+      solid_fuel: "Твердотопливное",
+      central: "Центральное",
+    },
+    "Назначение земли": {
+      izhs: "ИЖС",
+      lph: "ЛПХ",
+      gardening: "Садоводство",
+      dnp: "ДНП",
+      commercial_land: "Коммерческое",
+    },
+  };
+
   const addCharacteristic = (
     icon: string,
     label: string,
@@ -251,20 +315,25 @@ export default function PropertyPage() {
     suffix = ""
   ) => {
     if (value === null || value === undefined || value === "") return;
+
     if (typeof value === "boolean") {
       if (value) characteristics.push({ icon, label, value: "Есть" });
       return;
     }
-    const textValue = String(value).trim();
-    if (!textValue || textValue === "0" || textValue.toLowerCase() === "false") return;
-    if (textValue.toLowerCase() === "true" || textValue === "1") {
-      characteristics.push({ icon, label, value: "Есть" });
-      return;
-    }
+
+    const rawValue = String(value).trim();
+    if (!rawValue || rawValue === "0" || rawValue.toLowerCase() === "false") return;
+
+    // Backend может вернуть как русские значения, так и старые enum-коды.
+    // Переводим известные коды, но не меняем числа (например, санузел "1", "2", "3").
+    const translated = valueLabels[label]?.[rawValue] ??
+      (["true", "yes", "да"].includes(rawValue.toLowerCase()) ? "Есть" :
+       ["no", "нет"].includes(rawValue.toLowerCase()) ? "Нет" : rawValue);
+
     characteristics.push({
       icon,
       label,
-      value: `${textValue}${suffix}`,
+      value: `${translated}${suffix}`,
     });
   };
 
@@ -287,7 +356,7 @@ export default function PropertyPage() {
     addCharacteristic("🛁", "Санузел", property.bathroom);
     addCharacteristic("🌇", "Балкон / лоджия", property.balcony);
     addCharacteristic("🛠️", "Ремонт", property.renovation);
-    addCharacteristic("🧱", "Материал дома", property.building_material);
+    addCharacteristic("🧱", "Материал стен", property.building_material);
   } else if (propertyType === "house") {
     addCharacteristic("📏", "Жилая площадь", property.living_area, " м²");
     addCharacteristic("🍽️", "Площадь кухни", property.kitchen_area, " м²");

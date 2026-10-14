@@ -608,30 +608,77 @@ export default function RentPage() {
                     <Field label="Планировка комнат">
                       <select value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
-                        <option value="isolated">Изолированные</option>
-                        <option value="adjacent">Смежные</option>
-                        <option value="kitchen_living">Кухня-гостиная</option>
-                        <option value="free">Свободная планировка</option>
+                        <option value="Изолированная">Изолированная</option>
+                        <option value="Смежно-изолированная">Смежно-изолированная</option>
+                        <option value="Смежная">Смежная</option>
                       </select>
                     </Field>
                     <Field label="Санузел">
                       <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
                       </select>
                     </Field>
                     <Field label="Балкон / лоджия">
                       <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
+                        <option value="">Не указано</option>
+                        <option value="Балкон">Балкон</option>
+                        <option value="Лоджия">Лоджия</option>
+                        <option value="2 балкона">2 балкона</option>
+                        <option value="2 лоджии">2 лоджии</option>
+                        <option value="Французский балкон">Французский балкон</option>
+                        <option value="Терраса">Терраса</option>
+                        <option value="Застекленная лоджия">Застекленная лоджия</option>
+                        <option value="Застекленный балкон">Застекленный балкон</option>
+                        <option value="Эркер">Эркер</option>
+                        <option value="Несколько">Несколько</option>
                       </select>
                     </Field>
                     <Field label="Ремонт">
                       <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="none">Без ремонта</option><option value="cosmetic">Косметический</option><option value="euro">Евроремонт</option><option value="designer">Дизайнерский</option>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
                       </select>
                     </Field>
                     <Field label="Материал дома">
                       <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="panel">Панель</option><option value="block">Блок</option><option value="wood">Дерево</option>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
                       </select>
                     </Field>
                   </>
@@ -656,7 +703,28 @@ export default function RentPage() {
                     </Field>
                     <Field label="Материал дома">
                       <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="block">Блок</option><option value="wood">Дерево</option><option value="frame">Каркас</option>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
                       </select>
                     </Field>
                     <Field label="Отопление">
@@ -666,7 +734,12 @@ export default function RentPage() {
                     </Field>
                     <Field label="Санузел">
                       <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option><option value="multiple">Несколько</option>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
                       </select>
                     </Field>
                     <Field label="Коммуникации" full>
@@ -758,17 +831,55 @@ export default function RentPage() {
                     </Field>
                     <Field label="Ремонт">
                       <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="none">Без ремонта</option><option value="cosmetic">Косметический</option><option value="euro">Современный</option><option value="designer">Дизайнерский</option>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
                       </select>
                     </Field>
                     <Field label="Материал здания">
                       <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="monolith">Монолит</option><option value="panel">Панель</option><option value="block">Блок</option>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
                       </select>
                     </Field>
                     <Field label="Санузел">
                       <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="combined">Совмещённый</option><option value="separate">Раздельный</option>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
                       </select>
                     </Field>
                   </>
@@ -788,7 +899,28 @@ export default function RentPage() {
                     </Field>
                     <Field label="Материал">
                       <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="brick">Кирпич</option><option value="metal">Металл</option><option value="concrete">Бетон</option><option value="block">Блок</option>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
                       </select>
                     </Field>
                     <Field label="Год постройки">
