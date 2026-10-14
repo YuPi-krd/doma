@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
 from passlib.context import CryptContext
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -223,6 +223,50 @@ def ensure_property_coordinates() -> None:
 ensure_property_coordinates()
 
 
+def ensure_property_characteristics() -> None:
+    """Добавляет новые поля в существующую таблицу без удаления данных."""
+    columns = {
+        "floor": "INTEGER",
+        "total_floors": "INTEGER",
+        "bathroom": "VARCHAR(100)",
+        "balcony": "VARCHAR(100)",
+        "renovation": "VARCHAR(120)",
+        "building_material": "VARCHAR(120)",
+        "year_built": "INTEGER",
+        "room_layout": "VARCHAR(120)",
+        "living_area": "DOUBLE PRECISION",
+        "kitchen_area": "DOUBLE PRECISION",
+        "plot_area": "DOUBLE PRECISION",
+        "plot_length": "DOUBLE PRECISION",
+        "plot_width": "DOUBLE PRECISION",
+        "frontage": "DOUBLE PRECISION",
+        "land_purpose": "VARCHAR(120)",
+        "heating": "VARCHAR(120)",
+        "gas": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "water": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "electricity": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "sewerage": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "fenced": "VARCHAR(100)",
+        "terrace": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "bathhouse": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "sauna": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "pool": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "garage": "BOOLEAN NOT NULL DEFAULT FALSE",
+    }
+    try:
+        with engine.begin() as connection:
+            for name, sql_type in columns.items():
+                connection.execute(text(
+                    f"ALTER TABLE properties ADD COLUMN IF NOT EXISTS {name} {sql_type}"
+                ))
+    except Exception as exc:
+        # Не скрываем ошибку: она будет видна в логах Render.
+        print("Не удалось добавить характеристики properties:", exc)
+
+
+ensure_property_characteristics()
+
+
 # ============================================================
 # IMAGES
 # ============================================================
@@ -414,6 +458,16 @@ def to_int(
                 "должно быть числом."
             ),
         )
+
+
+def to_bool(value: Any, default: bool = False) -> bool:
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "да", "есть"}
 
 
 def to_float(
@@ -636,6 +690,33 @@ def property_to_dict(
         "status":
             item.status
             or DEFAULT_STATUS,
+
+        "floor": getattr(item, "floor", None),
+        "total_floors": getattr(item, "total_floors", None),
+        "bathroom": getattr(item, "bathroom", None),
+        "balcony": getattr(item, "balcony", None),
+        "renovation": getattr(item, "renovation", None),
+        "building_material": getattr(item, "building_material", None),
+        "year_built": getattr(item, "year_built", None),
+        "room_layout": getattr(item, "room_layout", None),
+        "living_area": getattr(item, "living_area", None),
+        "kitchen_area": getattr(item, "kitchen_area", None),
+        "plot_area": getattr(item, "plot_area", None),
+        "plot_length": getattr(item, "plot_length", None),
+        "plot_width": getattr(item, "plot_width", None),
+        "frontage": getattr(item, "frontage", None),
+        "land_purpose": getattr(item, "land_purpose", None),
+        "heating": getattr(item, "heating", None),
+        "gas": bool(getattr(item, "gas", False)),
+        "water": bool(getattr(item, "water", False)),
+        "electricity": bool(getattr(item, "electricity", False)),
+        "sewerage": bool(getattr(item, "sewerage", False)),
+        "fenced": getattr(item, "fenced", None),
+        "terrace": bool(getattr(item, "terrace", False)),
+        "bathhouse": bool(getattr(item, "bathhouse", False)),
+        "sauna": bool(getattr(item, "sauna", False)),
+        "pool": bool(getattr(item, "pool", False)),
+        "garage": bool(getattr(item, "garage", False)),
 
         "image_url":
             item.image_url
@@ -1207,6 +1288,32 @@ def validate_property_payload(
                     ),
                 )
             ),
+        "floor": to_int(payload.get("floor", getattr(existing, "floor", None) if existing else None), "floor", 0),
+        "total_floors": to_int(payload.get("total_floors", getattr(existing, "total_floors", None) if existing else None), "total_floors", 0),
+        "bathroom": text_value(payload.get("bathroom", getattr(existing, "bathroom", None) if existing else None)) or None,
+        "balcony": text_value(payload.get("balcony", getattr(existing, "balcony", None) if existing else None)) or None,
+        "renovation": text_value(payload.get("renovation", getattr(existing, "renovation", None) if existing else None)) or None,
+        "building_material": text_value(payload.get("building_material", getattr(existing, "building_material", None) if existing else None)) or None,
+        "year_built": to_int(payload.get("year_built", getattr(existing, "year_built", None) if existing else None), "year_built", 0),
+        "room_layout": text_value(payload.get("room_layout", getattr(existing, "room_layout", None) if existing else None)) or None,
+        "living_area": to_float(payload.get("living_area", getattr(existing, "living_area", None) if existing else None), "living_area", 0),
+        "kitchen_area": to_float(payload.get("kitchen_area", getattr(existing, "kitchen_area", None) if existing else None), "kitchen_area", 0),
+        "plot_area": to_float(payload.get("plot_area", getattr(existing, "plot_area", None) if existing else None), "plot_area", 0),
+        "plot_length": to_float(payload.get("plot_length", getattr(existing, "plot_length", None) if existing else None), "plot_length", 0),
+        "plot_width": to_float(payload.get("plot_width", getattr(existing, "plot_width", None) if existing else None), "plot_width", 0),
+        "frontage": to_float(payload.get("frontage", getattr(existing, "frontage", None) if existing else None), "frontage", 0),
+        "land_purpose": text_value(payload.get("land_purpose", getattr(existing, "land_purpose", None) if existing else None)) or None,
+        "heating": text_value(payload.get("heating", getattr(existing, "heating", None) if existing else None)) or None,
+        "gas": to_bool(payload.get("gas", getattr(existing, "gas", False) if existing else False), False),
+        "water": to_bool(payload.get("water", getattr(existing, "water", False) if existing else False), False),
+        "electricity": to_bool(payload.get("electricity", getattr(existing, "electricity", False) if existing else False), False),
+        "sewerage": to_bool(payload.get("sewerage", getattr(existing, "sewerage", False) if existing else False), False),
+        "fenced": text_value(payload.get("fenced", getattr(existing, "fenced", None) if existing else None)) or None,
+        "terrace": to_bool(payload.get("terrace", getattr(existing, "terrace", False) if existing else False), False),
+        "bathhouse": to_bool(payload.get("bathhouse", getattr(existing, "bathhouse", False) if existing else False), False),
+        "sauna": to_bool(payload.get("sauna", getattr(existing, "sauna", False) if existing else False), False),
+        "pool": to_bool(payload.get("pool", getattr(existing, "pool", False) if existing else False), False),
+        "garage": to_bool(payload.get("garage", getattr(existing, "garage", False) if existing else False), False),
     }
 
 
@@ -1527,6 +1634,33 @@ async def create_property(
 
             agent_comment=data["agent_comment"],
 
+            floor=data["floor"],
+            total_floors=data["total_floors"],
+            bathroom=data["bathroom"],
+            balcony=data["balcony"],
+            renovation=data["renovation"],
+            building_material=data["building_material"],
+            year_built=data["year_built"],
+            room_layout=data["room_layout"],
+            living_area=data["living_area"],
+            kitchen_area=data["kitchen_area"],
+            plot_area=data["plot_area"],
+            plot_length=data["plot_length"],
+            plot_width=data["plot_width"],
+            frontage=data["frontage"],
+            land_purpose=data["land_purpose"],
+            heating=data["heating"],
+            gas=data["gas"],
+            water=data["water"],
+            electricity=data["electricity"],
+            sewerage=data["sewerage"],
+            fenced=data["fenced"],
+            terrace=data["terrace"],
+            bathhouse=data["bathhouse"],
+            sauna=data["sauna"],
+            pool=data["pool"],
+            garage=data["garage"],
+
             is_draft=data.get("is_draft", True),
         )
 
@@ -1682,6 +1816,33 @@ async def update_property(
         property_obj.status = (
             data["status"]
         )
+
+        property_obj.floor = data["floor"]
+        property_obj.total_floors = data["total_floors"]
+        property_obj.bathroom = data["bathroom"]
+        property_obj.balcony = data["balcony"]
+        property_obj.renovation = data["renovation"]
+        property_obj.building_material = data["building_material"]
+        property_obj.year_built = data["year_built"]
+        property_obj.room_layout = data["room_layout"]
+        property_obj.living_area = data["living_area"]
+        property_obj.kitchen_area = data["kitchen_area"]
+        property_obj.plot_area = data["plot_area"]
+        property_obj.plot_length = data["plot_length"]
+        property_obj.plot_width = data["plot_width"]
+        property_obj.frontage = data["frontage"]
+        property_obj.land_purpose = data["land_purpose"]
+        property_obj.heating = data["heating"]
+        property_obj.gas = data["gas"]
+        property_obj.water = data["water"]
+        property_obj.electricity = data["electricity"]
+        property_obj.sewerage = data["sewerage"]
+        property_obj.fenced = data["fenced"]
+        property_obj.terrace = data["terrace"]
+        property_obj.bathhouse = data["bathhouse"]
+        property_obj.sauna = data["sauna"]
+        property_obj.pool = data["pool"]
+        property_obj.garage = data["garage"]
 
         if hasattr(
             property_obj,

@@ -197,6 +197,35 @@ class Property(Base):
         nullable=True,
     )
 
+    # Дополнительные характеристики из CRM. Nullable/default сохраняют совместимость
+    # с уже существующими объектами в базе.
+    floor = Column(Integer, nullable=True)
+    total_floors = Column(Integer, nullable=True)
+    bathroom = Column(String(100), nullable=True)
+    balcony = Column(String(100), nullable=True)
+    renovation = Column(String(120), nullable=True)
+    building_material = Column(String(120), nullable=True)
+    year_built = Column(Integer, nullable=True)
+    room_layout = Column(String(120), nullable=True)
+    living_area = Column(Float, nullable=True)
+    kitchen_area = Column(Float, nullable=True)
+    plot_area = Column(Float, nullable=True)
+    plot_length = Column(Float, nullable=True)
+    plot_width = Column(Float, nullable=True)
+    frontage = Column(Float, nullable=True)
+    land_purpose = Column(String(120), nullable=True)
+    heating = Column(String(120), nullable=True)
+    gas = Column(Boolean, nullable=False, default=False)
+    water = Column(Boolean, nullable=False, default=False)
+    electricity = Column(Boolean, nullable=False, default=False)
+    sewerage = Column(Boolean, nullable=False, default=False)
+    fenced = Column(String(100), nullable=True)
+    terrace = Column(Boolean, nullable=False, default=False)
+    bathhouse = Column(Boolean, nullable=False, default=False)
+    sauna = Column(Boolean, nullable=False, default=False)
+    pool = Column(Boolean, nullable=False, default=False)
+    garage = Column(Boolean, nullable=False, default=False)
+
 
 # =========================================================
 # Clients
