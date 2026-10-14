@@ -407,30 +407,8 @@ export default function RentPage() {
                   </select>
                 </Field>
 
-                <Field label="Район">
-                  <select
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">Выберите район</option>
-                    <option key="Центральный" value="Центральный">Центральный</option>
-                    <option key="Западный" value="Западный">Западный</option>
-                    <option key="Прикубанский" value="Прикубанский">Прикубанский</option>
-                    <option key="Карасунский" value="Карасунский">Карасунский</option>
-                    <option key="Юбилейный" value="Юбилейный">Юбилейный</option>
-                    <option key="Фестивальный" value="Фестивальный">Фестивальный</option>
-                    <option key="Черёмушки" value="Черёмушки">Черёмушки</option>
-                    <option key="Гидростроителей" value="Гидростроителей">Гидростроителей</option>
-                    <option key="Комсомольский" value="Комсомольский">Комсомольский</option>
-                    <option key="Пашковский" value="Пашковский">Пашковский</option>
-                    <option key="Славянский" value="Славянский">Славянский</option>
-                    <option key="Энка" value="Энка">Энка</option>
-                    <option key="40 лет Победы" value="40 лет Победы">40 лет Победы</option>
-                    <option key="РМЗ" value="РМЗ">РМЗ</option>
-                    <option key="Музыкальный микрорайон" value="Музыкальный микрорайон">Музыкальный микрорайон</option>
-                    <option key="Другой район" value="Другой район">Другой район</option>
-                  </select>
+                <Field label="Район" full>
+                  <DistrictPicker value={district} onChange={setDistrict} />
                 </Field>
 
                 <Field label="Цена аренды, ₽/мес." required>
@@ -1046,6 +1024,125 @@ export default function RentPage() {
     </main>
   );
 }
+
+
+type DistrictNode = { label: string; children?: DistrictNode[] };
+
+// Иерархический справочник по районам и микрорайонам Краснодара.
+// Составлен по присланным скриншотам; отдельные общегородские районы также сохранены.
+const krasnodarDistricts: DistrictNode[] = [
+  { label: "Центральный", children: [
+    { label: "мкр Центральный" },
+    { label: "микрорайон Центр Аврора" },
+    { label: "микрорайон Центр Исторический" },
+    { label: "мкр Кожзавод" },
+    { label: "мкр Город Городов" },
+    { label: "СНТ Урожай" },
+  ]},
+  { label: "Фестивальный", children: [
+    { label: "Фестивальный мкр" },
+    { label: "мкр 9-й километр" },
+    { label: "мкр Авиагородок" },
+  ]},
+  { label: "мкр Юбилейный", children: [
+    { label: "мкр Сельскохозяйственный Институт" },
+    { label: "жилой городок Аграрного Университета" },
+    { label: "ЖК Виктория" },
+    { label: "ЖК Новый Город" },
+  ]},
+  { label: "Западный" },
+  { label: "Прикубанский" },
+  { label: "Карасунский" },
+  { label: "Славянский" },
+  { label: "Немецкая деревня" },
+  { label: "ЭНКА" },
+  { label: "Северный" },
+  { label: "Витаминкомбинат" },
+  { label: "Ростовское шоссе дачи" },
+  { label: "п. Российский" },
+  { label: "п. Индустриальный" },
+  { label: "п. Победитель" },
+  { label: "п. Дружелюбный" },
+  { label: "РИП" },
+  { label: "ЗИП" },
+  { label: "40 лет Победы" },
+  { label: "Восточно-Кругликовский" },
+  { label: "Черёмушки" },
+  { label: "Комсомольский" },
+  { label: "Гидростроителей" },
+  { label: "Пашковский" },
+  { label: "п. Знаменский" },
+  { label: "х. Ленина" },
+  { label: "ст. Елизаветинская" },
+  { label: "СТ Аргон" },
+  { label: "СТ Янтарь" },
+  { label: "РМЗ" },
+  { label: "Музыкальный микрорайон" },
+  { label: "Другой район" },
+];
+
+function DistrictPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<string[]>(["Центральный", "Фестивальный", "мкр Юбилейный"]);
+  const query = search.trim().toLocaleLowerCase("ru-RU");
+  const matches = (node: DistrictNode): boolean =>
+    !query || node.label.toLocaleLowerCase("ru-RU").includes(query) || Boolean(node.children?.some(matches));
+
+  function renderNodes(nodes: DistrictNode[], depth = 0): React.ReactNode {
+    return nodes.filter(matches).map((node) => {
+      const hasChildren = Boolean(node.children?.length);
+      const isExpanded = expanded.includes(node.label) || Boolean(query);
+      const selected = value === node.label;
+      return (
+        <div key={`${depth}-${node.label}`}>
+          <div style={{ ...districtTreeRowStyle, paddingLeft: 8 + depth * 20, background: selected ? "#fff1f2" : "#fff" }}>
+            {hasChildren ? (
+              <button type="button" aria-label={isExpanded ? `Свернуть ${node.label}` : `Развернуть ${node.label}`} onClick={() => setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label])} style={districtExpandButtonStyle}>
+                {isExpanded ? "−" : "+"}
+              </button>
+            ) : <span style={districtExpandSpacerStyle} />}
+            <input type="checkbox" checked={selected} onChange={() => { onChange(selected ? "" : node.label); setOpen(false); setSearch(""); }} aria-label={`Выбрать ${node.label}`} style={{ accentColor: "#dc2626", width: 15, height: 15, flex: "0 0 auto" }} />
+            <button type="button" onClick={() => { if (hasChildren) setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label]); else { onChange(node.label); setOpen(false); setSearch(""); } }} style={districtNodeLabelStyle}>
+              {node.label}
+            </button>
+          </div>
+          {hasChildren && isExpanded && <div>{renderNodes(node.children!, depth + 1)}</div>}
+        </div>
+      );
+    });
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12 }}>
+        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите район или микрорайон"}</span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск района или микрорайона..." style={{ ...inputStyle, minHeight: 40 }} autoFocus />
+            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>Выберите один пункт. Нажмите +, чтобы раскрыть вложенные микрорайоны.</div>
+          </div>
+          <div>{renderNodes(krasnodarDistricts)}</div>
+        </div>
+      )}
+      {value && <button type="button" onClick={() => onChange("")} style={districtClearStyle}>Сбросить выбор</button>}
+    </div>
+  );
+}
+
+const districtDropdownStyle: React.CSSProperties = {
+  position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
+  maxHeight: 360, overflowY: "auto", background: "#fff", border: "1px solid #dbe1e8",
+  borderRadius: 12, boxShadow: "0 18px 45px rgba(15,23,42,.18)",
+};
+const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
+const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
+const districtExpandSpacerStyle: React.CSSProperties = { display: "inline-block", width: 18, flex: "0 0 auto" };
+const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
+const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
 
 function AddressMap({ address, label }: { address: string; label: string }) {
   const query = address.trim();
