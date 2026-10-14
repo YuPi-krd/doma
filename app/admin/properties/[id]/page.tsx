@@ -12,6 +12,32 @@ interface Property {
   district: string;
   address: string;
   status: string;
+  floor?: number | null;
+  total_floors?: number | null;
+  bathroom?: string | null;
+  balcony?: string | null;
+  renovation?: string | null;
+  building_material?: string | null;
+  year_built?: number | null;
+  room_layout?: string | null;
+  living_area?: number | null;
+  kitchen_area?: number | null;
+  plot_area?: number | null;
+  plot_length?: number | null;
+  plot_width?: number | null;
+  frontage?: number | null;
+  land_purpose?: string | null;
+  heating?: string | null;
+  gas?: boolean;
+  water?: boolean;
+  electricity?: boolean;
+  sewerage?: boolean;
+  fenced?: string | null;
+  terrace?: boolean;
+  bathhouse?: boolean;
+  sauna?: boolean;
+  pool?: boolean;
+  garage?: boolean;
 }
 
 interface PropertyImage {
@@ -290,6 +316,48 @@ export default async function PropertyPage({
                 {property.rooms}
               </p>
             </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "12px",
+              margin: "8px 0 24px",
+            }}
+          >
+            {[
+              property.floor != null && property.floor > 0 ? { label: "Этаж", value: `${property.floor}${property.total_floors ? ` из ${property.total_floors}` : ""}` } : null,
+              property.year_built ? { label: "Год постройки", value: String(property.year_built) } : null,
+              property.room_layout ? { label: "Планировка", value: property.room_layout } : null,
+              property.living_area ? { label: "Жилая площадь", value: `${property.living_area} м²` } : null,
+              property.kitchen_area ? { label: "Площадь кухни", value: `${property.kitchen_area} м²` } : null,
+              property.bathroom ? { label: "Санузел", value: property.bathroom } : null,
+              property.balcony ? { label: "Балкон / лоджия", value: property.balcony } : null,
+              property.renovation ? { label: "Ремонт", value: property.renovation } : null,
+              property.building_material ? { label: "Материал стен", value: property.building_material } : null,
+              property.heating ? { label: "Отопление", value: property.heating } : null,
+              property.plot_area ? { label: "Площадь участка", value: `${property.plot_area} сот.` } : null,
+              property.plot_length ? { label: "Длина участка", value: `${property.plot_length} м` } : null,
+              property.plot_width ? { label: "Ширина участка", value: `${property.plot_width} м` } : null,
+              property.frontage ? { label: "Фасад участка", value: `${property.frontage} м` } : null,
+              property.land_purpose ? { label: "Назначение земли", value: property.land_purpose } : null,
+              property.fenced ? { label: "Ограждение", value: property.fenced } : null,
+              property.gas ? { label: "Коммуникации", value: "Газ" } : null,
+              property.water ? { label: "Коммуникации", value: "Вода" } : null,
+              property.electricity ? { label: "Коммуникации", value: "Электричество" } : null,
+              property.sewerage ? { label: "Коммуникации", value: "Канализация" } : null,
+              property.terrace ? { label: "Дополнительно", value: "Терраса" } : null,
+              property.bathhouse ? { label: "Дополнительно", value: "Баня" } : null,
+              property.sauna ? { label: "Дополнительно", value: "Сауна" } : null,
+              property.pool ? { label: "Дополнительно", value: "Бассейн" } : null,
+              property.garage ? { label: "Дополнительно", value: "Гараж" } : null,
+            ].filter((item): item is { label: string; value: string } => Boolean(item)).map((item, index) => (
+              <div key={`${item.label}-${item.value}-${index}`} style={{ background: "#f8fafc", borderRadius: "12px", padding: "12px 14px" }}>
+                <div style={{ color: "#64748b", fontSize: "12px", marginBottom: "5px" }}>{item.label}</div>
+                <strong style={{ color: "#0f172a", fontSize: "14px" }}>{item.value}</strong>
+              </div>
+            ))}
           </div>
 
           <hr

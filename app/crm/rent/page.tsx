@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+const API_URL = "https://doma-nq4u.onrender.com";
+
 interface PhotoPreview {
   id: string;
   file: File;
@@ -287,8 +289,41 @@ export default function RentPage() {
         return;
       }
 
-      setSavedId(data.id ?? null);
-      alert(`Объект сохранён. ID: ${data.id}`);
+      const propertyId = Number(data.id ?? data.property?.id);
+      if (!propertyId) {
+        throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
+      }
+
+      // Сначала устанавливаем главное фото, затем сохраняем все выбранные фото в галерею.
+      // Оригинальный выбор файлов и превью остаются без изменений.
+      if (photos.length > 0) {
+        const coverForm = new FormData();
+        coverForm.append("file", photos[0].file, photos[0].file.name);
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
+          method: "POST",
+          body: coverForm,
+        });
+        if (!coverResponse.ok) {
+          const detail = await coverResponse.text();
+          throw new Error(`Объект №${propertyId} создан, но главное фото не загрузилось: ${detail}`);
+        }
+
+        for (const photo of photos) {
+          const imageForm = new FormData();
+          imageForm.append("file", photo.file, photo.file.name);
+          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+            method: "POST",
+            body: imageForm,
+          });
+          if (!imageResponse.ok) {
+            const detail = await imageResponse.text();
+            throw new Error(`Объект №${propertyId} создан, но фотография «${photo.file.name}» не загрузилась: ${detail}`);
+          }
+        }
+      }
+
+      setSavedId(propertyId);
+      alert(`Объект сохранён. ID: ${propertyId}${photos.length ? `. Фотографий загружено: ${photos.length}` : ""}`);
     } catch (error) {
       console.error(error);
       alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");

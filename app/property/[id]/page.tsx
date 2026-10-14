@@ -25,12 +25,38 @@ interface Property {
 
   property_type?: string | null;
   property_type_label?: string | null;
-
   property_subtype?: string | null;
   property_subtype_label?: string | null;
-
   deal_type?: string | null;
   deal_type_label?: string | null;
+
+  // Дополнительные характеристики из CRM.
+  floor?: number | string | null;
+  total_floors?: number | string | null;
+  year_built?: number | string | null;
+  bathroom?: string | null;
+  balcony?: string | null;
+  renovation?: string | null;
+  building_material?: string | null;
+  room_layout?: string | null;
+  living_area?: number | string | null;
+  kitchen_area?: number | string | null;
+  plot_area?: number | string | null;
+  plot_length?: number | string | null;
+  plot_width?: number | string | null;
+  frontage?: number | string | null;
+  land_purpose?: string | null;
+  heating?: string | null;
+  gas?: boolean | string | null;
+  water?: boolean | string | null;
+  electricity?: boolean | string | null;
+  sewerage?: boolean | string | null;
+  fenced?: boolean | string | null;
+  terrace?: boolean | string | null;
+  bathhouse?: boolean | string | null;
+  sauna?: boolean | string | null;
+  pool?: boolean | string | null;
+  garage?: boolean | string | null;
 }
 
 const API_URL =
@@ -209,6 +235,105 @@ export default function PropertyPage() {
         )
       : 0;
 
+  // Формируем список только из заполненных характеристик.
+  // Основные поля (комнаты, площадь, город, район, статус)
+  // остаются видимыми как раньше.
+  const characteristics: {
+    icon: string;
+    label: string;
+    value: string;
+  }[] = [];
+
+  const addCharacteristic = (
+    icon: string,
+    label: string,
+    value: unknown,
+    suffix = ""
+  ) => {
+    if (value === null || value === undefined || value === "") return;
+    if (typeof value === "boolean") {
+      if (value) characteristics.push({ icon, label, value: "Есть" });
+      return;
+    }
+    const textValue = String(value).trim();
+    if (!textValue || textValue === "0" || textValue.toLowerCase() === "false") return;
+    if (textValue.toLowerCase() === "true" || textValue === "1") {
+      characteristics.push({ icon, label, value: "Есть" });
+      return;
+    }
+    characteristics.push({
+      icon,
+      label,
+      value: `${textValue}${suffix}`,
+    });
+  };
+
+  const propertyType = property.property_type || "apartment";
+
+  if (Number(property.rooms) > 0) {
+    addCharacteristic("🏠", "Комнаты", property.rooms);
+  }
+  if (Number(property.area) > 0) {
+    addCharacteristic("📐", "Площадь", property.area, " м²");
+  }
+
+  if (propertyType === "apartment") {
+    addCharacteristic("🛋️", "Планировка комнат", property.room_layout);
+    addCharacteristic("📏", "Жилая площадь", property.living_area, " м²");
+    addCharacteristic("🍽️", "Площадь кухни", property.kitchen_area, " м²");
+    addCharacteristic("🏢", "Этаж", property.floor);
+    addCharacteristic("🏙️", "Этажность дома", property.total_floors);
+    addCharacteristic("🗓️", "Год постройки", property.year_built);
+    addCharacteristic("🛁", "Санузел", property.bathroom);
+    addCharacteristic("🌇", "Балкон / лоджия", property.balcony);
+    addCharacteristic("🛠️", "Ремонт", property.renovation);
+    addCharacteristic("🧱", "Материал дома", property.building_material);
+  } else if (propertyType === "house") {
+    addCharacteristic("📏", "Жилая площадь", property.living_area, " м²");
+    addCharacteristic("🍽️", "Площадь кухни", property.kitchen_area, " м²");
+    addCharacteristic("🏙️", "Этажность", property.total_floors);
+    addCharacteristic("🗓️", "Год постройки", property.year_built);
+    addCharacteristic("🧱", "Материал дома", property.building_material);
+    addCharacteristic("🔥", "Отопление", property.heating);
+    addCharacteristic("🛁", "Санузел", property.bathroom);
+    addCharacteristic("🛠️", "Ремонт", property.renovation);
+    addCharacteristic("🌳", "Площадь участка", property.plot_area, " сот.");
+    addCharacteristic("🚗", "Гараж", property.garage);
+    addCharacteristic("🏊", "Бассейн", property.pool);
+    addCharacteristic("🧖", "Баня", property.bathhouse);
+    addCharacteristic("♨️", "Сауна", property.sauna);
+    addCharacteristic("🌿", "Терраса", property.terrace);
+    addCharacteristic("🚧", "Участок огорожен", property.fenced);
+    addCharacteristic("⚡", "Электричество", property.electricity);
+    addCharacteristic("💧", "Вода", property.water);
+    addCharacteristic("🔥", "Газ", property.gas);
+    addCharacteristic("🚰", "Канализация", property.sewerage);
+  } else if (propertyType === "land") {
+    addCharacteristic("🌳", "Площадь участка", property.plot_area, " сот.");
+    addCharacteristic("📏", "Длина участка", property.plot_length, " м");
+    addCharacteristic("📐", "Ширина участка", property.plot_width, " м");
+    addCharacteristic("🛣️", "Фасад участка", property.frontage, " м");
+    addCharacteristic("📋", "Назначение земли", property.land_purpose);
+    addCharacteristic("🚧", "Участок огорожен", property.fenced);
+    addCharacteristic("⚡", "Электричество", property.electricity);
+    addCharacteristic("💧", "Вода", property.water);
+    addCharacteristic("🔥", "Газ", property.gas);
+    addCharacteristic("🚰", "Канализация", property.sewerage);
+  } else {
+    // Для коммерческих объектов и гаражей показываем те поля,
+    // которые уже сохранены и возвращены API.
+    addCharacteristic("🏢", "Этаж", property.floor);
+    addCharacteristic("🏙️", "Этажность", property.total_floors);
+    addCharacteristic("🗓️", "Год постройки", property.year_built);
+    addCharacteristic("🧱", "Материал дома", property.building_material);
+    addCharacteristic("🔥", "Отопление", property.heating);
+    addCharacteristic("🛁", "Санузел", property.bathroom);
+  }
+
+  addCharacteristic("🏙️", "Город", property.city);
+  addCharacteristic("📍", "Район", property.district);
+  addCharacteristic("●", "Статус", property.status);
+
   return (
     <main className="page">
       <div className="container">
@@ -349,110 +474,18 @@ export default function PropertyPage() {
               </h2>
 
               <div className="characteristics">
-
-                {property.rooms >
-                  0 && (
-                  <div className="characteristic">
-                    <span>
-                      🏠
-                    </span>
-
+                {characteristics.map((item) => (
+                  <div
+                    className="characteristic"
+                    key={`${item.label}-${item.value}`}
+                  >
+                    <span>{item.icon}</span>
                     <div>
-                      <small>
-                        Комнаты
-                      </small>
-
-                      <strong>
-                        {
-                          property.rooms
-                        }
-                      </strong>
+                      <small>{item.label}</small>
+                      <strong>{item.value}</strong>
                     </div>
                   </div>
-                )}
-
-                {property.area >
-                  0 && (
-                  <div className="characteristic">
-                    <span>
-                      📐
-                    </span>
-
-                    <div>
-                      <small>
-                        Площадь
-                      </small>
-
-                      <strong>
-                        {
-                          property.area
-                        }{" "}
-                        м²
-                      </strong>
-                    </div>
-                  </div>
-                )}
-
-                {property.city && (
-                  <div className="characteristic">
-                    <span>
-                      🏙️
-                    </span>
-
-                    <div>
-                      <small>
-                        Город
-                      </small>
-
-                      <strong>
-                        {
-                          property.city
-                        }
-                      </strong>
-                    </div>
-                  </div>
-                )}
-
-                {property.district && (
-                  <div className="characteristic">
-                    <span>
-                      📍
-                    </span>
-
-                    <div>
-                      <small>
-                        Район
-                      </small>
-
-                      <strong>
-                        {
-                          property.district
-                        }
-                      </strong>
-                    </div>
-                  </div>
-                )}
-
-                {property.status && (
-                  <div className="characteristic">
-                    <span>
-                      ●
-                    </span>
-
-                    <div>
-                      <small>
-                        Статус
-                      </small>
-
-                      <strong>
-                        {
-                          property.status
-                        }
-                      </strong>
-                    </div>
-                  </div>
-                )}
-
+                ))}
               </div>
             </section>
 
