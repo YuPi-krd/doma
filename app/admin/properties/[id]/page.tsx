@@ -40,10 +40,6 @@ interface Property {
   garage?: boolean;
 }
 
-interface PropertyImage {
-  id: number;
-  image_url: string;
-}
 
 async function getProperty(
   id: string
@@ -66,26 +62,6 @@ async function getProperty(
   }
 }
 
-async function getImages(
-  propertyId: string
-): Promise<PropertyImage[]> {
-  try {
-    const res = await fetch(
-      `https://doma-nq4u.onrender.com/properties/${propertyId}/images`,
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) {
-      return [];
-    }
-
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -112,11 +88,7 @@ export default async function PropertyPage({
 
   const property =
     await getProperty(id);
-
-  const images =
-    await getImages(id);
-
-  if (!property) {
+if (!property) {
     return (
       <main
         style={{
@@ -224,7 +196,7 @@ export default async function PropertyPage({
           </div>
         </div>
 
-        <PropertyGallery images={images} />
+        <PropertyGallery propertyId={property.id} mainImage={property.image_url ?? undefined} title={property.title} variant="detail" />
 
         <div
           style={{

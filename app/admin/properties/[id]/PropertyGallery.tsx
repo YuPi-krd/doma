@@ -1,175 +1,599 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-interface PropertyImage {
+interface GalleryImage {
   id: number;
   image_url: string;
 }
 
 interface PropertyGalleryProps {
-  images: PropertyImage[];
+  propertyId: number;
+  mainImage?: string;
+  title: string;
+  variant?: "card" | "detail";
+}
+
+const API_URL =
+  "https://doma-nq4u.onrender.com";
+
+function normalizeImageUrl(
+  imageUrl?: string
+) {
+  if (!imageUrl) {
+    return `${API_URL}/images/test-flat.jpg`;
+  }
+
+  if (
+    imageUrl.startsWith("http://") ||
+    imageUrl.startsWith("https://")
+  ) {
+    return imageUrl;
+  }
+
+  if (imageUrl.startsWith("//")) {
+    return `https:${imageUrl}`;
+  }
+
+  return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 }
 
 export default function PropertyGallery({
-  images,
+  propertyId,
+  mainImage,
+  title,
+  variant = "card",
 }: PropertyGalleryProps) {
-  const [currentImage, setCurrentImage] =
-    useState<string | null>(
-      images.length > 0
-        ? images[0].image_url
-        : null
-    );
+  const [galleryImages, setGalleryImages] =
+    useState<GalleryImage[]>([]);
 
-  async function deleteImage(
-    imageId: number
-  ) {
-    const confirmed = confirm(
-      "Удалить фотографию?"
-    );
+  const [currentIndex, setCurrentIndex] =
+    useState(0);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
-    if (!confirmed) return;
+  const touchStartX =
+    useRef<number | null>(null);
 
-    try {
-      const res = await fetch(
-        `https://doma-nq4u.onrender.com/property-images/${imageId}`,
-        {
-          method: "DELETE",
+  const touchEndX =
+    useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadImages() {
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/properties/${propertyId}/images`,
+            {
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          return;
         }
-      );
 
-      if (!res.ok) {
-        alert("Ошибка удаления");
-        return;
+        const data =
+          await response.json();
+
+        if (
+          !cancelled &&
+          Array.isArray(data)
+        ) {
+          setGalleryImages(data);
+        }
+      } catch (error) {
+        console.error(
+          "Ошибка загрузки фотографий:",
+          error
+        );
       }
-
-      window.location.reload();
-    } catch {
-      alert("Ошибка сервера");
     }
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId]);
+
+  const images = useMemo(() => {
+    const result: string[] = [];
+
+    if (mainImage) {
+      result.push(
+        normalizeImageUrl(mainImage)
+      );
+    }
+
+    for (const image of galleryImages) {
+      const url =
+        normalizeImageUrl(
+          image.image_url
+        );
+
+      if (!result.includes(url)) {
+        result.push(url);
+      }
+    }
+
+    if (result.length === 0) {
+      result.push(
+        `${API_URL}/images/test-flat.jpg`
+      );
+    }
+
+    return result;
+  }, [
+    mainImage,
+    galleryImages,
+  ]);
+
+  useEffect(() => {
+    if (
+      currentIndex >= images.length
+    ) {
+      setCurrentIndex(0);
+    }
+  }, [
+    currentIndex,
+    images.length,
+  ]);
+
+  function previousImage(
+    e?: React.MouseEvent
+  ) {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    setCurrentIndex((index) =>
+      index === 0
+        ? images.length - 1
+        : index - 1
+    );
   }
 
+  function nextImage(
+    e?: React.MouseEvent
+  ) {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    setCurrentIndex((index) =>
+      index === images.length - 1
+        ? 0
+        : index + 1
+    );
+  }
+
+  function selectImage(
+    index: number,
+    e?: React.MouseEvent
+  ) {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    setCurrentIndex(index);
+  }
+
+  function handleTouchStart(
+    e: React.TouchEvent
+  ) {
+    touchStartX.current =
+      e.touches[0]?.clientX ?? null;
+
+    touchEndX.current = null;
+  }
+
+  function handleTouchMove(
+    e: React.TouchEvent
+  ) {
+    touchEndX.current =
+      e.touches[0]?.clientX ?? null;
+  }
+
+  function handleTouchEnd() {
+    if (
+      touchStartX.current === null ||
+      touchEndX.current === null
+    ) {
+      return;
+    }
+
+    const distance =
+      touchStartX.current -
+      touchEndX.current;
+
+    if (Math.abs(distance) < 45) {
+      return;
+    }
+
+    if (distance > 0) {
+      nextImage();
+    } else {
+      previousImage();
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
+  }
+
+  const isDetail =
+    variant === "detail";
+
   return (
-    <>
+    <div
+      className={
+        isDetail
+          ? "gallery gallery-detail"
+          : "gallery gallery-card"
+      }
+    >
       <div
-        style={{
-          background: "white",
-          borderRadius: "24px",
-          overflow: "hidden",
-          marginBottom: "20px",
-          boxShadow:
-            "0 10px 30px rgba(0,0,0,.05)",
-        }}
+        className="image-stage"
+        onTouchStart={
+          handleTouchStart
+        }
+        onTouchMove={
+          handleTouchMove
+        }
+        onTouchEnd={
+          handleTouchEnd
+        }
       >
-        {currentImage ? (
+        {failedImages[images[currentIndex]] ? (
+          <div className="image-unavailable" role="status">
+            <span aria-hidden="true">▧</span>
+            <span>Фото недоступно</span>
+          </div>
+        ) : (
           <img
-            src={`https://doma-nq4u.onrender.com${currentImage}`}
-            alt="Фото объекта"
-            style={{
-              width: "100%",
-              height: "550px",
-              objectFit: "cover",
-              display: "block",
+            src={images[currentIndex]}
+            alt={title}
+            draggable={false}
+            className="gallery-image"
+            onError={() => {
+              const failedUrl = images[currentIndex];
+              setFailedImages((current) => ({ ...current, [failedUrl]: true }));
             }}
           />
-        ) : (
-          <div
-            style={{
-              height: "550px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#f1f5f9",
-              color: "#64748b",
-              fontSize: "18px",
-            }}
-          >
-            Нет фотографий
-          </div>
+        )}
+
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="gallery-arrow left"
+              onClick={
+                previousImage
+              }
+              aria-label="Предыдущее фото"
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="gallery-arrow right"
+              onClick={
+                nextImage
+              }
+              aria-label="Следующее фото"
+            >
+              ›
+            </button>
+
+            <div className="gallery-counter">
+              {currentIndex + 1}
+              {" / "}
+              {images.length}
+            </div>
+
+            <div className="gallery-dots">
+              {images.map(
+                (_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={
+                      index ===
+                      currentIndex
+                        ? "gallery-dot active"
+                        : "gallery-dot"
+                    }
+                    onClick={(e) =>
+                      selectImage(
+                        index,
+                        e
+                      )
+                    }
+                    aria-label={`Фото ${
+                      index + 1
+                    }`}
+                  />
+                )
+              )}
+            </div>
+          </>
         )}
       </div>
 
-      {images.length > 0 && (
-        <div
-          style={{
-            background: "white",
-            padding: "20px",
-            borderRadius: "24px",
-            marginBottom: "30px",
-            boxShadow:
-              "0 10px 30px rgba(0,0,0,.05)",
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              marginBottom: "20px",
-            }}
-          >
-            Галерея объекта
-          </h3>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            {images.map((img) => (
-              <div
-                key={img.id}
-                style={{
-                  position: "relative",
-                }}
-              >
-                <img
-                  src={`https://doma-nq4u.onrender.com${img.image_url}`}
-                  alt="Миниатюра"
-                  onClick={() =>
-                    setCurrentImage(
-                      img.image_url
+      {isDetail &&
+        images.length > 1 && (
+          <div className="thumbnails">
+            {images.map(
+              (image, index) => (
+                <button
+                  key={image + index}
+                  type="button"
+                  className={
+                    index ===
+                    currentIndex
+                      ? "thumbnail active"
+                      : "thumbnail"
+                  }
+                  onClick={(e) =>
+                    selectImage(
+                      index,
+                      e
                     )
                   }
-                  style={{
-                    width: "180px",
-                    height: "120px",
-                    objectFit: "cover",
-                    borderRadius: "12px",
-                    cursor: "pointer",
-                    border:
-                      currentImage ===
-                      img.image_url
-                        ? "3px solid #2563eb"
-                        : "2px solid #e2e8f0",
-                  }}
-                />
-
-                <button
-                  onClick={() =>
-                    deleteImage(img.id)
-                  }
-                  style={{
-                    position: "absolute",
-                    top: "8px",
-                    right: "8px",
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: "#ef4444",
-                    color: "white",
-                    cursor: "pointer",
-                    fontWeight: 700,
-                  }}
                 >
-                  ×
+                  {failedImages[image] ? (
+                    <span className="thumbnail-unavailable">Фото</span>
+                  ) : (
+                    <img
+                      src={image}
+                      alt={`Фото ${index + 1}`}
+                      onError={() => setFailedImages((current) => ({ ...current, [image]: true }))}
+                    />
+                  )}
                 </button>
-              </div>
-            ))}
+              )
+            )}
           </div>
-        </div>
-      )}
-    </>
+        )}
+
+      <style jsx>{`
+        .gallery {
+          width: 100%;
+        }
+
+        .image-stage {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+          background: #edf0f3;
+          touch-action: pan-y;
+          user-select: none;
+        }
+
+        .gallery-card .image-stage {
+          height: 190px;
+        }
+
+        .gallery-detail .image-stage {
+          height: min(
+            62vh,
+            620px
+          );
+          min-height: 380px;
+          border-radius: 28px;
+        }
+
+        .gallery-image {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+        }
+
+        .image-unavailable {
+          width: 100%;
+          height: 100%;
+          min-height: 220px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #64748b;
+          font-size: 14px;
+          background: #eef2f6;
+        }
+
+        .image-unavailable span:first-child {
+          font-size: 32px;
+        }
+
+        .thumbnail-unavailable {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          font-size: 11px;
+          background: #eef2f6;
+        }
+
+        /*
+         * На странице объекта не растягиваем
+         * изображение. Оно занимает весь блок
+         * с аккуратным обрезанием по краям.
+         */
+        .gallery-detail
+          .gallery-image {
+          object-fit: contain;
+          background: #eef1f4;
+        }
+
+        .gallery-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(
+            25,
+            29,
+            34,
+            0.72
+          );
+          color: #ffffff;
+          cursor: pointer;
+          font-size: 30px;
+          line-height: 1;
+          opacity: 0;
+          transition:
+            opacity 0.18s ease,
+            background 0.18s ease;
+          z-index: 5;
+        }
+
+        .image-stage:hover
+          .gallery-arrow {
+          opacity: 1;
+        }
+
+        .gallery-arrow:hover {
+          background: rgba(
+            25,
+            29,
+            34,
+            0.92
+          );
+        }
+
+        .gallery-arrow.left {
+          left: 15px;
+        }
+
+        .gallery-arrow.right {
+          right: 15px;
+        }
+
+        .gallery-counter {
+          position: absolute;
+          top: 14px;
+          left: 14px;
+          padding: 7px 10px;
+          border-radius: 9px;
+          background: rgba(
+            25,
+            29,
+            34,
+            0.72
+          );
+          color: #ffffff;
+          font-size: 12px;
+          font-weight: 600;
+          z-index: 5;
+        }
+
+        .gallery-dots {
+          position: absolute;
+          left: 50%;
+          bottom: 14px;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          z-index: 5;
+        }
+
+        .gallery-dot {
+          width: 7px;
+          height: 7px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(
+            255,
+            255,
+            255,
+            0.55
+          );
+          cursor: pointer;
+        }
+
+        .gallery-dot.active {
+          width: 9px;
+          height: 9px;
+          background: #ffffff;
+        }
+
+        .thumbnails {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .thumbnail {
+          flex: 0 0 92px;
+          height: 68px;
+          padding: 0;
+          overflow: hidden;
+          border: 2px solid transparent;
+          border-radius: 12px;
+          background: #eef1f4;
+          cursor: pointer;
+          opacity: 0.72;
+          transition:
+            opacity 0.15s ease,
+            border-color 0.15s ease;
+        }
+
+        .thumbnail.active {
+          border-color: #ef4444;
+          opacity: 1;
+        }
+
+        .thumbnail img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+        }
+
+        @media (max-width: 700px) {
+          .gallery-card
+            .image-stage {
+            height: 230px;
+          }
+
+          .gallery-detail
+            .image-stage {
+            min-height: 300px;
+            height: 55vh;
+            border-radius: 20px;
+          }
+
+          .gallery-arrow {
+            opacity: 1;
+            width: 36px;
+            height: 36px;
+          }
+
+          .thumbnail {
+            flex-basis: 76px;
+            height: 58px;
+          }
+        }
+      `}</style>
+    </div>
   );
 }

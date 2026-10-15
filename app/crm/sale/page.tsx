@@ -1211,6 +1211,9 @@ function AddressMap({ address, label }: { address: string; label: string }) {
         style={addressMapFrameStyle}
         allowFullScreen
       />
+      <div aria-hidden="true" style={addressMapPinStyle}>
+        <span style={addressMapPinFlagStyle}>⚑</span>
+      </div>
       <div style={addressMapCaptionStyle}>Если адрес не найден точно, уточните его в поле выше.</div>
     </div>
   );
@@ -1425,19 +1428,37 @@ const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "tr
 const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
 
 const addressMapWrapStyle: React.CSSProperties = {
-  position: "absolute",
-  zIndex: 30,
-  top: "calc(100% + 8px)",
-  left: 0,
-  width: "min(360px, calc(100vw - 48px))",
-  padding: 10,
+  position: "relative",
+  gridColumn: "1 / -1",
+  zIndex: 1,
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+  marginTop: 8,
+  padding: 12,
   border: "1px solid #e2e8f0",
   borderRadius: 14,
   background: "#fff",
-  boxShadow: "0 16px 40px rgba(15,23,42,.2)",
+  boxShadow: "0 8px 24px rgba(15,23,42,.08)",
 };
 const addressMapTitleStyle: React.CSSProperties = { marginBottom: 8, fontSize: 12, fontWeight: 750, color: "#334155" };
 const addressMapFrameStyle: React.CSSProperties = { display: "block", border: 0, borderRadius: 10, background: "#eef2f7" };
+const addressMapPinStyle: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  transform: "translate(-50%, -58%)",
+  zIndex: 2,
+  pointerEvents: "none",
+  filter: "drop-shadow(0 2px 3px rgba(15,23,42,.35))",
+};
+const addressMapPinFlagStyle: React.CSSProperties = {
+  display: "block",
+  color: "#dc2626",
+  fontSize: 34,
+  lineHeight: 1,
+  textShadow: "0 1px 0 #fff",
+};
 const addressMapCaptionStyle: React.CSSProperties = { marginTop: 7, fontSize: 11, color: "#64748b" };
 
 const privateFieldWrapStyle: React.CSSProperties = { position: "relative" };

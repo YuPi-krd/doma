@@ -1174,6 +1174,9 @@ function AddressMap({ address, label }: { address: string; label: string }) {
         style={addressMapFrameStyle}
         allowFullScreen
       />
+      <div aria-hidden="true" style={addressMapPinStyle}>
+        <span style={addressMapPinFlagStyle}>⚑</span>
+      </div>
       <div style={addressMapCaptionStyle}>
         Если адрес не найден точно, уточните его в поле выше.
       </div>
@@ -1378,9 +1381,12 @@ const inputWithSuffixStyle: React.CSSProperties = {
 const suffixStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 13, fontWeight: 700 };
 
 const addressMapWrapStyle: React.CSSProperties = {
+  position: "relative",
   gridColumn: "1 / -1",
   minWidth: 0,
-  marginTop: -4,
+  width: "100%",
+  boxSizing: "border-box",
+  marginTop: 8,
   padding: 12,
   border: "1px solid #e2e8f0",
   borderRadius: 16,
@@ -1401,6 +1407,22 @@ const addressMapFrameStyle: React.CSSProperties = {
   background: "#eef2f7",
 };
 
+const addressMapPinStyle: React.CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  transform: "translate(-50%, -58%)",
+  zIndex: 2,
+  pointerEvents: "none",
+  filter: "drop-shadow(0 2px 3px rgba(15,23,42,.35))",
+};
+const addressMapPinFlagStyle: React.CSSProperties = {
+  display: "block",
+  color: "#dc2626",
+  fontSize: 34,
+  lineHeight: 1,
+  textShadow: "0 1px 0 #fff",
+};
 const addressMapCaptionStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 11,

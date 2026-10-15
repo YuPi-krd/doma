@@ -32,18 +32,24 @@ export default function PropertiesPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(
-      "https://doma-nq4u.onrender.com/properties"
-    )
-      .then((res) => res.json())
+    fetch("https://doma-nq4u.onrender.com/properties", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`Не удалось загрузить объекты: HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!Array.isArray(data)) {
+          throw new Error("Сервер вернул некорректный список объектов.");
+        }
         setProperties(data);
-        setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
+        console.error("DOMA: ошибка загрузки объектов", err);
+        window.alert("Не удалось загрузить список объектов. Проверьте доступность backend.");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const publishProperty = async (
