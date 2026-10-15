@@ -1956,6 +1956,51 @@ def delete_property(property_id: int):
         for image in images:
             db.delete(image)
 
+        # Flush ORM-deleted photo rows first, so the schema-based cleanup below
+        # cannot delete the same rows a second time and trigger stale-row errors.
+        db.flush()
+
+        # Some deployments have additional tables with foreign keys to properties
+        # that are not represented in the current ORM models. Remove only rows
+        # that directly reference this property, using the live database schema.
+        connection = db.connection()
+        inspector = inspect(connection)
+        preparer = connection.dialect.identifier_preparer
+
+        for table_name in inspector.get_table_names():
+            if table_name == "properties":
+                continue
+
+            try:
+                foreign_keys = inspector.get_foreign_keys(table_name)
+            except Exception as inspect_error:
+                print(
+                    f"Не удалось проверить внешние ключи таблицы {table_name}: "
+                    f"{inspect_error}"
+                )
+                continue
+
+            referencing_columns = []
+            for foreign_key in foreign_keys:
+                if foreign_key.get("referred_table") == "properties":
+                    referencing_columns.extend(
+                        foreign_key.get("constrained_columns") or []
+                    )
+
+            referencing_columns = list(dict.fromkeys(referencing_columns))
+            if not referencing_columns:
+                continue
+
+            table_sql = preparer.quote(table_name)
+            where_sql = " OR ".join(
+                f"{preparer.quote(column)} = :property_id"
+                for column in referencing_columns
+            )
+            connection.execute(
+                text(f"DELETE FROM {table_sql} WHERE {where_sql}"),
+                {"property_id": property_id},
+            )
+
         image_urls.append(property_obj.image_url)
         db.delete(property_obj)
         db.commit()
