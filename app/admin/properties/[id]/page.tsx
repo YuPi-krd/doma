@@ -38,6 +38,7 @@ interface Property {
   sauna?: boolean;
   pool?: boolean;
   garage?: boolean;
+  image_url?: string | null;
 }
 
 
