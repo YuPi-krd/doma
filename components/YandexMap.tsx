@@ -11,10 +11,39 @@ interface MapMarker {
   id: number;
   title: string;
   price: number;
-  coordinates: [
-    number,
-    number
-  ];
+  coordinates: [number, number];
+}
+
+/** Получает координаты по публичному адресу объекта. */
+async function geocodePublicAddress(address: string, apiKey: string): Promise<[number, number] | null> {
+  const cleanAddress = address.trim();
+  if (!cleanAddress) return null;
+
+  try {
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      geocode: cleanAddress,
+      format: "json",
+      lang: "ru_RU",
+      results: "1",
+    });
+    const response = await fetch(`https://geocode-maps.yandex.ru/v1/?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const position = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
+    if (typeof position !== "string") return null;
+
+    // Геокодер возвращает координаты в порядке «долгота широта».
+    const [longitudeText, latitudeText] = position.split(" ");
+    const longitude = Number(longitudeText);
+    const latitude = Number(latitudeText);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+    return [longitude, latitude];
+  } catch (error) {
+    console.warn("Не удалось определить координаты публичного адреса:", error);
+    return null;
+  }
 }
 
 interface YandexMapProps {
@@ -425,20 +454,43 @@ export default function YandexMap({
         if (!response.ok) return;
         const rows = await response.json();
         if (cancelled || !Array.isArray(rows)) return;
-        const mapped: MapMarker[] = rows
-          .filter((item: any) =>
-            item &&
-            !item.is_draft &&
-            Number.isFinite(Number(item.latitude)) &&
-            Number.isFinite(Number(item.longitude))
-          )
-          .map((item: any) => ({
+        const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+        const publicProperties = rows.filter((item: any) => item && !item.is_draft);
+
+        // Сначала используем сохранённые координаты. Если их ещё нет,
+        // определяем точку по публичному адресу, чтобы старые объявления
+        // тоже появились на карте без изменения схемы базы данных.
+        const mappedResults = await Promise.all(publicProperties.map(async (item: any) => {
+          let coordinates: [number, number] | null = null;
+          const longitude = Number(item.longitude);
+          const latitude = Number(item.latitude);
+
+          if (item.longitude != null && item.latitude != null &&
+              Number.isFinite(longitude) && Number.isFinite(latitude) &&
+              longitude >= -180 && longitude <= 180 && latitude >= -90 && latitude <= 90) {
+            coordinates = [longitude, latitude];
+          } else if (apiKey) {
+            // Не используем real_address: публичная карта не должна раскрывать
+            // скрытый/реальный адрес продавца.
+            const publicAddress = String(item.public_address || item.address || "").trim();
+            const city = String(item.city || "Краснодар").trim();
+            const district = String(item.district || "").trim();
+            if (publicAddress) {
+              const query = [publicAddress, district, city].filter(Boolean).join(", ");
+              coordinates = await geocodePublicAddress(query, apiKey);
+            }
+          }
+
+          if (!coordinates) return null;
+          return {
             id: Number(item.id),
             title: String(item.title ?? "Объект недвижимости"),
             price: Number(item.price ?? 0),
-            coordinates: [Number(item.longitude), Number(item.latitude)] as [number, number],
-          }));
-        setApiMarkers(mapped);
+            coordinates,
+          } satisfies MapMarker;
+        }));
+
+        setApiMarkers(mappedResults.filter((item): item is MapMarker => item !== null));
       } catch (error) {
         console.error("Не удалось загрузить точки объектов:", error);
       }

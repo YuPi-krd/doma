@@ -70,22 +70,9 @@ export default function MapPage() {
     loadProperties();
   }, []);
 
-  /*
-   * Пока в properties нет latitude/longitude,
-   * поэтому реальные маркеры ещё не создаём.
-   *
-   * Следующим этапом добавим координаты
-   * в PostgreSQL.
-   */
-  const markers: {
-    id: number;
-    title: string;
-    price: number;
-    coordinates: [
-      number,
-      number
-    ];
-  }[] = [];
+  // YandexMap сам загружает опубликованные объекты и использует
+  // сохранённые координаты либо определяет их по публичному адресу.
+  // Пустой массив здесь означает, что карта должна получить данные из API.
 
   return (
     <main className="page">
@@ -142,7 +129,6 @@ export default function MapPage() {
         <div className="map-card">
           <YandexMap
             height="calc(100vh - 230px)"
-            markers={markers}
           />
         </div>
 
@@ -156,11 +142,8 @@ export default function MapPage() {
           </div>
 
           <div className="info-text">
-            Карта уже подключена.
-            Следующим этапом мы добавим
-            координаты каждого объявления,
-            после чего объекты появятся
-            на карте отдельными метками.
+            На карте отображаются опубликованные объекты с сохранёнными координатами
+            или адресами, по которым Яндекс.Карты смогли определить местоположение.
           </div>
 
         </div>
