@@ -639,6 +639,9 @@ def property_to_dict(
         "id":
             item.id,
 
+        "is_draft":
+            bool(getattr(item, "is_draft", False)),
+
         "title":
             item.title or "",
 
@@ -926,6 +929,18 @@ def validate_property_payload(
     existing: Property | None = None,
 ) -> dict[str, Any]:
 
+    is_draft = to_bool(
+        payload.get(
+            "is_draft",
+            (
+                getattr(existing, "is_draft", True)
+                if existing is not None
+                else True
+            ),
+        ),
+        default=True,
+    )
+
     title = text_value(
         payload.get(
             "title",
@@ -936,6 +951,10 @@ def validate_property_payload(
             ),
         )
     )
+
+    # A draft may be saved before the agent enters its final title.
+    if not title and is_draft:
+        title = "Черновик без названия"
 
     if not title:
         raise HTTPException(
@@ -1092,6 +1111,9 @@ def validate_property_payload(
     return {
         "title":
             title,
+
+        "is_draft":
+            is_draft,
 
         "description":
             text_value(
@@ -1464,6 +1486,11 @@ def get_properties(
     type: str | None = Query(
         default=None
     ),
+
+    # Drafts are hidden by default and are only returned to CRM when asked.
+    include_drafts: bool = Query(
+        default=False
+    ),
 ):
 
     db: Session = SessionLocal()
@@ -1472,6 +1499,9 @@ def get_properties(
         query = db.query(
             Property
         )
+
+        if not include_drafts:
+            query = query.filter(Property.is_draft.is_(False))
 
         selected_type = (
             property_type
