@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Property {
   id: number;
@@ -19,6 +20,7 @@ interface Property {
 }
 
 export default function PropertiesPage() {
+  const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [activeTab, setActiveTab] =
     useState<"sale" | "rent">("sale");
@@ -32,7 +34,7 @@ export default function PropertiesPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("https://doma-nq4u.onrender.com/properties", { cache: "no-store" })
+    fetch("https://doma-nq4u.onrender.com/properties?include_drafts=true", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
           throw new Error(`Не удалось загрузить объекты: HTTP ${res.status}`);
@@ -350,12 +352,27 @@ const deleteProperty = async (id: number) => {
           (property) => (
             <div
               key={property.id}
+              role="link"
+              tabIndex={0}
+              aria-label={`Открыть объект ${property.title}`}
+              onClick={(event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest("a, button")) return;
+                router.push(`/admin/properties/${property.id}`);
+              }}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  router.push(`/admin/properties/${property.id}`);
+                }
+              }}
               style={{
                 background: "#fff",
                 borderRadius: 20,
                 overflow: "hidden",
-                boxShadow:
-                  "0 8px 30px rgba(0,0,0,.08)",
+                boxShadow: "0 8px 30px rgba(0,0,0,.08)",
+                cursor: "pointer",
               }}
             >
               <img

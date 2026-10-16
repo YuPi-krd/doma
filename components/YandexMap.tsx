@@ -11,39 +11,10 @@ interface MapMarker {
   id: number;
   title: string;
   price: number;
-  coordinates: [number, number];
-}
-
-/** Получает координаты по публичному адресу объекта. */
-async function geocodePublicAddress(address: string, apiKey: string): Promise<[number, number] | null> {
-  const cleanAddress = address.trim();
-  if (!cleanAddress) return null;
-
-  try {
-    const params = new URLSearchParams({
-      apikey: apiKey,
-      geocode: cleanAddress,
-      format: "json",
-      lang: "ru_RU",
-      results: "1",
-    });
-    const response = await fetch(`https://geocode-maps.yandex.ru/v1/?${params.toString()}`);
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const position = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
-    if (typeof position !== "string") return null;
-
-    // Геокодер возвращает координаты в порядке «долгота широта».
-    const [longitudeText, latitudeText] = position.split(" ");
-    const longitude = Number(longitudeText);
-    const latitude = Number(latitudeText);
-    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
-    return [longitude, latitude];
-  } catch (error) {
-    console.warn("Не удалось определить координаты публичного адреса:", error);
-    return null;
-  }
+  coordinates?: [number, number];
+  address?: string;
+  district?: string;
+  city?: string;
 }
 
 interface YandexMapProps {
@@ -185,6 +156,41 @@ function loadYandexMaps() {
     );
 
   return ymapsPromise;
+}
+
+/** Определяет координаты по публичному адресу объявления. */
+async function geocodePublicAddress(address: string): Promise<[number, number] | null> {
+  const cleanAddress = address.trim();
+  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+  if (!cleanAddress || !apiKey) return null;
+
+  const query = new URLSearchParams({
+    apikey: apiKey,
+    geocode: cleanAddress,
+    format: "json",
+    lang: "ru_RU",
+    results: "1",
+  });
+
+  const response = await fetch(`https://geocode-maps.yandex.ru/v1/?${query.toString()}`);
+  if (!response.ok) return null;
+
+  const data = await response.json();
+  const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
+  if (typeof pos !== "string") return null;
+
+  const [longitudeText, latitudeText] = pos.split(" ");
+  const longitude = Number(longitudeText);
+  const latitude = Number(latitudeText);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  return [longitude, latitude];
+}
+
+function validCoordinates(value?: [number, number] | null): value is [number, number] {
+  return Array.isArray(value) && value.length === 2 &&
+    Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1])) &&
+    Number(value[0]) >= -180 && Number(value[0]) <= 180 &&
+    Number(value[1]) >= -90 && Number(value[1]) <= 90;
 }
 
 type YandexAddressPreviewProps = {
@@ -415,6 +421,113 @@ const addressMapOverlayStyle: CSSProperties = {
   fontSize: "13px",
 };
 
+type YandexPropertyLocationMapProps = {
+  address: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  height?: string;
+};
+
+/** Карта расположения публичного объекта. Использует координаты из БД,
+ * а если их нет — геокодирует только рекламный (публичный) адрес. */
+export function YandexPropertyLocationMap({
+  address,
+  latitude,
+  longitude,
+  height = "300px",
+}: YandexPropertyLocationMapProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "no-point" | "error">("loading");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    let map: any = null;
+    let marker: any = null;
+
+    async function init() {
+      try {
+        setStatus("loading");
+        const ymaps = await loadYandexMaps();
+        if (cancelled || !containerRef.current) return;
+
+        const hasSavedCoordinates =
+          latitude !== null && latitude !== undefined &&
+          longitude !== null && longitude !== undefined &&
+          Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) &&
+          Number(latitude) >= -90 && Number(latitude) <= 90 &&
+          Number(longitude) >= -180 && Number(longitude) <= 180;
+
+        let point: [number, number] | null = hasSavedCoordinates
+          ? [Number(longitude), Number(latitude)]
+          : null;
+
+        map = new ymaps.YMap(containerRef.current, {
+          location: { center: point ?? KRASNODAR_CENTER, zoom: point ? 16 : 11 },
+          mode: "vector",
+        });
+        map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
+        map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
+
+        if (!point && address.trim()) {
+          point = await geocodePublicAddress(address).catch((error) => {
+            console.warn("Не удалось определить адрес объекта:", error);
+            return null;
+          });
+        }
+
+        if (cancelled) return;
+        if (!point) {
+          setStatus("no-point");
+          return;
+        }
+
+        map.update({ location: { center: point, zoom: 16, duration: 250 } });
+        const pin = document.createElement("div");
+        pin.setAttribute("aria-label", "Расположение объекта");
+        pin.style.cssText = "width:24px;height:24px;border:3px solid #fff;border-radius:50% 50% 50% 0;background:#ef3340;box-shadow:0 3px 10px rgba(0,0,0,.3);transform:translate(-50%,-100%) rotate(-45deg);display:flex;align-items:center;justify-content:center;box-sizing:border-box;";
+        const dot = document.createElement("span");
+        dot.style.cssText = "width:6px;height:6px;border-radius:50%;background:#fff;";
+        pin.appendChild(dot);
+        marker = new ymaps.YMapMarker({ coordinates: point }, pin);
+        map.addChild(marker);
+        setStatus("ready");
+      } catch (error) {
+        console.error("Ошибка карты расположения объекта:", error);
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Не удалось загрузить карту");
+          setStatus("error");
+        }
+      }
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+      if (map) {
+        if (marker) {
+          try { map.removeChild(marker); } catch { /* ignore */ }
+        }
+        try { map.destroy(); } catch { /* ignore */ }
+      }
+    };
+  }, [address, latitude, longitude]);
+
+  return (
+    <div className="doma-property-map" style={{ height }}>
+      <div ref={containerRef} className="doma-property-map__canvas" />
+      {status === "loading" && <div className="doma-property-map__overlay">Определяем расположение объекта…</div>}
+      {status === "no-point" && <div className="doma-property-map__overlay">Не удалось определить точку по адресу. Проверьте публичный адрес объекта.</div>}
+      {status === "error" && <div className="doma-property-map__overlay">Не удалось загрузить карту{errorMessage ? `: ${errorMessage}` : ""}</div>}
+      <style jsx>{`
+        .doma-property-map { position: relative; width: 100%; margin-top: 16px; overflow: hidden; border: 1px solid #e9ebe8; border-radius: 16px; background: #eef1f4; }
+        .doma-property-map__canvas { width: 100%; height: 100%; }
+        .doma-property-map__overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(238,241,244,.94); color: #64707d; font-size: 13px; text-align: center; }
+      `}</style>
+    </div>
+  );
+}
+
 export default function YandexMap({
   markers,
   height = "650px",
@@ -441,11 +554,10 @@ export default function YandexMap({
     useState("");
 
   const [apiMarkers, setApiMarkers] = useState<MapMarker[]>([]);
-  const effectiveMarkers = markers && markers.length > 0 ? markers : apiMarkers;
-
+  const effectiveMarkers = markers !== undefined ? markers : apiMarkers;
 
   useEffect(() => {
-    if (markers && markers.length > 0) return;
+    if (markers !== undefined) return;
     let cancelled = false;
 
     async function loadPropertyMarkers() {
@@ -454,43 +566,27 @@ export default function YandexMap({
         if (!response.ok) return;
         const rows = await response.json();
         if (cancelled || !Array.isArray(rows)) return;
-        const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
-        const publicProperties = rows.filter((item: any) => item && !item.is_draft);
-
-        // Сначала используем сохранённые координаты. Если их ещё нет,
-        // определяем точку по публичному адресу, чтобы старые объявления
-        // тоже появились на карте без изменения схемы базы данных.
-        const mappedResults = await Promise.all(publicProperties.map(async (item: any) => {
-          let coordinates: [number, number] | null = null;
-          const longitude = Number(item.longitude);
-          const latitude = Number(item.latitude);
-
-          if (item.longitude != null && item.latitude != null &&
-              Number.isFinite(longitude) && Number.isFinite(latitude) &&
-              longitude >= -180 && longitude <= 180 && latitude >= -90 && latitude <= 90) {
-            coordinates = [longitude, latitude];
-          } else if (apiKey) {
-            // Не используем real_address: публичная карта не должна раскрывать
-            // скрытый/реальный адрес продавца.
-            const publicAddress = String(item.public_address || item.address || "").trim();
-            const city = String(item.city || "Краснодар").trim();
-            const district = String(item.district || "").trim();
-            if (publicAddress) {
-              const query = [publicAddress, district, city].filter(Boolean).join(", ");
-              coordinates = await geocodePublicAddress(query, apiKey);
-            }
-          }
-
-          if (!coordinates) return null;
-          return {
-            id: Number(item.id),
-            title: String(item.title ?? "Объект недвижимости"),
-            price: Number(item.price ?? 0),
-            coordinates,
-          } satisfies MapMarker;
-        }));
-
-        setApiMarkers(mappedResults.filter((item): item is MapMarker => item !== null));
+        const mapped: MapMarker[] = rows
+          .filter((item: any) => item && item.is_draft !== true)
+          .map((item: any) => {
+            const hasCoordinates =
+              item.latitude !== null && item.latitude !== undefined &&
+              item.longitude !== null && item.longitude !== undefined &&
+              Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude));
+            return {
+              id: Number(item.id),
+              title: String(item.title ?? "Объект недвижимости"),
+              price: Number(item.price ?? 0),
+              coordinates: hasCoordinates
+                ? [Number(item.longitude), Number(item.latitude)] as [number, number]
+                : undefined,
+              address: String(item.address ?? item.public_address ?? ""),
+              district: String(item.district ?? ""),
+              city: String(item.city ?? "Краснодар"),
+            };
+          })
+          .filter((item: MapMarker) => item.coordinates || item.address || item.district);
+        setApiMarkers(mapped);
       } catch (error) {
         console.error("Не удалось загрузить точки объектов:", error);
       }
@@ -603,27 +699,59 @@ export default function YandexMap({
     const ymaps = window.ymaps3;
     if (!map || !ymaps || status !== "ready") return;
 
+    let cancelled = false;
     markersRef.current.forEach((marker) => {
       try { map.removeChild(marker); } catch { /* already removed */ }
     });
     markersRef.current = [];
 
-    effectiveMarkers.forEach((item) => {
-      if (!Array.isArray(item.coordinates) || item.coordinates.length !== 2) return;
-      const content = document.createElement("div");
-      content.className = "doma-map-marker";
-      content.innerHTML = `
-        <div class="doma-map-marker__price">
-          ${Number(item.price || 0).toLocaleString("ru-RU")} ₽
-        </div>
-      `;
-      const marker = new ymaps.YMapMarker(
-        { coordinates: item.coordinates },
-        content
-      );
-      map.addChild(marker);
-      markersRef.current.push(marker);
-    });
+    async function drawMarkers() {
+      const resolved = await Promise.all(effectiveMarkers.map(async (item) => {
+        if (validCoordinates(item.coordinates)) {
+          return { item, coordinates: item.coordinates };
+        }
+        const query = [item.address, item.district, item.city]
+          .map((part) => (part || "").trim())
+          .filter(Boolean)
+          .join(", ");
+        if (!query) return null;
+        try {
+          const coordinates = await geocodePublicAddress(query);
+          return coordinates ? { item, coordinates } : null;
+        } catch (error) {
+          console.warn(`Не удалось определить адрес объявления №${item.id}:`, error);
+          return null;
+        }
+      }));
+
+      if (cancelled) return;
+      const valid = resolved.filter((entry): entry is { item: MapMarker; coordinates: [number, number] } => entry !== null);
+
+      if (valid.length > 0) {
+        const center: [number, number] = [
+          valid.reduce((sum, entry) => sum + entry.coordinates[0], 0) / valid.length,
+          valid.reduce((sum, entry) => sum + entry.coordinates[1], 0) / valid.length,
+        ];
+        map.update({ location: { center, zoom: valid.length === 1 ? 14 : 11, duration: 300 } });
+      }
+
+      valid.forEach(({ item, coordinates }) => {
+        const content = document.createElement("div");
+        content.className = "doma-map-marker";
+        content.setAttribute("title", [item.title, item.address].filter(Boolean).join(" · "));
+        content.innerHTML = `
+          <div class="doma-map-marker__price">
+            ${Number(item.price || 0).toLocaleString("ru-RU")} ₽
+          </div>
+        `;
+        const marker = new ymaps.YMapMarker({ coordinates }, content);
+        map.addChild(marker);
+        markersRef.current.push(marker);
+      });
+    }
+
+    void drawMarkers();
+    return () => { cancelled = true; };
   }, [effectiveMarkers, status]);
 
   return (

@@ -222,6 +222,29 @@ export default function PropertyGallery({
   const isDetail =
     variant === "detail";
 
+  // На странице объекта можно листать галерею клавишами ← и →.
+  // Не перехватываем стрелки, пока пользователь вводит текст.
+  useEffect(() => {
+    if (!isDetail || images.length <= 1) return;
+
+    function handleGalleryKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setCurrentIndex((index) => index === 0 ? images.length - 1 : index - 1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setCurrentIndex((index) => index === images.length - 1 ? 0 : index + 1);
+      }
+    }
+
+    document.addEventListener("keydown", handleGalleryKeyDown);
+    return () => document.removeEventListener("keydown", handleGalleryKeyDown);
+  }, [isDetail, images.length]);
+
   return (
     <div
       className={

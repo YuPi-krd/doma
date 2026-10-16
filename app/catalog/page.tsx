@@ -34,6 +34,9 @@ interface Property {
   deal_type_label?: string;
 
   image_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  is_draft?: boolean;
 }
 
 type PropertyType =
@@ -708,9 +711,10 @@ export default function CatalogPage() {
       const data =
         await response.json();
 
+      // Публичный каталог не должен показывать черновики из CRM.
       setProperties(
         Array.isArray(data)
-          ? data
+          ? data.filter((item: Property) => item?.is_draft !== true)
           : []
       );
     } catch (err) {
@@ -1242,24 +1246,25 @@ export default function CatalogPage() {
      MAP MARKERS
   ========================================================== */
 
-  /*
-   * Пока coordinates нет в Property,
-   * поэтому карта открывается по Краснодару.
-   *
-   * На следующем этапе добавим latitude /
-   * longitude в БД и сюда будут приходить
-   * реальные маркеры.
-   */
+  const mapMarkers = useMemo(() => filteredProperties.map((item) => {
+    const hasCoordinates =
+      item.latitude !== null && item.latitude !== undefined &&
+      item.longitude !== null && item.longitude !== undefined &&
+      Number.isFinite(Number(item.latitude)) &&
+      Number.isFinite(Number(item.longitude));
 
-  const mapMarkers: {
-    id: number;
-    title: string;
-    price: number;
-    coordinates: [
-      number,
-      number
-    ];
-  }[] = [];
+    return {
+      id: item.id,
+      title: item.title,
+      price: Number(item.price || 0),
+      coordinates: hasCoordinates
+        ? [Number(item.longitude), Number(item.latitude)] as [number, number]
+        : undefined,
+      address: item.address || "",
+      district: item.district || "",
+      city: item.city || "",
+    };
+  }).filter((item) => item.coordinates || item.address || item.district), [filteredProperties]);
 
   /* ==========================================================
      RENDER
@@ -3099,15 +3104,9 @@ export default function CatalogPage() {
 
         .property-grid {
           display: grid;
-          grid-template-columns:
-            repeat(
-              4,
-              minmax(
-                0,
-                1fr
-              )
-            );
-          gap: 12px;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 14px;
+          max-width: 1050px;
         }
 
         .property-card-link {
@@ -3117,6 +3116,9 @@ export default function CatalogPage() {
 
         .property-card {
           overflow: hidden;
+          min-height: 190px;
+          display: grid;
+          grid-template-columns: minmax(220px, 34%) minmax(0, 1fr);
           height: 100%;
           border:
             1px solid
@@ -3157,7 +3159,8 @@ export default function CatalogPage() {
 
         .photo-wrap {
           position: relative;
-          height: 190px;
+          height: 100%;
+          min-height: 190px;
           overflow: hidden;
           background: #e9edf2;
         }
@@ -3731,14 +3734,7 @@ export default function CatalogPage() {
 
         @media (max-width: 1150px) {
           .property-grid {
-            grid-template-columns:
-              repeat(
-                3,
-                minmax(
-                  0,
-                  1fr
-                )
-              );
+            grid-template-columns: minmax(0, 1fr);
           }
 
           .top-bar {
@@ -3767,14 +3763,7 @@ export default function CatalogPage() {
           }
 
           .property-grid {
-            grid-template-columns:
-              repeat(
-                2,
-                minmax(
-                  0,
-                  1fr
-                )
-              );
+            grid-template-columns: minmax(0, 1fr);
           }
 
           .top-bar {
@@ -3809,8 +3798,13 @@ export default function CatalogPage() {
             grid-template-columns: 1fr;
           }
 
+          .property-card {
+            display: block;
+          }
+
           .photo-wrap {
             height: 230px;
+            min-height: 0;
           }
 
           .filter-modal {

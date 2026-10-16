@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 
 import PropertyGallery from "@/components/PropertyGallery";
 import LeadModal from "@/components/LeadModal";
+import { YandexPropertyLocationMap } from "@/components/YandexMap";
 
 interface Property {
   id: number;
@@ -22,6 +23,8 @@ interface Property {
   status: string;
 
   image_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 
   property_type?: string | null;
   property_type_label?: string | null;
@@ -612,6 +615,13 @@ export default function PropertyPage() {
                 </div>
 
               </div>
+
+              <YandexPropertyLocationMap
+                address={[property.address, property.district, property.city].filter(Boolean).join(", ")}
+                latitude={property.latitude}
+                longitude={property.longitude}
+                height="300px"
+              />
 
             </section>
 
