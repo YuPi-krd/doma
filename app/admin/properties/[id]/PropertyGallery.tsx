@@ -257,9 +257,6 @@ export default function PropertyGallery({
     touchEndX.current = null;
   }
 
-  const isDetail =
-    variant === "detail";
-
   return (
     <div
       className={
