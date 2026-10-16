@@ -36,7 +36,28 @@ function normalizeImageUrl(
     return imageUrl;
   }
 
-  return `${API_URL}${imageUrl}`;
+  if (imageUrl.startsWith("//")) {
+    return `https:${imageUrl}`;
+  }
+
+  return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+}
+
+// Сравниваем URL без query/hash и учитываем имя файла: один снимок может
+// приходить с относительным URL, абсолютным URL или cache-параметрами.
+function imageDedupeKeys(url: string): string[] {
+  try {
+    const parsed = new URL(url, API_URL);
+    const path = decodeURIComponent(parsed.pathname)
+      .replace(/\\+/g, "/")
+      .replace(/\/$/, "")
+      .toLowerCase();
+    const filename = path.split("/").pop() || path;
+    return [`${parsed.origin.toLowerCase()}${path}`, `file:${filename}`];
+  } catch {
+    const clean = url.split(/[?#]/, 1)[0].replace(/\\+/g, "/").replace(/\/$/, "").toLowerCase();
+    return [clean, `file:${clean.split("/").pop() || clean}`];
+  }
 }
 
 export default function PropertyGallery({
@@ -100,35 +121,27 @@ export default function PropertyGallery({
 
   const images = useMemo(() => {
     const result: string[] = [];
+    const seen = new Set<string>();
 
-    if (mainImage) {
-      result.push(
-        normalizeImageUrl(mainImage)
-      );
-    }
+    const addImage = (rawUrl?: string) => {
+      if (!rawUrl) return;
+      const url = normalizeImageUrl(rawUrl);
+      const keys = imageDedupeKeys(url);
+      if (keys.some((key) => seen.has(key))) return;
+      keys.forEach((key) => seen.add(key));
+      result.push(url);
+    };
 
-    for (const image of galleryImages) {
-      const url =
-        normalizeImageUrl(
-          image.image_url
-        );
-
-      if (!result.includes(url)) {
-        result.push(url);
-      }
-    }
+    // Главная фотография стоит первой; если API отдаёт её же в галерее,
+    // она добавляется только один раз.
+    addImage(mainImage);
+    for (const image of galleryImages) addImage(image.image_url);
 
     if (result.length === 0) {
-      result.push(
-        `${API_URL}/images/test-flat.jpg`
-      );
+      result.push(`${API_URL}/images/test-flat.jpg`);
     }
-
     return result;
-  }, [
-    mainImage,
-    galleryImages,
-  ]);
+  }, [mainImage, galleryImages]);
 
   useEffect(() => {
     if (
@@ -379,6 +392,12 @@ export default function PropertyGallery({
       <style jsx>{`
         .gallery {
           width: 100%;
+          height: 100%;
+        }
+
+        .gallery-card {
+          height: 100%;
+          display: flex;
         }
 
         .image-stage {
@@ -391,7 +410,9 @@ export default function PropertyGallery({
         }
 
         .gallery-card .image-stage {
-          height: 190px;
+          width: 100%;
+          height: 100%;
+          min-height: 290px;
         }
 
         .gallery-detail .image-stage {
@@ -560,6 +581,7 @@ export default function PropertyGallery({
           .gallery-card
             .image-stage {
             height: 230px;
+            min-height: 230px;
           }
 
           .gallery-detail

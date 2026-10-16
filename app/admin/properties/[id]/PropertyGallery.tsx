@@ -43,6 +43,23 @@ function normalizeImageUrl(
   return `${API_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 }
 
+// Сравниваем URL без query/hash и учитываем имя файла: один снимок может
+// приходить с относительным URL, абсолютным URL или cache-параметрами.
+function imageDedupeKeys(url: string): string[] {
+  try {
+    const parsed = new URL(url, API_URL);
+    const path = decodeURIComponent(parsed.pathname)
+      .replace(/\\+/g, "/")
+      .replace(/\/$/, "")
+      .toLowerCase();
+    const filename = path.split("/").pop() || path;
+    return [`${parsed.origin.toLowerCase()}${path}`, `file:${filename}`];
+  } catch {
+    const clean = url.split(/[?#]/, 1)[0].replace(/\\+/g, "/").replace(/\/$/, "").toLowerCase();
+    return [clean, `file:${clean.split("/").pop() || clean}`];
+  }
+}
+
 export default function PropertyGallery({
   propertyId,
   mainImage,
@@ -105,35 +122,27 @@ export default function PropertyGallery({
 
   const images = useMemo(() => {
     const result: string[] = [];
+    const seen = new Set<string>();
 
-    if (mainImage) {
-      result.push(
-        normalizeImageUrl(mainImage)
-      );
-    }
+    const addImage = (rawUrl?: string) => {
+      if (!rawUrl) return;
+      const url = normalizeImageUrl(rawUrl);
+      const keys = imageDedupeKeys(url);
+      if (keys.some((key) => seen.has(key))) return;
+      keys.forEach((key) => seen.add(key));
+      result.push(url);
+    };
 
-    for (const image of galleryImages) {
-      const url =
-        normalizeImageUrl(
-          image.image_url
-        );
-
-      if (!result.includes(url)) {
-        result.push(url);
-      }
-    }
+    // Главная фотография стоит первой; если API отдаёт её же в галерее,
+    // она добавляется только один раз.
+    addImage(mainImage);
+    for (const image of galleryImages) addImage(image.image_url);
 
     if (result.length === 0) {
-      result.push(
-        `${API_URL}/images/test-flat.jpg`
-      );
+      result.push(`${API_URL}/images/test-flat.jpg`);
     }
-
     return result;
-  }, [
-    mainImage,
-    galleryImages,
-  ]);
+  }, [mainImage, galleryImages]);
 
   useEffect(() => {
     if (
@@ -145,6 +154,30 @@ export default function PropertyGallery({
     currentIndex,
     images.length,
   ]);
+
+  const isDetail =
+    variant === "detail";
+
+  useEffect(() => {
+    if (!isDetail || images.length < 2) return;
+
+    function handleGalleryKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setCurrentIndex((index) => index === 0 ? images.length - 1 : index - 1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setCurrentIndex((index) => index === images.length - 1 ? 0 : index + 1);
+      }
+    }
+
+    window.addEventListener("keydown", handleGalleryKeyDown);
+    return () => window.removeEventListener("keydown", handleGalleryKeyDown);
+  }, [isDetail, images.length]);
 
   function previousImage(
     e?: React.MouseEvent

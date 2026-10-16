@@ -4,6 +4,7 @@ import PropertyGallery from "./PropertyGallery";
 interface Property {
   id: number;
   title: string;
+  image_url?: string | null;
   description: string;
   price: number;
   area: number;
@@ -38,7 +39,6 @@ interface Property {
   sauna?: boolean;
   pool?: boolean;
   garage?: boolean;
-  image_url?: string | null;
 }
 
 

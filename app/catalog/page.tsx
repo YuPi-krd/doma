@@ -3105,8 +3105,9 @@ export default function CatalogPage() {
         .property-grid {
           display: grid;
           grid-template-columns: minmax(0, 1fr);
-          gap: 14px;
-          max-width: 1050px;
+          gap: 18px;
+          width: 100%;
+          max-width: 1240px;
         }
 
         .property-card-link {
@@ -3116,9 +3117,9 @@ export default function CatalogPage() {
 
         .property-card {
           overflow: hidden;
-          min-height: 190px;
+          min-height: 290px;
           display: grid;
-          grid-template-columns: minmax(220px, 34%) minmax(0, 1fr);
+          grid-template-columns: minmax(300px, 38%) minmax(0, 1fr);
           height: 100%;
           border:
             1px solid
@@ -3159,8 +3160,9 @@ export default function CatalogPage() {
 
         .photo-wrap {
           position: relative;
+          display: flex;
           height: 100%;
-          min-height: 190px;
+          min-height: 290px;
           overflow: hidden;
           background: #e9edf2;
         }
@@ -3214,52 +3216,50 @@ export default function CatalogPage() {
         ======================================================== */
 
         .card-content {
-          padding:
-            11px
-            10px
-            10px;
+          min-width: 0;
+          padding: 22px 24px 20px;
         }
 
         .card-type {
-          margin-bottom: 5px;
+          margin-bottom: 8px;
           color: #ef4444;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
         }
 
         .card-title {
-          min-height: 40px;
+          min-height: 0;
           color: #151b22;
-          font-size: 15px;
-          line-height: 1.35;
+          font-size: 22px;
+          line-height: 1.3;
           font-weight: 700;
         }
 
         .card-address {
-          min-height: 33px;
-          margin-top: 4px;
+          min-height: 36px;
+          margin-top: 8px;
           color: #6f7885;
-          font-size: 10px;
-          line-height: 1.4;
+          font-size: 13px;
+          line-height: 1.5;
         }
 
         .price-row {
           display: flex;
           align-items: baseline;
           flex-wrap: wrap;
-          gap: 10px;
-          margin-top: 13px;
+          gap: 12px;
+          margin-top: 18px;
         }
 
         .price {
           color: #111827;
-          font-size: 20px;
+          font-size: 27px;
           font-weight: 700;
         }
 
         .price-meter {
           color: #657181;
-          font-size: 10px;
+          font-size: 13px;
         }
 
         .finance-row {
@@ -3267,16 +3267,14 @@ export default function CatalogPage() {
           align-items: center;
           flex-wrap: wrap;
           gap: 6px;
-          margin-top: 9px;
+          margin-top: 13px;
         }
 
         .subtype-chip,
         .status-chip {
-          padding:
-            5px
-            7px;
-          border-radius: 6px;
-          font-size: 9px;
+          padding: 6px 9px;
+          border-radius: 8px;
+          font-size: 11px;
           font-weight: 700;
         }
 
@@ -3298,15 +3296,15 @@ export default function CatalogPage() {
         .card-meta {
           display: flex;
           flex-wrap: wrap;
-          gap: 10px;
-          margin-top: 11px;
+          gap: 16px;
+          margin-top: 15px;
           color: #475569;
-          font-size: 11px;
+          font-size: 13px;
         }
 
         .card-bottom {
-          margin-top: 10px;
-          padding-top: 10px;
+          margin-top: 15px;
+          padding-top: 14px;
           border-top:
             1px solid
             #eceff3;
@@ -3315,13 +3313,13 @@ export default function CatalogPage() {
         .contact-button {
           display: block;
           width: 100%;
-          padding: 9px;
+          padding: 12px;
           border:
             1px solid
             #dbe1e7;
           border-radius: 999px;
           color: #3c4652;
-          font-size: 11px;
+          font-size: 13px;
           text-align: center;
           font-weight: 600;
         }

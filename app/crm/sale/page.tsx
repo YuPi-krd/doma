@@ -166,40 +166,38 @@ export default function SalePage() {
     setPropertySubtype(firstSubtype);
   }
 
-  function buildPropertyPayload(isDraft: boolean) {
-    return {
-      title: title.trim() || (isDraft ? "Черновик без названия" : ""),
-      description,
-      price: Number(price) || 0,
-      area: Number(area) || 0,
-      rooms: Number(rooms) || 0,
-      floor: Number(floor) || 0,
-      total_floors: Number(totalFloors) || 0,
+  function saveDraft() {
+    const draft = {
+      title,
+      dealType,
+      propertyType,
+      propertySubtype,
+      district,
+      realAddress,
+      publicAddress,
+      price,
+      area,
+      rooms,
+      floor,
+      totalFloors,
       bathroom,
       balcony,
       renovation,
-      building_material: buildingMaterial,
-      year_built: Number(yearBuilt) || 0,
-      city: "Краснодар",
-      district,
-      address: publicAddress,
-      real_address: realAddress,
-      public_address: publicAddress,
-      owner_name: ownerName,
-      owner_phone: ownerPhone,
-      agent_comment: agentComment,
-      property_type: propertyType,
-      property_subtype: propertySubtype,
-      deal_type: dealType,
+      buildingMaterial,
+      yearBuilt,
       status,
-      room_layout: roomLayout,
-      living_area: Number(livingArea) || 0,
-      kitchen_area: Number(kitchenArea) || 0,
-      plot_area: Number(plotArea) || 0,
-      plot_length: Number(plotLength) || 0,
-      plot_width: Number(plotWidth) || 0,
-      frontage: Number(frontage) || 0,
-      land_purpose: landPurpose,
+      description,
+      ownerName,
+      ownerPhone,
+      agentComment,
+      roomLayout,
+      livingArea,
+      kitchenArea,
+      plotArea,
+      plotLength,
+      plotWidth,
+      frontage,
+      landPurpose,
       heating,
       gas,
       water,
@@ -211,69 +209,10 @@ export default function SalePage() {
       sauna,
       pool,
       garage,
-      is_draft: isDraft,
     };
-  }
 
-  async function uploadSelectedPhotos(propertyId: number) {
-    if (photos.length === 0) return;
-
-    // Сначала сохраняем обложку, затем добавляем все фото в галерею.
-    const coverForm = new FormData();
-    coverForm.append("file", photos[0].file, photos[0].file.name);
-    const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
-      method: "POST",
-      body: coverForm,
-    });
-    if (!coverResponse.ok) {
-      const detail = await coverResponse.text();
-      throw new Error(`Объект №${propertyId} создан, но главное фото не загрузилось: ${detail}`);
-    }
-
-    for (const photo of photos) {
-      const imageForm = new FormData();
-      imageForm.append("file", photo.file, photo.file.name);
-      const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
-        method: "POST",
-        body: imageForm,
-      });
-      if (!imageResponse.ok) {
-        const detail = await imageResponse.text();
-        throw new Error(`Объект №${propertyId} создан, но фотография «${photo.file.name}» не загрузилась: ${detail}`);
-      }
-    }
-  }
-
-  async function saveDraft() {
-    if (isSaving) return;
-    setIsSaving(true);
-    setSavedId(null);
-
-    try {
-      const response = await fetch(`${API_URL}/properties`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPropertyPayload(true)),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.detail || "Не удалось сохранить черновик на сервере.");
-      }
-
-      const propertyId = Number(data.id ?? data.property?.id);
-      if (!propertyId) {
-        throw new Error("Сервер не вернул ID сохранённого черновика.");
-      }
-
-      await uploadSelectedPhotos(propertyId);
-      setSavedId(propertyId);
-      alert(`Черновик сохранён на сервере. ID: ${propertyId}${photos.length ? `. Фотографий: ${photos.length}` : ""}`);
-    } catch (error) {
-      console.error("Ошибка сохранения черновика:", error);
-      alert(error instanceof Error ? error.message : "Не удалось сохранить черновик.");
-    } finally {
-      setIsSaving(false);
-    }
+    localStorage.setItem("doma-sale-draft", JSON.stringify(draft));
+    alert("Черновик сохранён на этом устройстве.");
   }
 
   async function saveProperty() {
@@ -296,7 +235,51 @@ export default function SalePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(buildPropertyPayload(false)),
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+          price: Number(price) || 0,
+          area: Number(area) || 0,
+          rooms: Number(rooms) || 0,
+          floor: Number(floor) || 0,
+          total_floors: Number(totalFloors) || 0,
+          bathroom,
+          balcony,
+          renovation,
+          building_material: buildingMaterial,
+          year_built: Number(yearBuilt) || 0,
+          city: "Краснодар",
+          district,
+          address: publicAddress,
+          real_address: realAddress,
+          public_address: publicAddress,
+          owner_name: ownerName,
+          owner_phone: ownerPhone,
+          owner_comment: agentComment,
+          property_type: propertyType,
+          property_subtype: propertySubtype,
+          deal_type: dealType,
+          status,
+          room_layout: roomLayout,
+          living_area: Number(livingArea) || 0,
+          kitchen_area: Number(kitchenArea) || 0,
+          plot_area: Number(plotArea) || 0,
+          plot_length: Number(plotLength) || 0,
+          plot_width: Number(plotWidth) || 0,
+          frontage: Number(frontage) || 0,
+          land_purpose: landPurpose,
+          heating,
+          gas,
+          water,
+          electricity,
+          sewerage,
+          fenced,
+          terrace,
+          bathhouse,
+          sauna,
+          pool,
+          garage,
+        }),
       });
 
       const data = await res.json();
@@ -311,13 +294,41 @@ export default function SalePage() {
         throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
       }
 
-      await uploadSelectedPhotos(propertyId);
+      // Сначала устанавливаем главное фото, затем сохраняем все выбранные фото в галерею.
+      // Оригинальный выбор файлов и превью остаются без изменений.
+      if (photos.length > 0) {
+        const coverForm = new FormData();
+        coverForm.append("file", photos[0].file, photos[0].file.name);
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
+          method: "POST",
+          body: coverForm,
+        });
+        if (!coverResponse.ok) {
+          const detail = await coverResponse.text();
+          throw new Error(`Объект №${propertyId} создан, но главное фото не загрузилось: ${detail}`);
+        }
+
+        // Фото №1 уже сохранено как главное изображение объекта выше.
+        // В галерею добавляем только остальные, иначе обложка появляется дважды.
+        for (const photo of photos.slice(1)) {
+          const imageForm = new FormData();
+          imageForm.append("file", photo.file, photo.file.name);
+          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+            method: "POST",
+            body: imageForm,
+          });
+          if (!imageResponse.ok) {
+            const detail = await imageResponse.text();
+            throw new Error(`Объект №${propertyId} создан, но фотография «${photo.file.name}» не загрузилась: ${detail}`);
+          }
+        }
+      }
 
       setSavedId(propertyId);
       alert(`Объект сохранён. ID: ${propertyId}${photos.length ? `. Фотографий загружено: ${photos.length}` : ""}`);
     } catch (error) {
       console.error(error);
-      alert(error instanceof Error ? error.message : "Не удалось сохранить объект. Проверьте доступность API: https://doma-nq4u.onrender.com/");
+      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
     } finally {
       setIsSaving(false);
     }
@@ -1005,8 +1016,8 @@ export default function SalePage() {
           </div>
 
           <div style={footerActionsStyle}>
-            <button type="button" onClick={saveDraft} disabled={isSaving} style={{ ...secondaryButtonStyle, opacity: isSaving ? 0.7 : 1 }}>
-              {isSaving ? "Сохранение..." : "Сохранить черновик"}
+            <button type="button" onClick={saveDraft} style={secondaryButtonStyle}>
+              Сохранить черновик
             </button>
             <button
               type="button"
