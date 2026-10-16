@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+import hashlib
 import os
 import shutil
 import uuid
@@ -549,6 +550,26 @@ def delete_local_file(
         pass
 
 
+
+def image_content_digest(image_url: str | None) -> str | None:
+    """Return SHA-256 of a locally stored image, if its file exists."""
+    if not image_url:
+        return None
+    filename = Path(image_url.split("?", 1)[0].split("#", 1)[0]).name
+    if not filename:
+        return None
+    image_path = IMAGE_DIR / filename
+    try:
+        if not image_path.is_file():
+            return None
+        digest = hashlib.sha256()
+        with image_path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
+
 async def save_upload(
     file: UploadFile,
 ) -> str:
@@ -638,9 +659,6 @@ def property_to_dict(
     return {
         "id":
             item.id,
-
-        "is_draft":
-            bool(getattr(item, "is_draft", False)),
 
         "title":
             item.title or "",
@@ -929,18 +947,6 @@ def validate_property_payload(
     existing: Property | None = None,
 ) -> dict[str, Any]:
 
-    is_draft = to_bool(
-        payload.get(
-            "is_draft",
-            (
-                getattr(existing, "is_draft", True)
-                if existing is not None
-                else True
-            ),
-        ),
-        default=True,
-    )
-
     title = text_value(
         payload.get(
             "title",
@@ -951,10 +957,6 @@ def validate_property_payload(
             ),
         )
     )
-
-    # A draft may be saved before the agent enters its final title.
-    if not title and is_draft:
-        title = "Черновик без названия"
 
     if not title:
         raise HTTPException(
@@ -1111,9 +1113,6 @@ def validate_property_payload(
     return {
         "title":
             title,
-
-        "is_draft":
-            is_draft,
 
         "description":
             text_value(
@@ -1486,11 +1485,6 @@ def get_properties(
     type: str | None = Query(
         default=None
     ),
-
-    # Drafts are hidden by default and are only returned to CRM when asked.
-    include_drafts: bool = Query(
-        default=False
-    ),
 ):
 
     db: Session = SessionLocal()
@@ -1499,9 +1493,6 @@ def get_properties(
         query = db.query(
             Property
         )
-
-        if not include_drafts:
-            query = query.filter(Property.is_draft.is_(False))
 
         selected_type = (
             property_type
@@ -3666,17 +3657,33 @@ def get_property_images(
             .all()
         )
 
-        return [
-            {
-                "id":
-                    image.id,
+        # Older versions saved the selected cover both as Property.image_url
+        # and again in PropertyImage. Hide byte-identical images in this API
+        # response so existing listings do not display the same photo twice.
+        seen_urls: set[str] = set()
+        seen_digests: set[str] = set()
+        cover_digest = image_content_digest(property_obj.image_url)
+        if cover_digest:
+            seen_digests.add(cover_digest)
 
-                "image_url":
-                    image.image_url,
-            }
-            for image
-            in images
-        ]
+        unique_images: list[dict[str, Any]] = []
+        for image in images:
+            raw_url = str(image.image_url or "").strip()
+            canonical_url = raw_url.split("?", 1)[0].split("#", 1)[0].rstrip("/").lower()
+            if not canonical_url or canonical_url in seen_urls:
+                continue
+
+            digest = image_content_digest(raw_url)
+            if digest and digest in seen_digests:
+                seen_urls.add(canonical_url)
+                continue
+
+            seen_urls.add(canonical_url)
+            if digest:
+                seen_digests.add(digest)
+            unique_images.append({"id": image.id, "image_url": image.image_url})
+
+        return unique_images
 
     finally:
         db.close()
