@@ -28,6 +28,8 @@ declare global {
   }
 }
 
+const API_URL = "https://doma-nq4u.onrender.com";
+
 const KRASNODAR_CENTER: [
   number,
   number
@@ -158,31 +160,21 @@ function loadYandexMaps() {
   return ymapsPromise;
 }
 
-/** Определяет координаты по публичному адресу объявления. */
+/** Определяет координаты по адресу через backend, где хранится серверный ключ Геокодера. */
 async function geocodePublicAddress(address: string): Promise<[number, number] | null> {
   const cleanAddress = address.trim();
-  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
-  if (!cleanAddress || !apiKey) return null;
+  if (!cleanAddress) return null;
 
-  const query = new URLSearchParams({
-    apikey: apiKey,
-    geocode: cleanAddress,
-    format: "json",
-    lang: "ru_RU",
-    results: "1",
-  });
-
-  const response = await fetch(`https://geocode-maps.yandex.ru/v1/?${query.toString()}`);
+  const query = new URLSearchParams({ address: cleanAddress });
+  const response = await fetch(`${API_URL}/geocode?${query.toString()}`, { cache: "no-store" });
   if (!response.ok) return null;
 
   const data = await response.json();
-  const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
-  if (typeof pos !== "string") return null;
-
-  const [longitudeText, latitudeText] = pos.split(" ");
-  const longitude = Number(longitudeText);
-  const latitude = Number(latitudeText);
+  if (data?.found !== true) return null;
+  const longitude = Number(data.longitude);
+  const latitude = Number(data.latitude);
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) return null;
   return [longitude, latitude];
 }
 
@@ -428,17 +420,55 @@ type YandexPropertyLocationMapProps = {
   height?: string;
 };
 
-/** Карта расположения публичного объекта. Использует координаты из БД,
- * а если их нет — геокодирует только рекламный (публичный) адрес. */
+/** Публичная карта объекта. Использует сохранённые координаты или геокодирует публичный адрес. */
 export function YandexPropertyLocationMap({
   address,
   latitude,
   longitude,
   height = "300px",
 }: YandexPropertyLocationMapProps) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const currentPointRef = useRef<[number, number] | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "no-point" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active = document.fullscreenElement === wrapperRef.current;
+      setIsFullscreen(active);
+      // After entering fullscreen, ask the map to redraw around the last resolved point.
+      const point = currentPointRef.current;
+      if (active && point && mapRef.current) {
+        window.setTimeout(() => {
+          mapRef.current?.update({ location: { center: point, zoom: 16, duration: 0 } });
+        }, 100);
+      }
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    try {
+      if (document.fullscreenElement === wrapper) {
+        await document.exitFullscreen();
+      } else if (wrapper.requestFullscreen) {
+        await wrapper.requestFullscreen();
+      } else {
+        const url = `https://yandex.ru/maps/?text=${encodeURIComponent(address)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      console.warn("Не удалось развернуть карту на весь экран:", error);
+      const url = `https://yandex.ru/maps/?text=${encodeURIComponent(address)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -466,6 +496,7 @@ export function YandexPropertyLocationMap({
           location: { center: point ?? KRASNODAR_CENTER, zoom: point ? 16 : 11 },
           mode: "vector",
         });
+        mapRef.current = map;
         map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
         map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
 
@@ -482,6 +513,7 @@ export function YandexPropertyLocationMap({
           return;
         }
 
+        currentPointRef.current = point;
         map.update({ location: { center: point, zoom: 16, duration: 250 } });
         const pin = document.createElement("div");
         pin.setAttribute("aria-label", "Расположение объекта");
@@ -510,18 +542,33 @@ export function YandexPropertyLocationMap({
         }
         try { map.destroy(); } catch { /* ignore */ }
       }
+      if (mapRef.current === map) mapRef.current = null;
+      currentPointRef.current = null;
     };
   }, [address, latitude, longitude]);
 
   return (
-    <div className="doma-property-map" style={{ height }}>
+    <div ref={wrapperRef} className="doma-property-map" style={{ height }}>
       <div ref={containerRef} className="doma-property-map__canvas" />
+      <button
+        type="button"
+        className="doma-property-map__fullscreen"
+        onClick={() => void toggleFullscreen()}
+        aria-label={isFullscreen ? "Свернуть карту" : "Открыть карту на весь экран"}
+        title={isFullscreen ? "Свернуть карту" : "Открыть большую карту"}
+      >
+        {isFullscreen ? "⤢" : "⛶"}
+      </button>
       {status === "loading" && <div className="doma-property-map__overlay">Определяем расположение объекта…</div>}
       {status === "no-point" && <div className="doma-property-map__overlay">Не удалось определить точку по адресу. Проверьте публичный адрес объекта.</div>}
       {status === "error" && <div className="doma-property-map__overlay">Не удалось загрузить карту{errorMessage ? `: ${errorMessage}` : ""}</div>}
       <style jsx>{`
         .doma-property-map { position: relative; width: 100%; margin-top: 16px; overflow: hidden; border: 1px solid #e9ebe8; border-radius: 16px; background: #eef1f4; }
         .doma-property-map__canvas { width: 100%; height: 100%; }
+        .doma-property-map__fullscreen { position: absolute; top: 12px; right: 12px; z-index: 30; width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #d8dee8; border-radius: 50%; background: rgba(255,255,255,.97); color: #26313d; font-size: 24px; cursor: pointer; box-shadow: 0 2px 10px rgba(15,23,42,.10); }
+        .doma-property-map__fullscreen:hover { background: #fff; box-shadow: 0 4px 15px rgba(15,23,42,.17); }
+        .doma-property-map:fullscreen { width: 100vw !important; height: 100vh !important; max-height: none; margin: 0; border: 0; border-radius: 0; background: #eef1f4; }
+        .doma-property-map:fullscreen .doma-property-map__canvas { height: 100vh !important; }
         .doma-property-map__overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(238,241,244,.94); color: #64707d; font-size: 13px; text-align: center; }
       `}</style>
     </div>

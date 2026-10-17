@@ -78,6 +78,10 @@ export default function PropertyGallery({
   const touchEndX =
     useRef<number | null>(null);
 
+  const mouseStartX = useRef<number | null>(null);
+  const mouseEndX = useRef<number | null>(null);
+  const mouseDragged = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -190,6 +194,53 @@ export default function PropertyGallery({
     setCurrentIndex(index);
   }
 
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    // Кнопки галереи должны работать как обычные кнопки, а не начинать drag.
+    if (target?.closest("button, a")) return;
+    mouseStartX.current = e.clientX;
+    mouseEndX.current = e.clientX;
+    mouseDragged.current = false;
+  }
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (mouseStartX.current === null) return;
+    mouseEndX.current = e.clientX;
+    if (Math.abs(e.clientX - mouseStartX.current) > 6) {
+      mouseDragged.current = true;
+    }
+  }
+
+  function preventClickAfterMouseDrag(e: React.MouseEvent<HTMLDivElement>) {
+    if (!mouseDragged.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    mouseDragged.current = false;
+  }
+
+  function finishMouseDrag() {
+    if (mouseStartX.current === null || mouseEndX.current === null) {
+      mouseStartX.current = null;
+      mouseEndX.current = null;
+      return;
+    }
+
+    const distance = mouseStartX.current - mouseEndX.current;
+    if (Math.abs(distance) >= 45) {
+      if (distance > 0) {
+        setCurrentIndex((index) => index === images.length - 1 ? 0 : index + 1);
+      } else {
+        setCurrentIndex((index) => index === 0 ? images.length - 1 : index - 1);
+      }
+    }
+
+    mouseStartX.current = null;
+    mouseEndX.current = null;
+    // Оставляем click обычным для элементов управления; флаг сбрасываем на следующем кадре.
+    window.setTimeout(() => { mouseDragged.current = false; }, 0);
+  }
+
   function handleTouchStart(
     e: React.TouchEvent
   ) {
@@ -277,6 +328,12 @@ export default function PropertyGallery({
         onTouchEnd={
           handleTouchEnd
         }
+        onClickCapture={preventClickAfterMouseDrag}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={finishMouseDrag}
+        onMouseLeave={finishMouseDrag}
+        onDragStart={(event) => event.preventDefault()}
       >
         <img
           src={images[currentIndex]}
@@ -407,6 +464,11 @@ export default function PropertyGallery({
           background: #edf0f3;
           touch-action: pan-y;
           user-select: none;
+          cursor: grab;
+        }
+
+        .image-stage:active {
+          cursor: grabbing;
         }
 
         .gallery-card .image-stage {
@@ -429,6 +491,9 @@ export default function PropertyGallery({
           height: 100%;
           display: block;
           object-fit: cover;
+          -webkit-user-drag: none;
+          user-drag: none;
+          pointer-events: none;
         }
 
         /*

@@ -1187,17 +1187,66 @@ function DistrictPicker({ value, onChange }: { value: string; onChange: (value: 
 function AddressMap({ address, label }: { address: string; label: string }) {
   const query = address.trim();
   const [mapQuery, setMapQuery] = useState(query);
+  const [resolvedPoint, setResolvedPoint] = useState<{
+    query: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
-  // Небольшая задержка не даёт iframe перезагружаться на каждый введённый символ.
+  // Уменьшаем количество перезагрузок iframe: ждём, пока ввод адреса завершится.
   useEffect(() => {
-    const timer = window.setTimeout(() => setMapQuery(query), 650);
+    const timer = window.setTimeout(() => setMapQuery(query), 600);
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  if (!query) return null;
+  useEffect(() => {
+    if (!mapQuery.trim()) {
+      setResolvedPoint(null);
+      return;
+    }
 
-  // Встроенная карта не использует JS API-ключ, который ранее мог зависать при загрузке.
-  const mapUrl = `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent((mapQuery || query) + ", Краснодар")}&z=15&lang=ru_RU`;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const addressForLookup = `${mapQuery.trim()}, Краснодар`;
+        const response = await fetch(
+          `${API_URL}/geocode?address=${encodeURIComponent(addressForLookup)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) throw new Error(`Геокодер вернул HTTP ${response.status}`);
+        const data = await response.json();
+        if (cancelled) return;
+        const latitude = Number(data?.latitude);
+        const longitude = Number(data?.longitude);
+        if (data?.found === true && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          setResolvedPoint({ query: mapQuery.trim(), latitude, longitude });
+        } else {
+          setResolvedPoint(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setResolvedPoint(null);
+          console.warn("Не удалось найти точку адреса для карты:", error);
+        }
+      }
+    }, 100);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [mapQuery]);
+
+    if (!query) return null;
+
+  const activeQuery = mapQuery.trim() || query;
+  const exactPoint = resolvedPoint?.query === activeQuery ? resolvedPoint : null;
+  const mapUrl = exactPoint
+    ? `https://yandex.ru/map-widget/v1/?ll=${exactPoint.longitude}%2C${exactPoint.latitude}&z=17&pt=${exactPoint.longitude}%2C${exactPoint.latitude},pm2rdm&lang=ru_RU`
+    : `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent(activeQuery + ", Краснодар")}&z=15&lang=ru_RU`;
+  const largeMapUrl = exactPoint
+    ? `https://yandex.ru/maps/?ll=${exactPoint.longitude}%2C${exactPoint.latitude}&z=17&pt=${exactPoint.longitude}%2C${exactPoint.latitude},pm2rdm`
+    : `https://yandex.ru/maps/?text=${encodeURIComponent(activeQuery + ", Краснодар")}`;
 
   return (
     <div style={addressMapWrapStyle}>
@@ -1207,16 +1256,20 @@ function AddressMap({ address, label }: { address: string; label: string }) {
         title={label}
         src={mapUrl}
         width="100%"
-        height="220"
+        height={220}
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
         style={addressMapFrameStyle}
         allowFullScreen
       />
-      <div aria-hidden="true" style={addressMapPinStyle}>
-        <span style={addressMapPinFlagStyle}>⚑</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+        <div style={addressMapCaptionStyle}>
+          {exactPoint ? "Точка адреса найдена и отмечена на карте." : "Ищем адрес; если точка не определится, карта покажет результаты поиска."}
+        </div>
+        <a href={largeMapUrl} target="_blank" rel="noreferrer" style={{ color: "#dc2626", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+          Открыть большую карту ↗
+        </a>
       </div>
-      <div style={addressMapCaptionStyle}>Если адрес не найден точно, уточните его в поле выше.</div>
     </div>
   );
 }
