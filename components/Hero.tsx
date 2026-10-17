@@ -30,6 +30,15 @@ type Category = {
   }[];
 };
 
+// Поля объекта, необходимые только для подсчёта объявлений в Hero.
+type CatalogProperty = {
+  property_type?: string | null;
+  property_subtype?: string | null;
+  deal_type?: string | null;
+  rooms?: number | string | null;
+  is_draft?: boolean | null;
+};
+
 
 type SiteSettings = {
   hero_eyebrow: string;
@@ -1657,6 +1666,36 @@ export default function Hero() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(
     DEFAULT_SITE_SETTINGS
   );
+  const [catalogProperties, setCatalogProperties] = useState<CatalogProperty[] | null>(null);
+
+  // Берём фактические объявления из того же API, откуда каталог получает объекты.
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCatalogProperties() {
+      try {
+        const response = await fetch(`${API_URL}/properties`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data: unknown = await response.json();
+        if (mounted && Array.isArray(data)) {
+          setCatalogProperties(data as CatalogProperty[]);
+        }
+      } catch (error) {
+        // При недоступности API показываем тире, а не неверные нули.
+        console.error("Не удалось загрузить количество объявлений для Hero:", error);
+      }
+    }
+
+    void loadCatalogProperties();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -2966,6 +3005,7 @@ export default function Hero() {
                   selectedCategory={selectedCategory}
                   setSelectedCategory={setSelectedCategory}
                   dealType={activeTab === "Снять" ? "rent" : "sale"}
+                  catalogProperties={catalogProperties}
                 />
               </div>
             </>
@@ -3023,6 +3063,7 @@ export default function Hero() {
                     setSelectedCategory
                   }
                   dealType="lease"
+                  catalogProperties={catalogProperties}
                 />
               </div>
             </>
@@ -3130,9 +3171,112 @@ export default function Hero() {
    CATEGORY BLOCK
 ============================================================ */
 
+// Соответствие видимых категорий значениям property_type/property_subtype из API.
+const CATEGORY_TYPES_FOR_COUNT: Record<string, string[]> = {
+  "Квартиры": ["apartment"],
+  "Дома": ["house"],
+  "Земельные участки": ["land"],
+  "Коммерция": ["commercial"],
+  "Коммерческая": ["commercial"],
+  "Гаражи": ["garage"],
+  "Загородная недвижимость": ["house", "land"],
+};
+
+const ITEM_SUBTYPES_FOR_COUNT: Record<string, string[]> = {
+  "studios": ["studio"],
+  "1-room": ["1_room"],
+  "2-room": ["2_room"],
+  "3-room": ["3_room"],
+  "4-room": ["4_room"],
+  "5-room": ["5_room"],
+  "penthouses": ["penthouse"],
+  "new-buildings": ["new_building"],
+  "houses": ["house"],
+  "dachas": ["dacha"],
+  "townhouses": ["townhouse"],
+  "duplexes": ["duplex"],
+  "part-of-house": ["part_of_house"],
+  "cottages": ["cottage"],
+  "izhs": ["izhs"],
+  "gardening": ["gardening"],
+  "commercial-land": ["commercial_land"],
+  "lph": ["lph"],
+  "dnp": ["dnp"],
+  "offices": ["office"],
+  "business": ["business"],
+  "separate-building": ["separate_building"],
+  "production": ["production"],
+  "warehouses": ["warehouse"],
+  "retail": ["retail"],
+  "garage-box": ["garage_box"],
+  "residential-complex": ["residential_complex"],
+  "covered-parking": ["covered_parking"],
+  "separate-garage": ["separate_garage"],
+  "parking": ["parking"],
+  // В текущей схеме API «Комнаты» относятся к квартирам вторичного фонда.
+  "rooms": ["secondary"],
+};
+
+function normalizeCountValue(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function countCatalogProperties(
+  properties: CatalogProperty[] | null,
+  dealType: "sale" | "rent" | "lease",
+  categoryTitle: string,
+  itemSlug?: string,
+): number | null {
+  if (!properties) return null;
+
+  return properties.filter((property) => {
+    if (!property || property.is_draft === true) return false;
+
+    const currentDeal = normalizeCountValue(property.deal_type || "sale");
+    if (currentDeal !== dealType) return false;
+
+    const propertyType = normalizeCountValue(property.property_type);
+    const propertySubtype = normalizeCountValue(property.property_subtype);
+
+    if (!itemSlug) {
+      if (categoryTitle === "Коммерция" || categoryTitle === "Коммерческая") {
+        return propertyType === "commercial" ||
+          (propertyType === "land" && propertySubtype === "commercial_land");
+      }
+      const expectedTypes = CATEGORY_TYPES_FOR_COUNT[categoryTitle];
+      return Boolean(expectedTypes?.includes(propertyType));
+    }
+
+    // Комнатность надёжнее считать по полю rooms: оно используется в фильтрах каталога.
+    const roomMatch = itemSlug.match(/^(1|2|3|4|5)-room$/);
+    if (roomMatch) {
+      const wantedRooms = Number(roomMatch[1]);
+      const actualRooms = Number(property.rooms);
+      return propertyType === "apartment" &&
+        (propertySubtype === `${wantedRooms}_room` ||
+          (actualRooms === wantedRooms &&
+            propertySubtype !== "studio" &&
+            propertySubtype !== "penthouse"));
+    }
+
+    const expectedSubtypes = ITEM_SUBTYPES_FOR_COUNT[itemSlug];
+    if (!expectedSubtypes?.includes(propertySubtype)) return false;
+
+    if (itemSlug === "commercial-land") return propertyType === "land" || propertyType === "commercial";
+    if (["izhs", "gardening", "lph", "dnp"].includes(itemSlug)) return propertyType === "land";
+    if (["houses", "dachas", "townhouses", "duplexes", "part-of-house", "cottages"].includes(itemSlug)) return propertyType === "house";
+    if (["offices", "business", "separate-building", "production", "warehouses", "retail"].includes(itemSlug)) return propertyType === "commercial";
+    if (["garage-box", "residential-complex", "covered-parking", "separate-garage", "parking"].includes(itemSlug)) return propertyType === "garage";
+    if (["studios", "penthouses", "new-buildings", "rooms"].includes(itemSlug)) return propertyType === "apartment";
+
+    return true;
+  }).length;
+}
+
 type CategoryBlockProps = {
   title: string;
   categories: Category[];
+  catalogProperties: CatalogProperty[] | null;
   selectedCategory:
     | string
     | null;
@@ -3150,6 +3294,7 @@ type CategoryBlockProps = {
 function CategoryBlock({
   title,
   categories,
+  catalogProperties,
   selectedCategory,
   setSelectedCategory,
   dealType,
@@ -3282,15 +3427,30 @@ function CategoryBlock({
                     700,
                 }}
               >
-                <span>
-                  {
-                    category.title
-                  }
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                  <span>{category.title}</span>
+                  <span
+                    aria-label={`Количество объявлений: ${countCatalogProperties(catalogProperties, dealType, category.title) ?? "загрузка"}`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: "22px",
+                      height: "22px",
+                      boxSizing: "border-box",
+                      padding: "0 6px",
+                      borderRadius: "999px",
+                      background: "#f3f4f6",
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {countCatalogProperties(catalogProperties, dealType, category.title) ?? "—"}
+                  </span>
                 </span>
 
-                <span>
-                  →
-                </span>
+                <span>→</span>
               </button>
 
               <div
@@ -3334,13 +3494,18 @@ function CategoryBlock({
                       }
                     </span>
 
-                    <span
-                      style={{
-                        color:
-                          "#9ca3af",
-                      }}
-                    >
-                      ›
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                      <span
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {countCatalogProperties(catalogProperties, dealType, category.title, item.slug) ?? "—"}
+                      </span>
+                      <span style={{ color: "#9ca3af" }}>›</span>
                     </span>
                   </Link>
                 )
