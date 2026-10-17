@@ -69,18 +69,15 @@ export default function PropertyGallery({
   const [galleryImages, setGalleryImages] =
     useState<GalleryImage[]>([]);
 
-  const [currentIndex, setCurrentIndex] =
-    useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [previousIndex, setPreviousIndex] = useState<number | null>(null);
+  const [slideDirection, setSlideDirection] = useState<"next" | "previous">("next");
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const touchStartX =
-    useRef<number | null>(null);
-
-  const touchEndX =
-    useRef<number | null>(null);
-
-  const mouseStartX = useRef<number | null>(null);
-  const mouseEndX = useRef<number | null>(null);
-  const mouseDragged = useRef(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const mouseStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,127 +155,79 @@ export default function PropertyGallery({
     images.length,
   ]);
 
-  function previousImage(
-    e?: React.MouseEvent
-  ) {
+  function goToImage(index: number, direction: "next" | "previous", e?: React.MouseEvent) {
     e?.preventDefault();
     e?.stopPropagation();
+    if (images.length <= 1 || index === currentIndex) return;
 
-    setCurrentIndex((index) =>
-      index === 0
-        ? images.length - 1
-        : index - 1
-    );
-  }
-
-  function nextImage(
-    e?: React.MouseEvent
-  ) {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    setCurrentIndex((index) =>
-      index === images.length - 1
-        ? 0
-        : index + 1
-    );
-  }
-
-  function selectImage(
-    index: number,
-    e?: React.MouseEvent
-  ) {
-    e?.preventDefault();
-    e?.stopPropagation();
-
+    if (animationTimer.current) window.clearTimeout(animationTimer.current);
+    setPreviousIndex(currentIndex);
+    setSlideDirection(direction);
     setCurrentIndex(index);
+    setIsAnimating(true);
+    animationTimer.current = window.setTimeout(() => {
+      setIsAnimating(false);
+      setPreviousIndex(null);
+      animationTimer.current = null;
+    }, 360);
   }
 
+  function previousImage(e?: React.MouseEvent) {
+    goToImage(currentIndex === 0 ? images.length - 1 : currentIndex - 1, "previous", e);
+  }
+
+  function nextImage(e?: React.MouseEvent) {
+    goToImage(currentIndex === images.length - 1 ? 0 : currentIndex + 1, "next", e);
+  }
+
+  function selectImage(index: number, e?: React.MouseEvent) {
+    goToImage(index, index >= currentIndex ? "next" : "previous", e);
+  }
+
+  // На компьютере движение мышью только распознаётся как жест перелистывания:
+  // фотография не следует за курсором, а после отпускания проигрывается слайд.
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement | null;
-    // Кнопки галереи должны работать как обычные кнопки, а не начинать drag.
-    if (target?.closest("button, a")) return;
-    mouseStartX.current = e.clientX;
-    mouseEndX.current = e.clientX;
-    mouseDragged.current = false;
-  }
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (mouseStartX.current === null) return;
-    mouseEndX.current = e.clientX;
-    if (Math.abs(e.clientX - mouseStartX.current) > 6) {
-      mouseDragged.current = true;
-    }
-  }
-
-  function preventClickAfterMouseDrag(e: React.MouseEvent<HTMLDivElement>) {
-    if (!mouseDragged.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    mouseDragged.current = false;
-  }
-
-  function finishMouseDrag() {
-    if (mouseStartX.current === null || mouseEndX.current === null) {
-      mouseStartX.current = null;
-      mouseEndX.current = null;
+    if (!isDetail || e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, select")) {
+      mouseStart.current = null;
       return;
     }
-
-    const distance = mouseStartX.current - mouseEndX.current;
-    if (Math.abs(distance) >= 45) {
-      if (distance > 0) {
-        setCurrentIndex((index) => index === images.length - 1 ? 0 : index + 1);
-      } else {
-        setCurrentIndex((index) => index === 0 ? images.length - 1 : index - 1);
-      }
-    }
-
-    mouseStartX.current = null;
-    mouseEndX.current = null;
-    // Оставляем click обычным для элементов управления; флаг сбрасываем на следующем кадре.
-    window.setTimeout(() => { mouseDragged.current = false; }, 0);
+    mouseStart.current = { x: e.clientX, y: e.clientY };
+    e.preventDefault(); // отключаем нативное перетаскивание изображения
   }
 
-  function handleTouchStart(
-    e: React.TouchEvent
-  ) {
-    touchStartX.current =
-      e.touches[0]?.clientX ?? null;
+  function handleMouseUp(e: React.MouseEvent<HTMLDivElement>) {
+    const start = mouseStart.current;
+    mouseStart.current = null;
+    if (!isDetail || !start || e.button !== 0) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    if (dx < 0) nextImage();
+    else previousImage();
+  }
 
+  function handleMouseLeave() {
+    mouseStart.current = null;
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
     touchEndX.current = null;
   }
 
-  function handleTouchMove(
-    e: React.TouchEvent
-  ) {
-    touchEndX.current =
-      e.touches[0]?.clientX ?? null;
+  function handleTouchMove(e: React.TouchEvent) {
+    touchEndX.current = e.touches[0]?.clientX ?? null;
   }
 
   function handleTouchEnd() {
-    if (
-      touchStartX.current === null ||
-      touchEndX.current === null
-    ) {
-      return;
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const distance = touchStartX.current - touchEndX.current;
+    if (Math.abs(distance) >= 45) {
+      if (distance > 0) nextImage();
+      else previousImage();
     }
-
-    const distance =
-      touchStartX.current -
-      touchEndX.current;
-
-    if (Math.abs(distance) < 45) {
-      return;
-    }
-
-    if (distance > 0) {
-      nextImage();
-    } else {
-      previousImage();
-    }
-
     touchStartX.current = null;
     touchEndX.current = null;
   }
@@ -309,6 +258,12 @@ export default function PropertyGallery({
     return () => document.removeEventListener("keydown", handleGalleryKeyDown);
   }, [isDetail, images.length]);
 
+  useEffect(() => {
+    return () => {
+      if (animationTimer.current) window.clearTimeout(animationTimer.current);
+    };
+  }, []);
+
   return (
     <div
       className={
@@ -325,32 +280,32 @@ export default function PropertyGallery({
         onTouchMove={
           handleTouchMove
         }
-        onTouchEnd={
-          handleTouchEnd
-        }
-        onClickCapture={preventClickAfterMouseDrag}
+        onTouchEnd={handleTouchEnd}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={finishMouseDrag}
-        onMouseLeave={finishMouseDrag}
-        onDragStart={(event) => event.preventDefault()}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
       >
+        {isAnimating && previousIndex !== null && (
+          <img
+            key={`previous-${previousIndex}-${currentIndex}`}
+            src={images[previousIndex]}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`gallery-image slide-out-${slideDirection}`}
+            onDragStart={(event) => event.preventDefault()}
+          />
+        )}
         <img
+          key={`current-${currentIndex}`}
           src={images[currentIndex]}
           alt={title}
           draggable={false}
-          className="gallery-image"
+          className={`gallery-image${isAnimating ? ` slide-in-${slideDirection}` : ""}`}
+          onDragStart={(event) => event.preventDefault()}
           onError={(e) => {
-            const fallback =
-              `${API_URL}/images/test-flat.jpg`;
-
-            if (
-              e.currentTarget.src !==
-              fallback
-            ) {
-              e.currentTarget.src =
-                fallback;
-            }
+            const fallback = `${API_URL}/images/test-flat.jpg`;
+            if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
           }}
         />
 
@@ -464,11 +419,6 @@ export default function PropertyGallery({
           background: #edf0f3;
           touch-action: pan-y;
           user-select: none;
-          cursor: grab;
-        }
-
-        .image-stage:active {
-          cursor: grabbing;
         }
 
         .gallery-card .image-stage {
@@ -487,13 +437,28 @@ export default function PropertyGallery({
         }
 
         .gallery-image {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           display: block;
           object-fit: cover;
-          -webkit-user-drag: none;
-          user-drag: none;
           pointer-events: none;
+          user-select: none;
+        }
+
+        .slide-in-next { z-index: 2; animation: doma-slide-in-next 340ms cubic-bezier(.22,.75,.25,1) both; }
+        .slide-out-next { z-index: 1; animation: doma-slide-out-next 340ms cubic-bezier(.22,.75,.25,1) both; }
+        .slide-in-previous { z-index: 2; animation: doma-slide-in-previous 340ms cubic-bezier(.22,.75,.25,1) both; }
+        .slide-out-previous { z-index: 1; animation: doma-slide-out-previous 340ms cubic-bezier(.22,.75,.25,1) both; }
+
+        @keyframes doma-slide-in-next { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes doma-slide-out-next { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+        @keyframes doma-slide-in-previous { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes doma-slide-out-previous { from { transform: translateX(0); } to { transform: translateX(100%); } }
+
+        @media (prefers-reduced-motion: reduce) {
+          .slide-in-next, .slide-out-next, .slide-in-previous, .slide-out-previous { animation-duration: 1ms; }
         }
 
         /*
