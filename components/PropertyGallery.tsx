@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -69,15 +70,19 @@ export default function PropertyGallery({
   const [galleryImages, setGalleryImages] =
     useState<GalleryImage[]>([]);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [previousIndex, setPreviousIndex] = useState<number | null>(null);
-  const [slideDirection, setSlideDirection] = useState<"next" | "previous">("next");
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animationTimer = useRef<number | null>(null);
+  const [currentIndex, setCurrentIndex] =
+    useState(0);
 
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
-  const mouseStart = useRef<{ x: number; y: number } | null>(null);
+  // Индекс предыдущего слайда нужен для анимации смены изображения.
+  const [previousIndex, setPreviousIndex] = useState<number | null>(null);
+  const [slideDirection, setSlideDirection] = useState<"next" | "prev">("next");
+  const animationTimerRef = useRef<number | null>(null);
+
+  const touchStartX =
+    useRef<number | null>(null);
+
+  const touchEndX =
+    useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,79 +160,103 @@ export default function PropertyGallery({
     images.length,
   ]);
 
-  function goToImage(index: number, direction: "next" | "previous", e?: React.MouseEvent) {
+  const goToImage = useCallback((
+    requestedIndex: number,
+    direction: "next" | "prev",
+    e?: React.MouseEvent
+  ) => {
     e?.preventDefault();
     e?.stopPropagation();
-    if (images.length <= 1 || index === currentIndex) return;
+    if (images.length <= 1) return;
 
-    if (animationTimer.current) window.clearTimeout(animationTimer.current);
+    const nextIndex = ((requestedIndex % images.length) + images.length) % images.length;
+    if (nextIndex === currentIndex) return;
+
+    if (animationTimerRef.current !== null) {
+      window.clearTimeout(animationTimerRef.current);
+    }
+
     setPreviousIndex(currentIndex);
     setSlideDirection(direction);
-    setCurrentIndex(index);
-    setIsAnimating(true);
-    animationTimer.current = window.setTimeout(() => {
-      setIsAnimating(false);
+    setCurrentIndex(nextIndex);
+    animationTimerRef.current = window.setTimeout(() => {
       setPreviousIndex(null);
-      animationTimer.current = null;
-    }, 360);
-  }
+      animationTimerRef.current = null;
+    }, 290);
+  }, [currentIndex, images.length]);
 
   function previousImage(e?: React.MouseEvent) {
-    goToImage(currentIndex === 0 ? images.length - 1 : currentIndex - 1, "previous", e);
+    goToImage(currentIndex - 1, "prev", e);
   }
 
   function nextImage(e?: React.MouseEvent) {
-    goToImage(currentIndex === images.length - 1 ? 0 : currentIndex + 1, "next", e);
+    goToImage(currentIndex + 1, "next", e);
   }
 
   function selectImage(index: number, e?: React.MouseEvent) {
-    goToImage(index, index >= currentIndex ? "next" : "previous", e);
+    goToImage(index, index >= currentIndex ? "next" : "prev", e);
   }
 
-  // На компьютере движение мышью только распознаётся как жест перелистывания:
-  // фотография не следует за курсором, а после отпускания проигрывается слайд.
-  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (!isDetail || e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, select")) {
-      mouseStart.current = null;
-      return;
+  // Как в каталоге Ajax: позиция курсора над фотографией выбирает сегмент галереи.
+  // Изображения при этом именно сменяются слайдом — курсор не захватывает фото.
+  function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
+    if (variant !== "card" || images.length <= 1) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button")) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+    const relativeX = Math.max(0, Math.min(0.999999, (event.clientX - bounds.left) / bounds.width));
+    const targetIndex = Math.min(images.length - 1, Math.floor(relativeX * images.length));
+    if (targetIndex === currentIndex) return;
+
+    goToImage(targetIndex, targetIndex > currentIndex ? "next" : "prev");
+  }
+
+  useEffect(() => () => {
+    if (animationTimerRef.current !== null) {
+      window.clearTimeout(animationTimerRef.current);
     }
-    mouseStart.current = { x: e.clientX, y: e.clientY };
-    e.preventDefault(); // отключаем нативное перетаскивание изображения
-  }
+  }, []);
 
-  function handleMouseUp(e: React.MouseEvent<HTMLDivElement>) {
-    const start = mouseStart.current;
-    mouseStart.current = null;
-    if (!isDetail || !start || e.button !== 0) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
-    if (dx < 0) nextImage();
-    else previousImage();
-  }
+  function handleTouchStart(
+    e: React.TouchEvent
+  ) {
+    touchStartX.current =
+      e.touches[0]?.clientX ?? null;
 
-  function handleMouseLeave() {
-    mouseStart.current = null;
-  }
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0]?.clientX ?? null;
     touchEndX.current = null;
   }
 
-  function handleTouchMove(e: React.TouchEvent) {
-    touchEndX.current = e.touches[0]?.clientX ?? null;
+  function handleTouchMove(
+    e: React.TouchEvent
+  ) {
+    touchEndX.current =
+      e.touches[0]?.clientX ?? null;
   }
 
   function handleTouchEnd() {
-    if (touchStartX.current === null || touchEndX.current === null) return;
-    const distance = touchStartX.current - touchEndX.current;
-    if (Math.abs(distance) >= 45) {
-      if (distance > 0) nextImage();
-      else previousImage();
+    if (
+      touchStartX.current === null ||
+      touchEndX.current === null
+    ) {
+      return;
     }
+
+    const distance =
+      touchStartX.current -
+      touchEndX.current;
+
+    if (Math.abs(distance) < 45) {
+      return;
+    }
+
+    if (distance > 0) {
+      nextImage();
+    } else {
+      previousImage();
+    }
+
     touchStartX.current = null;
     touchEndX.current = null;
   }
@@ -247,22 +276,16 @@ export default function PropertyGallery({
 
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        setCurrentIndex((index) => index === 0 ? images.length - 1 : index - 1);
+        goToImage(currentIndex - 1, "prev");
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        setCurrentIndex((index) => index === images.length - 1 ? 0 : index + 1);
+        goToImage(currentIndex + 1, "next");
       }
     }
 
     document.addEventListener("keydown", handleGalleryKeyDown);
     return () => document.removeEventListener("keydown", handleGalleryKeyDown);
-  }, [isDetail, images.length]);
-
-  useEffect(() => {
-    return () => {
-      if (animationTimer.current) window.clearTimeout(animationTimer.current);
-    };
-  }, []);
+  }, [isDetail, images.length, currentIndex, goToImage]);
 
   return (
     <div
@@ -274,26 +297,19 @@ export default function PropertyGallery({
     >
       <div
         className="image-stage"
-        onTouchStart={
-          handleTouchStart
-        }
-        onTouchMove={
-          handleTouchMove
-        }
+        onMouseMove={handleMouseMove}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
       >
-        {isAnimating && previousIndex !== null && (
+        {previousIndex !== null && (
           <img
             key={`previous-${previousIndex}-${currentIndex}`}
             src={images[previousIndex]}
             alt=""
             aria-hidden="true"
             draggable={false}
-            className={`gallery-image slide-out-${slideDirection}`}
-            onDragStart={(event) => event.preventDefault()}
+            className={`gallery-image is-leaving ${slideDirection}`}
           />
         )}
         <img
@@ -301,8 +317,7 @@ export default function PropertyGallery({
           src={images[currentIndex]}
           alt={title}
           draggable={false}
-          className={`gallery-image${isAnimating ? ` slide-in-${slideDirection}` : ""}`}
-          onDragStart={(event) => event.preventDefault()}
+          className={`gallery-image${previousIndex !== null ? ` is-entering ${slideDirection}` : ""}`}
           onError={(e) => {
             const fallback = `${API_URL}/images/test-flat.jpg`;
             if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
@@ -443,22 +458,64 @@ export default function PropertyGallery({
           height: 100%;
           display: block;
           object-fit: cover;
-          pointer-events: none;
           user-select: none;
+          -webkit-user-drag: none;
         }
 
-        .slide-in-next { z-index: 2; animation: doma-slide-in-next 340ms cubic-bezier(.22,.75,.25,1) both; }
-        .slide-out-next { z-index: 1; animation: doma-slide-out-next 340ms cubic-bezier(.22,.75,.25,1) both; }
-        .slide-in-previous { z-index: 2; animation: doma-slide-in-previous 340ms cubic-bezier(.22,.75,.25,1) both; }
-        .slide-out-previous { z-index: 1; animation: doma-slide-out-previous 340ms cubic-bezier(.22,.75,.25,1) both; }
+        .gallery-image.is-leaving {
+          z-index: 1;
+          pointer-events: none;
+        }
 
-        @keyframes doma-slide-in-next { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        @keyframes doma-slide-out-next { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-        @keyframes doma-slide-in-previous { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-        @keyframes doma-slide-out-previous { from { transform: translateX(0); } to { transform: translateX(100%); } }
+        .gallery-image.is-entering {
+          z-index: 2;
+          pointer-events: none;
+          animation-duration: 280ms;
+          animation-timing-function: cubic-bezier(.22, .68, 0, 1);
+          animation-fill-mode: both;
+        }
+
+        .gallery-image.is-entering.next {
+          animation-name: doma-gallery-enter-from-right;
+        }
+
+        .gallery-image.is-entering.prev {
+          animation-name: doma-gallery-enter-from-left;
+        }
+
+        .gallery-image.is-leaving.next {
+          animation: doma-gallery-leave-to-left 280ms cubic-bezier(.22, .68, 0, 1) both;
+        }
+
+        .gallery-image.is-leaving.prev {
+          animation: doma-gallery-leave-to-right 280ms cubic-bezier(.22, .68, 0, 1) both;
+        }
+
+        @keyframes doma-gallery-enter-from-right {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+
+        @keyframes doma-gallery-enter-from-left {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+
+        @keyframes doma-gallery-leave-to-left {
+          from { transform: translateX(0); }
+          to { transform: translateX(-100%); }
+        }
+
+        @keyframes doma-gallery-leave-to-right {
+          from { transform: translateX(0); }
+          to { transform: translateX(100%); }
+        }
 
         @media (prefers-reduced-motion: reduce) {
-          .slide-in-next, .slide-out-next, .slide-in-previous, .slide-out-previous { animation-duration: 1ms; }
+          .gallery-image.is-entering,
+          .gallery-image.is-leaving {
+            animation-duration: 1ms !important;
+          }
         }
 
         /*
