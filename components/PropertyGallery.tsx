@@ -73,7 +73,7 @@ export default function PropertyGallery({
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<"next" | "previous">("next");
   const [isAnimating, setIsAnimating] = useState(false);
-  const animationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animationTimer = useRef<number | null>(null);
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
