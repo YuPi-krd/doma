@@ -1,26 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL = "https://doma-nq4u.onrender.com";
 
 interface PhotoPreview {
   id: string;
-  file: File;
+  file?: File;
+  name: string;
   url: string;
+  existing?: boolean;
+  serverId?: number;
 }
 
 const subtypeOptions: Record<string, { value: string; label: string }[]> = {
   apartment: [
     { value: "secondary", label: "Вторичка" },
     { value: "new_building", label: "Новостройка" },
-    { value: "studio", label: "Студия" },
     { value: "1_room", label: "1-комнатная" },
     { value: "2_room", label: "2-комнатная" },
     { value: "3_room", label: "3-комнатная" },
     { value: "4_room", label: "4-комнатная" },
     { value: "5_room", label: "5-комнатная" },
-    { value: "penthouse", label: "Пентхаус" },
   ],
   house: [
     { value: "house", label: "Дом" },
@@ -85,6 +87,19 @@ export default function SalePage() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agentComment, setAgentComment] = useState("");
+  const [source, setSource] = useState("Рекомендация");
+  const [dealDate, setDealDate] = useState("");
+  const [hasMaternalCapital, setHasMaternalCapital] = useState(false);
+  const [showPricePerSqm, setShowPricePerSqm] = useState(false);
+  const [mortgageRate, setMortgageRate] = useState("");
+  const [monthlyPayment, setMonthlyPayment] = useState("");
+  const [residentialComplex, setResidentialComplex] = useState("");
+  const [cadastralNumber, setCadastralNumber] = useState("");
+  const [landCadastralNumber, setLandCadastralNumber] = useState("");
+  const [metro, setMetro] = useState("");
+  const [condition, setCondition] = useState("");
+  const [ceilingHeight, setCeilingHeight] = useState("");
+  const [furniture, setFurniture] = useState("");
   const [roomLayout, setRoomLayout] = useState("");
   const [livingArea, setLivingArea] = useState("");
   const [kitchenArea, setKitchenArea] = useState("");
@@ -107,6 +122,8 @@ export default function SalePage() {
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<number | null>(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const currentSubtypes = useMemo(
@@ -114,11 +131,17 @@ export default function SalePage() {
     [propertyType]
   );
 
+  const photosRef = useRef<PhotoPreview[]>([]);
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
   useEffect(() => {
     return () => {
-      photos.forEach((photo) => URL.revokeObjectURL(photo.url));
+      photosRef.current.forEach((photo) => { if (!photo.existing && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url); });
     };
-  }, [photos]);
+  }, []);
 
   function addPhotos(files: FileList | File[]) {
     const validFiles = Array.from(files).filter((file) =>
@@ -128,6 +151,7 @@ export default function SalePage() {
     const newPhotos = validFiles.map((file) => ({
       id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
       file,
+      name: file.name,
       url: URL.createObjectURL(file),
     }));
 
@@ -144,7 +168,7 @@ export default function SalePage() {
   function removePhoto(id: string) {
     setPhotos((current) => {
       const photo = current.find((item) => item.id === id);
-      if (photo) URL.revokeObjectURL(photo.url);
+      if (photo && !photo.existing && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url);
       return current.filter((item) => item.id !== id);
     });
   }
@@ -164,6 +188,174 @@ export default function SalePage() {
     setPropertyType(value);
     const firstSubtype = subtypeOptions[value]?.[0]?.value ?? "secondary";
     setPropertySubtype(firstSubtype);
+  }
+
+  function asFormString(value: unknown): string {
+    return value === null || value === undefined ? "" : String(value);
+  }
+
+  function normalizeImageUrl(value: unknown): string {
+    const path = asFormString(value).trim();
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  }
+
+  async function loadPropertyIntoForm(propertyId: number) {
+    setIsLoadingExisting(true);
+    try {
+      const response = await fetch(`${API_URL}/properties/${propertyId}`, { cache: "no-store" });
+      const raw = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(raw.detail || `Не удалось загрузить объект №${propertyId}`);
+      const p = (raw.property && typeof raw.property === "object" ? raw.property : raw) as Record<string, unknown>;
+
+      setTitle(asFormString(p.title));
+      setPropertyType(asFormString(p.property_type));
+      setPropertySubtype(asFormString(p.property_subtype));
+      setDistrict(asFormString(p.district));
+      setRealAddress(asFormString(p.real_address));
+      setPublicAddress(asFormString(p.public_address));
+      setPrice(asFormString(p.price));
+      setArea(asFormString(p.area));
+      setRooms(asFormString(p.rooms));
+      setFloor(asFormString(p.floor));
+      setTotalFloors(asFormString(p.total_floors));
+      setBathroom(asFormString(p.bathroom));
+      setBalcony(asFormString(p.balcony));
+      setRenovation(asFormString(p.renovation));
+      setBuildingMaterial(asFormString(p.building_material));
+      setYearBuilt(asFormString(p.year_built));
+      setStatus(asFormString(p.status));
+      setDescription(asFormString(p.description));
+      setOwnerName(asFormString(p.owner_name));
+      setOwnerPhone(asFormString(p.owner_phone));
+      setAgentComment(asFormString(p.agent_comment));
+      setSource(asFormString(p.source));
+      setDealDate(asFormString(p.deal_date));
+      setMortgageRate(asFormString(p.mortgage_rate));
+      setMonthlyPayment(asFormString(p.monthly_payment));
+      setResidentialComplex(asFormString(p.residential_complex));
+      setCadastralNumber(asFormString(p.cadastral_number));
+      setLandCadastralNumber(asFormString(p.land_cadastral_number));
+      setMetro(asFormString(p.metro));
+      setCondition(asFormString(p.condition));
+      setCeilingHeight(asFormString(p.ceiling_height));
+      setFurniture(asFormString(p.furniture));
+      setRoomLayout(asFormString(p.room_layout));
+      setLivingArea(asFormString(p.living_area));
+      setKitchenArea(asFormString(p.kitchen_area));
+      setPlotArea(asFormString(p.plot_area));
+      setPlotLength(asFormString(p.plot_length));
+      setPlotWidth(asFormString(p.plot_width));
+      setFrontage(asFormString(p.frontage));
+      setLandPurpose(asFormString(p.land_purpose));
+      setHeating(asFormString(p.heating));
+      setFenced(asFormString(p.fenced));
+      setHasMaternalCapital(Boolean(p.has_maternal_capital));
+      setShowPricePerSqm(Boolean(p.show_price_per_sqm));
+      setGas(Boolean(p.gas));
+      setWater(Boolean(p.water));
+      setElectricity(Boolean(p.electricity));
+      setSewerage(Boolean(p.sewerage));
+      setTerrace(Boolean(p.terrace));
+      setBathhouse(Boolean(p.bathhouse));
+      setSauna(Boolean(p.sauna));
+      setPool(Boolean(p.pool));
+      setGarage(Boolean(p.garage));
+      setEditingPropertyId(propertyId);
+      setSavedId(null);
+
+      // Главное изображение и фотографии из галереи показываются в том же блоке, что и новые фото.
+      const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { cache: "no-store" }).catch(() => null);
+      const galleryRaw = galleryResponse?.ok ? await galleryResponse.json().catch(() => []) : [];
+      const images: Array<{ id?: number | string; image_url?: string }> = Array.isArray(galleryRaw) ? galleryRaw : [];
+      const photoUrls = [
+        { id: `cover-${propertyId}`, image_url: asFormString(p.image_url) },
+        ...images,
+      ].filter((photo) => Boolean(photo.image_url))
+       .map((photo, index) => ({
+         id: String(photo.id ?? `existing-${propertyId}-${index}`),
+         serverId: typeof photo.id === "number" ? photo.id : undefined,
+         name: index === 0 ? "Главное фото" : `Фото ${index + 1}`,
+         url: normalizeImageUrl(photo.image_url),
+         existing: true as const,
+       }))
+       .filter((photo, index, list) => list.findIndex((entry) => entry.url === photo.url) === index);
+      setPhotos(photoUrls);
+      document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Не удалось загрузить данные объекта.");
+    } finally {
+      setIsLoadingExisting(false);
+    }
+  }
+
+  function resetFormForNewObject() {
+    if (editingPropertyId === null && !title.trim()) {
+      document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!window.confirm("Начать создание нового объекта? Несохранённые изменения будут потеряны.")) return;
+    setTitle("");
+    setPropertyType("");
+    setPropertySubtype("");
+    setDistrict("");
+    setRealAddress("");
+    setPublicAddress("");
+    setPrice("");
+    setArea("");
+    setRooms("");
+    setFloor("");
+    setTotalFloors("");
+    setBathroom("");
+    setBalcony("");
+    setRenovation("");
+    setBuildingMaterial("");
+    setYearBuilt("");
+    setStatus("Свободен");
+    setDescription("");
+    setOwnerName("");
+    setOwnerPhone("");
+    setAgentComment("");
+    setSource("Рекомендация");
+    setDealDate("");
+    setMortgageRate("");
+    setMonthlyPayment("");
+    setResidentialComplex("");
+    setCadastralNumber("");
+    setLandCadastralNumber("");
+    setMetro("");
+    setCondition("");
+    setCeilingHeight("");
+    setFurniture("");
+    setRoomLayout("");
+    setLivingArea("");
+    setKitchenArea("");
+    setPlotArea("");
+    setPlotLength("");
+    setPlotWidth("");
+    setFrontage("");
+    setLandPurpose("");
+    setHeating("");
+    setFenced("");
+    setHasMaternalCapital(false);
+    setShowPricePerSqm(false);
+    setGas(false);
+    setWater(false);
+    setElectricity(false);
+    setSewerage(false);
+    setTerrace(false);
+    setBathhouse(false);
+    setSauna(false);
+    setPool(false);
+    setGarage(false);
+    setPropertyType("apartment");
+    setPropertySubtype("secondary");
+    setPhotos([]);
+    setEditingPropertyId(null);
+    setSavedId(null);
+    document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function saveDraft() {
@@ -190,6 +382,19 @@ export default function SalePage() {
       ownerName,
       ownerPhone,
       agentComment,
+      source,
+      dealDate,
+      hasMaternalCapital,
+      showPricePerSqm,
+      mortgageRate,
+      monthlyPayment,
+      residentialComplex,
+      cadastralNumber,
+      landCadastralNumber,
+      metro,
+      condition,
+      ceilingHeight,
+      furniture,
       roomLayout,
       livingArea,
       kitchenArea,
@@ -230,8 +435,11 @@ export default function SalePage() {
     setSavedId(null);
 
     try {
-      const res = await fetch("https://doma-nq4u.onrender.com/properties", {
-        method: "POST",
+      const targetUrl = editingPropertyId !== null
+        ? `${API_URL}/properties/${editingPropertyId}`
+        : `${API_URL}/properties`;
+      const res = await fetch(targetUrl, {
+        method: editingPropertyId !== null ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -255,7 +463,20 @@ export default function SalePage() {
           public_address: publicAddress,
           owner_name: ownerName,
           owner_phone: ownerPhone,
-          owner_comment: agentComment,
+          agent_comment: agentComment,
+          source,
+          deal_date: dealDate || null,
+          has_maternal_capital: hasMaternalCapital,
+          show_price_per_sqm: showPricePerSqm,
+          mortgage_rate: Number(mortgageRate) || 0,
+          monthly_payment: Number(monthlyPayment) || 0,
+          residential_complex: residentialComplex,
+          cadastral_number: cadastralNumber,
+          land_cadastral_number: landCadastralNumber,
+          metro,
+          condition,
+          ceiling_height: Number(ceilingHeight) || 0,
+          furniture,
           property_type: propertyType,
           property_subtype: propertySubtype,
           deal_type: dealType,
@@ -289,7 +510,7 @@ export default function SalePage() {
         return;
       }
 
-      const propertyId = Number(data.id ?? data.property?.id);
+      const propertyId = Number(data.id ?? data.property?.id ?? editingPropertyId);
       if (!propertyId) {
         throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
       }
@@ -297,35 +518,34 @@ export default function SalePage() {
       // Сначала устанавливаем главное фото, затем сохраняем все выбранные фото в галерею.
       // Оригинальный выбор файлов и превью остаются без изменений.
       if (photos.length > 0) {
-        const coverForm = new FormData();
-        coverForm.append("file", photos[0].file, photos[0].file.name);
-        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
-          method: "POST",
-          body: coverForm,
-        });
-        if (!coverResponse.ok) {
-          const detail = await coverResponse.text();
-          throw new Error(`Объект №${propertyId} создан, но главное фото не загрузилось: ${detail}`);
+        const primaryPhoto = photos[0];
+        if (primaryPhoto.file) {
+          const coverForm = new FormData();
+          coverForm.append("file", primaryPhoto.file, primaryPhoto.file.name);
+          const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, { method: "POST", body: coverForm });
+          if (!coverResponse.ok) {
+            const detail = await coverResponse.text();
+            throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
+          }
         }
-
-        // Фото №1 уже сохранено как главное изображение объекта выше.
-        // В галерею добавляем только остальные, иначе обложка появляется дважды.
-        for (const photo of photos.slice(1)) {
+        // Существующие фото не загружаем повторно; отправляем только новые файлы.
+        const newPhotos = photos.filter((photo) => Boolean(photo.file) && photo !== primaryPhoto || Boolean(photo.file) && primaryPhoto.existing);
+        for (const photo of newPhotos) {
+          if (!photo.file) continue;
           const imageForm = new FormData();
           imageForm.append("file", photo.file, photo.file.name);
-          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
-            method: "POST",
-            body: imageForm,
-          });
+          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { method: "POST", body: imageForm });
           if (!imageResponse.ok) {
             const detail = await imageResponse.text();
-            throw new Error(`Объект №${propertyId} создан, но фотография «${photo.file.name}» не загрузилась: ${detail}`);
+            throw new Error(`Объект №${propertyId} сохранён, но фотография «${photo.name}» не загрузилась: ${detail}`);
           }
         }
       }
 
       setSavedId(propertyId);
-      alert(`Объект сохранён. ID: ${propertyId}${photos.length ? `. Фотографий загружено: ${photos.length}` : ""}`);
+      const wasEditing = editingPropertyId !== null;
+      setEditingPropertyId(null);
+      alert(`${wasEditing ? "Изменения сохранены" : "Объект сохранён"}. ID: ${propertyId}${photos.length ? `. Фотографий в форме: ${photos.length}` : ""}`);
     } catch (error) {
       console.error(error);
       alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
@@ -336,33 +556,32 @@ export default function SalePage() {
 
   return (
     <main style={pageStyle}>
+      <style>{`@media (max-width: 980px) { .doma-crm-layout { grid-template-columns: minmax(0, 1fr) !important; } .doma-crm-reference { position: static !important; grid-column: 1 !important; grid-row: auto !important; max-height: none !important; } } @media (max-width: 620px) { .doma-crm-fields { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }`}</style>
       <div style={shellStyle}>
         <header style={headerStyle}>
           <div>
             <div style={eyebrowStyle}>CRM DOMA · ОБЪЕКТ</div>
-            <h1 style={titleStyle}>Создание объекта</h1>
+            <h1 style={titleStyle}>{editingPropertyId !== null ? `Редактирование объекта №${editingPropertyId}` : "Создание объекта"}</h1>
             <p style={subtitleStyle}>
               Заполните данные для продажи недвижимости
             </p>
           </div>
 
-          <div style={saleBadgeStyle}>
-            <span style={saleDotStyle} />
-            Продажа
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, flexWrap: "wrap" }}>
+            <button type="button" onClick={editingPropertyId !== null ? resetFormForNewObject : () => document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 24, padding: "4px 8px", border: "1px solid #b7d8f3", borderRadius: 2, background: "#f7fbff", color: "#075ba8", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {editingPropertyId !== null ? "＋ Новый объект" : "＋ Добавить объект"}
+            </button>
+            <div style={saleBadgeStyle}>
+              <span style={saleDotStyle} />
+              Продажа
+            </div>
           </div>
         </header>
 
-        <section style={progressCardStyle}>
-          <div>
-            <div style={progressTitleStyle}>Новый объект</div>
-            <div style={progressTextStyle}>
-              Основная информация · характеристики · медиа · собственник
-            </div>
-          </div>
-          <div style={progressNumberStyle}>01 / 01</div>
-        </section>
+        {/* Список находится прямо на странице продажи, как в видео; отдельный маршрут не нужен. */}
+        <SalePropertiesList refreshKey={savedId ?? 0} onCreateClick={() => document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} onOpenProperty={loadPropertyIntoForm} isOpening={isLoadingExisting} />
 
-        <section style={layoutStyle}>
+        <section id="doma-sale-create-form" className="doma-crm-layout" style={layoutStyle}>
           <div style={columnStyle}>
             <section style={cardStyle}>
               <SectionHeading
@@ -371,8 +590,15 @@ export default function SalePage() {
                 description="Базовые сведения об объекте"
               />
 
-              <div style={formGridStyle}>
-                <Field label="Название объекта" required full>
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Тип сделки">
+                  <select value={dealType} disabled style={{ ...inputStyle, background: "#e8edf2", color: "#253b4d", fontWeight: 700 }}>
+                    <option value="sale">Продажа</option>
+                    <option value="rent">Аренда</option>
+                  </select>
+                </Field>
+                <Field label="Название объекта" required>
+
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -409,8 +635,15 @@ export default function SalePage() {
                   </select>
                 </Field>
 
-                <Field label="Район">
+                <Field label="Район / микрорайон">
                   <DistrictPicker value={district} onChange={setDistrict} />
+                </Field>
+
+                <Field label="Жилой комплекс (ЖК)">
+                  <input value={residentialComplex} onChange={(e) => setResidentialComplex(e.target.value)} placeholder="Название ЖК" style={inputStyle} />
+                </Field>
+                <Field label="Метро / остановка">
+                  <input value={metro} onChange={(e) => setMetro(e.target.value)} placeholder="Ближайшая станция" style={inputStyle} />
                 </Field>
 
                 <Field label="Цена" required>
@@ -440,6 +673,39 @@ export default function SalePage() {
                     />
                     <span style={suffixStyle}>м²</span>
                   </div>
+                </Field>
+
+                <Field label="Дата сделки / заселения">
+                  <input type="date" value={dealDate} onChange={(e) => setDealDate(e.target.value)} style={inputStyle} />
+                </Field>
+                <Field label="Источник обращения">
+                  <select value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
+                    <option>Рекомендация</option><option>Сайт</option><option>Звонок</option><option>Социальные сети</option><option>Реклама</option><option>Партнёр</option><option>Повторный клиент</option><option>Другое</option>
+                  </select>
+                </Field>
+                <Field label="Ипотечная ставка, %">
+                  <input type="number" min="0" max="100" step="0.1" value={mortgageRate} onChange={(e) => setMortgageRate(e.target.value)} placeholder="0" style={inputStyle} />
+                </Field>
+                <Field label="Платёж в месяц, ₽">
+                  <input type="number" min="0" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0" style={inputStyle} />
+                </Field>
+                <Field label="Кадастровый номер объекта">
+                  <input value={cadastralNumber} onChange={(e) => setCadastralNumber(e.target.value)} placeholder="XX:XX:XXXXXXX:XXX" style={inputStyle} />
+                </Field>
+                <Field label="Кадастровый номер участка">
+                  <input value={landCadastralNumber} onChange={(e) => setLandCadastralNumber(e.target.value)} placeholder="При наличии" style={inputStyle} />
+                </Field>
+                <Field label="Показывать цену за м²">
+                  <span style={inlineCheckboxStyle}>
+                    <input type="checkbox" checked={showPricePerSqm} onChange={(e) => setShowPricePerSqm(e.target.checked)} />
+                    <span>Да, показывать клиенту</span>
+                  </span>
+                </Field>
+                <Field label="Материнский капитал">
+                  <span style={inlineCheckboxStyle}>
+                    <input type="checkbox" checked={hasMaternalCapital} onChange={(e) => setHasMaternalCapital(e.target.checked)} />
+                    <span>Возможна сделка с маткапиталом</span>
+                  </span>
                 </Field>
 
                 <Field label="Реальный адрес" required full>
@@ -480,111 +746,35 @@ export default function SalePage() {
 
             <section style={cardStyle}>
               <SectionHeading
-                number="02"
-                title="Описание"
-                description="Текст для карточки объекта"
-              />
-
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={11}
-                placeholder="Опишите объект: состояние, планировку, преимущества, инфраструктуру и важные детали..."
-                style={textareaStyle}
-              />
-              <div style={counterStyle}>{description.length} символов</div>
-            </section>
-
-            <section style={cardStyle}>
-              <SectionHeading
-                number="03"
-                title="Фотографии"
-                description="Добавьте фотографии объекта для будущей публикации"
-              />
-
-              <div
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  if (e.dataTransfer.files.length) {
-                    addPhotos(e.dataTransfer.files);
-                  }
-                }}
-                style={dropzoneStyle(dragActive)}
-              >
-                <div style={uploadIconStyle}>↥</div>
-                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
-                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
-                <label style={uploadButtonStyle}>
-                  Выбрать фотографии
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFiles}
-                    hidden
-                  />
-                </label>
-                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
-              </div>
-
-              {photos.length > 0 && (
-                <div style={photoGridStyle}>
-                  {photos.map((photo, index) => (
-                    <div key={photo.id} style={photoCardStyle}>
-                      <img
-                        src={photo.url}
-                        alt={photo.file.name}
-                        style={photoImageStyle}
-                      />
-                      <div style={photoOverlayStyle}>
-                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => setMainPhoto(photo.id)}
-                          style={photoActionStyle}
-                          title="Сделать главным"
-                        >
-                          ★
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(photo.id)}
-                          style={photoActionDangerStyle}
-                          title="Удалить"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div style={columnStyle}>
-            <section style={cardStyle}>
-              <SectionHeading
                 number="04"
                 title="Характеристики"
                 description={`Параметры объекта: ${propertyTypeLabels[propertyType] ?? "недвижимость"}`}
               />
 
-              <div style={formGridStyle}>
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Состояние объекта">
+                  <select value={condition} onChange={(e) => setCondition(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option><option value="Новое">Новое</option><option value="Отличное">Отличное</option><option value="Хорошее">Хорошее</option><option value="Удовлетворительное">Удовлетворительное</option><option value="Требует ремонта">Требует ремонта</option>
+                  </select>
+                </Field>
+                <Field label="Высота потолков, м">
+                  <input type="number" min="0" step="0.1" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} placeholder="2.7" style={inputStyle} />
+                </Field>
+                <Field label="Мебель">
+                  <select value={furniture} onChange={(e) => setFurniture(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option><option value="С мебелью">С мебелью</option><option value="Частично меблирована">Частично меблирована</option><option value="Без мебели">Без мебели</option>
+                  </select>
+                </Field>
                 {propertyType === "apartment" && (
                   <>
                     <Field label="Комнат">
                       <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Жилая площадь, м²">
+                      <input type="number" min="0" step="0.1" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} placeholder="0" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь кухни, м²">
+                      <input type="number" min="0" step="0.1" value={kitchenArea} onChange={(e) => setKitchenArea(e.target.value)} placeholder="0" style={inputStyle} />
                     </Field>
                     <Field label="Этаж">
                       <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 5" style={inputStyle} />
@@ -922,6 +1112,23 @@ export default function SalePage() {
             </section>
             <section style={cardStyle}>
               <SectionHeading
+                number="02"
+                title="Описание"
+                description="Текст для карточки объекта"
+              />
+
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={11}
+                placeholder="Опишите объект: состояние, планировку, преимущества, инфраструктуру и важные детали..."
+                style={textareaStyle}
+              />
+              <div style={counterStyle}>{description.length} символов</div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
                 number="05"
                 title="Собственник"
                 description="Контактная информация доступна только сотрудникам"
@@ -937,7 +1144,7 @@ export default function SalePage() {
                 </div>
               </div>
 
-              <div style={formGridStyle}>
+              <div className="doma-crm-fields" style={formGridStyle}>
                 <Field label="ФИО собственника">
                   <input
                     value={ownerName}
@@ -1003,13 +1210,150 @@ export default function SalePage() {
                 })}
               </div>
             </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="03"
+                title="Фотографии"
+                description="Добавьте фотографии объекта для будущей публикации"
+              />
+
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files.length) {
+                    addPhotos(e.dataTransfer.files);
+                  }
+                }}
+                style={dropzoneStyle(dragActive)}
+              >
+                <div style={uploadIconStyle}>↥</div>
+                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
+                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
+                <label style={uploadButtonStyle}>
+                  Выбрать фотографии
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFiles}
+                    hidden
+                  />
+                </label>
+                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              </div>
+
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} style={photoCardStyle}>
+                      <img
+                        src={photo.url}
+                        alt={photo.name}
+                        style={photoImageStyle}
+                      />
+                      <div style={photoOverlayStyle}>
+                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMainPhoto(photo.id)}
+                          style={photoActionStyle}
+                          title="Сделать главным"
+                        >
+                          ★
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          style={photoActionDangerStyle}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
+
+          <aside className="doma-crm-reference" style={referencePanelStyle}>
+            <div style={referencePanelHeaderStyle}>Характеристики объекта</div>
+            <table style={referenceTableStyle}>
+              <tbody>
+                {[
+                  ["Тип объекта", `${propertyTypeLabels[propertyType] ?? "Недвижимость"} — ${currentSubtypes.find((item) => item.value === propertySubtype)?.label ?? propertySubtype}`],
+                  ["Цена", price ? `${Number(price).toLocaleString("ru-RU")} ₽` : "—"],
+                  ["Цена за м²", price && area && Number(area) > 0 ? `${Math.round(Number(price) / Number(area)).toLocaleString("ru-RU")} ₽` : "—"],
+                  ["Общая площадь", area ? `${area} м²` : "—"],
+                  ["Жилая площадь", livingArea ? `${livingArea} м²` : "—"],
+                  ["Площадь кухни", kitchenArea ? `${kitchenArea} м²` : "—"],
+                  ["Комнат", rooms || "—"],
+                  ["Этаж", floor || "—"],
+                  ["Этажность дома", totalFloors || "—"],
+                  ["Год постройки", yearBuilt || "—"],
+                  ["Материал дома", buildingMaterial || "—"],
+                  ["Санузел", bathroom || "—"],
+                  ["Балкон / лоджия", balcony || "—"],
+                  ["Ремонт", renovation || "—"],
+                  ["Планировка", roomLayout || "—"],
+                  ["Состояние", condition || "—"],
+                  ["Высота потолков", ceilingHeight ? `${ceilingHeight} м` : "—"],
+                  ["Мебель", furniture || "—"],
+                  ["Отопление", heating || "—"],
+                  ["Площадь участка", plotArea ? `${plotArea} сот.` : "—"],
+                  ["Длина участка", plotLength ? `${plotLength} м` : "—"],
+                  ["Ширина участка", plotWidth ? `${plotWidth} м` : "—"],
+                  ["Фасад участка", frontage ? `${frontage} м` : "—"],
+                  ["Назначение земли", landPurpose || "—"],
+                  ["Ограждение", fenced || "—"],
+                  ["Терраса", terrace ? "Есть" : "Нет / не указано"],
+                  ["Баня", bathhouse ? "Есть" : "Нет / не указано"],
+                  ["Сауна", sauna ? "Есть" : "Нет / не указано"],
+                  ["Бассейн", pool ? "Есть" : "Нет / не указано"],
+                  ["Гараж", garage ? "Есть" : "Нет / не указано"],
+                  ["Газ", gas ? "Есть" : "Нет / не указано"],
+                  ["Вода", water ? "Есть" : "Нет / не указано"],
+                  ["Электричество", electricity ? "Есть" : "Нет / не указано"],
+                  ["Канализация", sewerage ? "Есть" : "Нет / не указано"],
+                  ["Жилой комплекс", residentialComplex || "—"],
+                  ["Микрорайон", district || "—"],
+                  ["Метро / остановка", metro || "—"],
+                  ["Источник обращения", source || "—"],
+                  ["Дата сделки / заселения", dealDate || "—"],
+                  ["Ипотечная ставка", mortgageRate ? `${mortgageRate}%` : "—"],
+                  ["Платёж в месяц", monthlyPayment ? `${Number(monthlyPayment).toLocaleString("ru-RU")} ₽` : "—"],
+                  ["Материнский капитал", hasMaternalCapital ? "Возможен" : "Нет / не указано"],
+                  ["Цена за м² на сайте", showPricePerSqm ? "Показывать" : "Не показывать"],
+                  ["Кадастровый номер объекта", cadastralNumber || "—"],
+                  ["Кадастровый номер участка", landCadastralNumber || "—"],
+                ].map(([label, value]) => (
+                  <tr key={label}>
+                    <td style={referenceLabelCellStyle}>{label}</td>
+                    <td style={referenceValueCellStyle}>{String(value || "—")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={referencePanelFooterStyle}>Значения обновляются при заполнении формы.</div>
+          </aside>
         </section>
 
         <footer style={footerStyle}>
           <div>
             {savedId ? (
-              <div style={savedMessageStyle}>✓ Объект №{savedId} успешно создан</div>
+              <div style={savedMessageStyle}>✓ Объект №{savedId} сохранён</div>
             ) : (
               <div style={footerHintStyle}>Перед сохранением проверьте реальный и рекламный адрес.</div>
             )}
@@ -1025,7 +1369,7 @@ export default function SalePage() {
               disabled={isSaving}
               style={{ ...primaryButtonStyle, opacity: isSaving ? 0.7 : 1 }}
             >
-              {isSaving ? "Сохранение..." : "Сохранить объект"}
+              {isSaving ? "Сохранение..." : editingPropertyId !== null ? "Сохранить изменения" : "Сохранить объект"}
             </button>
           </div>
         </footer>
@@ -1309,173 +1653,73 @@ function Field({
 }
 
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "#f6f7f9",
-  padding: "32px 24px 48px",
-  color: "#0f172a",
+  minHeight: "100vh", background: "#d7dadd", padding: "4px 5px 10px", color: "#20262d", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 12,
 };
 
-const shellStyle: React.CSSProperties = {
-  maxWidth: 1500,
-  margin: "0 auto",
-};
+const shellStyle: React.CSSProperties = { width: "100%", maxWidth: "none", margin: "0 auto" };
 
-const headerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 24,
-  marginBottom: 24,
-};
+const headerStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 5, padding: "5px 9px", minHeight: 28, background: "#0878d1", border: "1px solid #075ba8", color: "#fff" };
 
-const eyebrowStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: "0.12em",
-  color: "#dc2626",
-  marginBottom: 8,
-};
+const eyebrowStyle: React.CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: "0.02em", color: "#e5f2ff", marginBottom: 1 };
 
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 36,
-  lineHeight: 1.1,
-  letterSpacing: "-0.03em",
-};
+const titleStyle: React.CSSProperties = { margin: 0, fontSize: 15, lineHeight: 1.15, letterSpacing: "0", fontWeight: 700, color: "#fff" };
 
-const subtitleStyle: React.CSSProperties = {
-  margin: "10px 0 0",
-  color: "#64748b",
-  fontSize: 15,
-};
+const subtitleStyle: React.CSSProperties = { margin: "2px 0 0", color: "#e5f2ff", fontSize: 10 };
 
-const saleBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 9,
-  padding: "11px 16px",
-  borderRadius: 999,
-  background: "#fff1f2",
-  border: "1px solid #fecdd3",
-  color: "#be123c",
-  fontWeight: 700,
-  fontSize: 14,
-};
+const saleBadgeStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 7px", borderRadius: 2, background: "#eaf4fd", border: "1px solid #b7d8f3", color: "#075ba8", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap" };
 
-const saleDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  borderRadius: "50%",
-  background: "#ef4444",
-};
+const saleDotStyle: React.CSSProperties = { width: 6, height: 6, borderRadius: "50%", background: "#0878d1" };
 
 const progressCardStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "18px 22px",
-  marginBottom: 24,
-  borderRadius: 18,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-};
-
-const progressTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 15 };
-const progressTextStyle: React.CSSProperties = { marginTop: 4, color: "#64748b", fontSize: 13 };
-const progressNumberStyle: React.CSSProperties = { fontWeight: 800, color: "#94a3b8", fontSize: 13 };
-
-const layoutStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.25fr) minmax(380px, 0.85fr)",
-  gap: 24,
-  alignItems: "start",
-};
-
-const columnStyle: React.CSSProperties = { display: "grid", gap: 24 };
-
-const cardStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
-  borderRadius: 22,
-  padding: 26,
-  boxShadow: "0 12px 34px rgba(15,23,42,.045)",
-};
-
-const sectionHeadingStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 14,
-  alignItems: "flex-start",
-  marginBottom: 22,
-};
-
-const sectionNumberStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  flex: "0 0 auto",
-  display: "grid",
-  placeItems: "center",
-  borderRadius: 10,
-  background: "#0f172a",
+  padding: "7px 10px",
+  marginBottom: 8,
+  borderRadius: 0,
+  border: "1px solid #075ba8",
+  background: "#0878d1",
   color: "#ffffff",
-  fontSize: 12,
-  fontWeight: 800,
 };
 
-const sectionTitleStyle: React.CSSProperties = { margin: 0, fontSize: 19, fontWeight: 750 };
-const sectionDescriptionStyle: React.CSSProperties = { margin: "5px 0 0", color: "#64748b", fontSize: 13 };
+const progressTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: "#ffffff" };
+const progressTextStyle: React.CSSProperties = { marginTop: 2, color: "#e2f1ff", fontSize: 11 };
+const progressNumberStyle: React.CSSProperties = { fontWeight: 700, color: "#ffffff", fontSize: 11 };
 
-const formGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 16,
-};
+const layoutStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 286px", gap: 6, alignItems: "start" };
 
-const fieldStyle: React.CSSProperties = { display: "grid", gap: 8 };
+const columnStyle: React.CSSProperties = { display: "contents" };
+
+const cardStyle: React.CSSProperties = { gridColumn: "1", background: "#e9ebed", border: "1px solid #aeb5bc", borderRadius: 0, padding: "6px 8px", boxShadow: "none", minWidth: 0, marginBottom: 0 };
+
+const sectionHeadingStyle: React.CSSProperties = { display: "flex", gap: 5, alignItems: "center", margin: "-6px -8px 6px", padding: "4px 7px", minHeight: 22, background: "#0878d1", borderBottom: "1px solid #075ba8" };
+
+const sectionNumberStyle: React.CSSProperties = { display: "none" };
+
+const sectionTitleStyle: React.CSSProperties = { margin: 0, fontSize: 12, fontWeight: 700, color: "#fff" };
+
+const sectionDescriptionStyle: React.CSSProperties = { display: "none" };
+
+const formGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "5px 8px", alignItems: "start" };
+
+const fieldStyle: React.CSSProperties = { display: "grid", gap: 2, minWidth: 0 };
+
 const fullFieldStyle: React.CSSProperties = { ...fieldStyle, gridColumn: "1 / -1" };
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 750, color: "#334155" };
+
+const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: "#303b46", lineHeight: 1.15 };
+
 const requiredStyle: React.CSSProperties = { color: "#dc2626" };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 48,
-  padding: "0 14px",
-  borderRadius: 12,
-  border: "1px solid #dbe1e8",
-  background: "#ffffff",
-  color: "#0f172a",
-  fontSize: 14,
-  outline: "none",
-  boxSizing: "border-box",
-};
+const inputStyle: React.CSSProperties = { width: "100%", minHeight: 24, padding: "2px 5px", borderRadius: 1, border: "1px solid #a5adb5", background: "#fff", color: "#202a35", fontSize: 11, outline: "none", boxSizing: "border-box" };
 
-const inputBareStyle: React.CSSProperties = {
-  border: 0,
-  outline: 0,
-  flex: 1,
-  width: "100%",
-  background: "transparent",
-  fontSize: 14,
-  minHeight: 46,
-};
+const inputBareStyle: React.CSSProperties = { border: 0, outline: 0, flex: 1, width: "100%", background: "transparent", color: "#202a35", fontSize: 11, minHeight: 22 };
 
-const inputWithSuffixStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  minHeight: 48,
-  padding: "0 12px 0 14px",
-  borderRadius: 12,
-  border: "1px solid #dbe1e8",
-  background: "#ffffff",
-};
+const inputWithSuffixStyle: React.CSSProperties = { display: "flex", alignItems: "center", minHeight: 24, padding: "0 5px", borderRadius: 1, border: "1px solid #a5adb5", background: "#fff" };
 
-const suffixStyle: React.CSSProperties = { color: "#94a3b8", fontSize: 13, fontWeight: 700 };
+const suffixStyle: React.CSSProperties = { color: "#586674", fontSize: 10, fontWeight: 600 };
 
+const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 320, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 1, boxShadow: "0 4px 10px rgba(0,0,0,.16)" };
 
-const districtDropdownStyle: React.CSSProperties = {
-  position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
-  maxHeight: 360, overflowY: "auto", background: "#fff", border: "1px solid #dbe1e8",
-  borderRadius: 12, boxShadow: "0 18px 45px rgba(15,23,42,.18)",
-};
 const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
 const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
 const districtExpandSpacerStyle: React.CSSProperties = { display: "inline-block", width: 18, flex: "0 0 auto" };
@@ -1492,12 +1736,12 @@ const addressMapWrapStyle: React.CSSProperties = {
   marginTop: 8,
   padding: 12,
   border: "1px solid #e2e8f0",
-  borderRadius: 14,
+  borderRadius: 2,
   background: "#fff",
-  boxShadow: "0 8px 24px rgba(15,23,42,.08)",
+  boxShadow: "0 4px 12px rgba(22,42,60,.12)",
 };
-const addressMapTitleStyle: React.CSSProperties = { marginBottom: 8, fontSize: 12, fontWeight: 750, color: "#334155" };
-const addressMapFrameStyle: React.CSSProperties = { display: "block", border: 0, borderRadius: 10, background: "#eef2f7" };
+const addressMapTitleStyle: React.CSSProperties = { marginBottom: 6, fontSize: 11, fontWeight: 700, color: "#334155" };
+const addressMapFrameStyle: React.CSSProperties = { display: "block", border: 0, borderRadius: 2, background: "#eef2f7" };
 const addressMapPinStyle: React.CSSProperties = {
   position: "absolute",
   left: "50%",
@@ -1545,91 +1789,32 @@ const publicTagStyle: React.CSSProperties = {
   borderRadius: 7,
 };
 
-const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 220,
-  resize: "vertical",
-  padding: 16,
-  borderRadius: 14,
-  border: "1px solid #dbe1e8",
-  fontSize: 14,
-  lineHeight: 1.6,
-  outline: "none",
-  boxSizing: "border-box",
-};
+const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 82, resize: "vertical", padding: 6, borderRadius: 1, border: "1px solid #a5adb5", background: "#fff", color: "#202a35", fontSize: 11, lineHeight: 1.35, outline: "none", boxSizing: "border-box" };
 
-const textareaSmallStyle: React.CSSProperties = {
-  ...textareaStyle,
-  minHeight: 150,
-};
+const textareaSmallStyle: React.CSSProperties = { ...textareaStyle, minHeight: 58 };
 
 const counterStyle: React.CSSProperties = {
-  marginTop: 8,
+  marginTop: 4,
   textAlign: "right",
-  fontSize: 11,
-  color: "#94a3b8",
+  fontSize: 10,
+  color: "#66727e",
 };
 
-const dropzoneStyle = (active: boolean): React.CSSProperties => ({
-  minHeight: 235,
-  borderRadius: 18,
-  border: `2px dashed ${active ? "#dc2626" : "#cbd5e1"}`,
-  background: active ? "#fff7f7" : "#f8fafc",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 24,
-  textAlign: "center",
-  transition: ".2s ease",
-});
+const dropzoneStyle = (active: boolean): React.CSSProperties => ({ minHeight: 78, borderRadius: 1, border: `1px dashed ${active ? "#0878d1" : "#aeb5bc"}`, background: active ? "#eef7ff" : "#f4f5f6", display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-start", gap: 6, padding: 8, textAlign: "left", transition: ".15s ease" });
 
-const uploadIconStyle: React.CSSProperties = {
-  width: 56,
-  height: 56,
-  display: "grid",
-  placeItems: "center",
-  borderRadius: 16,
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
-  fontSize: 30,
-  color: "#dc2626",
-  marginBottom: 14,
-};
+const uploadIconStyle: React.CSSProperties = { width: 25, height: 25, display: "grid", placeItems: "center", borderRadius: 1, background: "#eaf4fd", border: "1px solid #b9d8f1", fontSize: 16, color: "#0878d1", marginBottom: 0 };
 
-const uploadTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 16 };
-const uploadTextStyle: React.CSSProperties = { color: "#64748b", marginTop: 5, fontSize: 13 };
+const uploadTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 11 };
 
-const uploadButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  marginTop: 16,
-  padding: "11px 16px",
-  borderRadius: 10,
-  background: "#0f172a",
-  color: "#ffffff",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
-};
+const uploadTextStyle: React.CSSProperties = { color: "#64707b", marginTop: 0, fontSize: 10 };
 
-const hintStyle: React.CSSProperties = { marginTop: 10, fontSize: 11, color: "#94a3b8" };
+const uploadButtonStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 0, padding: "4px 8px", borderRadius: 1, background: "#0878d1", border: "1px solid #075ba8", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" };
 
-const photoGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 12,
-  marginTop: 18,
-};
+const hintStyle: React.CSSProperties = { marginTop: 0, fontSize: 9, color: "#6c7781" };
 
-const photoCardStyle: React.CSSProperties = {
-  position: "relative",
-  aspectRatio: "4 / 3",
-  overflow: "hidden",
-  borderRadius: 14,
-  background: "#e2e8f0",
-};
+const photoGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6, marginTop: 7 };
+
+const photoCardStyle: React.CSSProperties = { position: "relative", aspectRatio: "4 / 3", overflow: "hidden", borderRadius: 1, border: "1px solid #aeb5bc", background: "#e2e5e8" };
 
 const photoImageStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
 
@@ -1641,122 +1826,282 @@ const photoOverlayStyle: React.CSSProperties = {
   alignItems: "center",
 };
 
-const photoIndexStyle: React.CSSProperties = {
-  marginRight: "auto",
-  padding: "5px 7px",
-  borderRadius: 7,
-  background: "rgba(15,23,42,.78)",
-  color: "#ffffff",
-  fontSize: 10,
-  fontWeight: 800,
-};
+const photoIndexStyle: React.CSSProperties = { marginRight: "auto", padding: "3px 5px", borderRadius: 1, background: "rgba(15,23,42,.78)", color: "#fff", fontSize: 9, fontWeight: 700 };
 
-const photoActionStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  border: 0,
-  borderRadius: 8,
-  background: "rgba(255,255,255,.92)",
-  cursor: "pointer",
-  fontWeight: 800,
-};
+const photoActionStyle: React.CSSProperties = { width: 22, height: 22, border: 0, borderRadius: 1, background: "rgba(255,255,255,.92)", cursor: "pointer", fontWeight: 800 };
 
 const photoActionDangerStyle: React.CSSProperties = {
   ...photoActionStyle,
   color: "#b91c1c",
 };
 
-const privateNoticeStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 12,
-  alignItems: "flex-start",
-  padding: 14,
-  borderRadius: 14,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  marginBottom: 18,
-};
+const privateNoticeStyle: React.CSSProperties = { display: "flex", gap: 6, alignItems: "flex-start", padding: 6, borderRadius: 1, background: "#eef3f7", border: "1px solid #cbd5df", marginBottom: 6 };
 
-const privateNoticeTitleStyle: React.CSSProperties = { fontWeight: 750, fontSize: 13 };
-const privateNoticeTextStyle: React.CSSProperties = { marginTop: 3, color: "#64748b", fontSize: 12 };
+const privateNoticeTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 10 };
 
-const statusListStyle: React.CSSProperties = { display: "grid", gap: 10 };
+const privateNoticeTextStyle: React.CSSProperties = { marginTop: 2, color: "#586674", fontSize: 9 };
+
+const statusListStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 4 };
 
 const statusButtonStyle = (active: boolean): React.CSSProperties => ({
   display: "flex",
   alignItems: "center",
-  gap: 12,
+  gap: 7,
   width: "100%",
-  padding: "13px 14px",
-  borderRadius: 13,
-  border: `1px solid ${active ? "#fecaca" : "#e2e8f0"}`,
-  background: active ? "#fff7f7" : "#ffffff",
+  padding: "7px 8px",
+  borderRadius: 2,
+  border: `1px solid ${active ? "#4d91ca" : "#bfc6cc"}`,
+  background: active ? "#e7f2fc" : "#ffffff",
   cursor: "pointer",
 });
 
 const statusRadioStyle = (active: boolean): React.CSSProperties => ({
-  width: 16,
-  height: 16,
+  width: 12,
+  height: 12,
   borderRadius: "50%",
-  border: `4px solid ${active ? "#dc2626" : "#cbd5e1"}`,
+  border: `3px solid ${active ? "#1674bb" : "#9da8b2"}`,
   background: "#ffffff",
   boxSizing: "border-box",
+  flex: "0 0 auto",
 });
 
 
-const checklistStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "10px 18px",
-  padding: "12px 14px",
-  border: "1px solid #dbe1e8",
-  borderRadius: 12,
-  background: "#f8fafc",
+const checklistStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: "6px 10px", padding: "6px 7px", border: "1px solid #bfc6cc", borderRadius: 1, background: "#f4f5f6" };
+
+const checkItemStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, color: "#303b46", fontSize: 10, fontWeight: 500, cursor: "pointer" };
+
+const inlineCheckboxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 5, minHeight: 24, padding: "2px 5px", border: "1px solid #a5adb5", background: "#fff", boxSizing: "border-box", fontSize: 10, fontWeight: 400, cursor: "pointer" };
+const referencePanelStyle: React.CSSProperties = { gridColumn: "2", gridRow: "1", minWidth: 0, background: "#e9ebed", border: "1px solid #aeb5bc", padding: "0 6px 6px", alignSelf: "start", position: "sticky", top: 6, maxHeight: "calc(100vh - 12px)", overflowY: "auto", boxSizing: "border-box" };
+const referencePanelHeaderStyle: React.CSSProperties = { margin: "0 -6px 5px", padding: "5px 7px", background: "#0878d1", borderBottom: "1px solid #075ba8", color: "#fff", fontSize: 12, fontWeight: 700 };
+const referenceTableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 10, color: "#26323d" };
+const referenceLabelCellStyle: React.CSSProperties = { width: "48%", padding: "3px 4px", border: "1px solid #aeb5bc", background: "#f2f3f4", verticalAlign: "top", overflowWrap: "anywhere" };
+const referenceValueCellStyle: React.CSSProperties = { padding: "3px 4px", border: "1px solid #aeb5bc", background: "#fff", verticalAlign: "top", overflowWrap: "anywhere", fontWeight: 600 };
+const referencePanelFooterStyle: React.CSSProperties = { marginTop: 5, fontSize: 9, color: "#65717b" };
+
+const footerStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 5, padding: "5px 7px", borderRadius: 0, background: "#e3e6e9", border: "1px solid #aeb5bc" };
+
+const footerActionsStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 5 };
+
+const footerHintStyle: React.CSSProperties = { fontSize: 10, color: "#586674" };
+
+const savedMessageStyle: React.CSSProperties = { fontSize: 10, color: "#18733d", fontWeight: 700 };
+
+const secondaryButtonStyle: React.CSSProperties = { padding: "5px 8px", borderRadius: 1, border: "1px solid #9da8b2", background: "#f8f9fa", color: "#26323d", fontSize: 10, fontWeight: 600, cursor: "pointer" };
+
+const primaryButtonStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 1, border: "1px solid #0864ae", background: "#0878d1", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", boxShadow: "none" };
+
+type InlineSaleProperty = {
+  id: number;
+  title?: string;
+  city?: string;
+  district?: string;
+  address?: string;
+  public_address?: string;
+  real_address?: string;
+  price?: number | string;
+  status?: string;
+  image_url?: string | null;
+  deal_type?: string;
+  deal_type_label?: string;
+  property_type?: string;
+  property_type_label?: string;
+  property_subtype?: string;
+  property_subtype_label?: string;
+  is_draft?: boolean | string | number;
+  area?: number | string;
+  rooms?: number | string;
+  floor?: number | string | null;
+  total_floors?: number | string | null;
 };
 
-const checkItemStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 7,
-  color: "#334155",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
+type InlineSaleListResponse = {
+  items: InlineSaleProperty[];
+  total: number;
 };
 
-const footerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  marginTop: 24,
-  padding: 20,
-  borderRadius: 20,
-  background: "#ffffff",
-  border: "1px solid #e2e8f0",
+const INLINE_SALE_PAGE_SIZE = 25;
+const inlineSaleTypeLabels: Record<string, string> = {
+  apartment: "Квартира",
+  house: "Дом",
+  land: "Участок",
+  commercial: "Коммерческая",
+  garage: "Гараж / парковка",
+};
+const inlineSaleNumberFormat = new Intl.NumberFormat("ru-RU");
+const inlineSaleStyles: Record<string, React.CSSProperties> = {
+  panel: { marginTop: 8, marginBottom: 10, border: "1px solid #aeb7bf", background: "#f7f8f9", color: "#20262d", fontSize: 12 },
+  panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 10px", background: "#e8edf2", borderBottom: "1px solid #b7c1c9" },
+  title: { margin: 0, color: "#273746", fontSize: 13, fontWeight: 700 },
+  subtitle: { margin: "3px 0 0", color: "#60717f", fontSize: 10 },
+  btn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 26, padding: "4px 8px", border: "1px solid #9eacb7", borderRadius: 2, background: "#fff", color: "#263746", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
+  blueBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 26, padding: "4px 8px", border: "1px solid #075ba8", borderRadius: 2, background: "#0878d1", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
+  input: { boxSizing: "border-box", width: "100%", height: 29, minWidth: 0, padding: "5px 7px", border: "1px solid #9daab5", borderRadius: 2, background: "#fff", color: "#20262d", fontSize: 11, outlineColor: "#0878d1" },
+  label: { display: "block", marginBottom: 4, color: "#34495a", fontSize: 10, fontWeight: 700 },
+  cell: { padding: "6px 7px", borderBottom: "1px solid #d3d9de", verticalAlign: "middle", fontSize: 10 },
 };
 
-const footerActionsStyle: React.CSSProperties = { display: "flex", gap: 12 };
-const footerHintStyle: React.CSSProperties = { fontSize: 12, color: "#64748b" };
-const savedMessageStyle: React.CSSProperties = { fontSize: 13, color: "#15803d", fontWeight: 750 };
+function inlineSaleIsDraft(item: InlineSaleProperty) {
+  return item.is_draft === true || String(item.is_draft).toLowerCase() === "true" || String(item.is_draft) === "1";
+}
 
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: "13px 18px",
-  borderRadius: 12,
-  border: "1px solid #dbe1e8",
-  background: "#ffffff",
-  color: "#334155",
-  fontWeight: 700,
-  cursor: "pointer",
-};
+function inlineSaleAddress(item: InlineSaleProperty) {
+  return [item.city, item.district, item.public_address || item.address || item.real_address]
+    .filter((part) => Boolean(part && String(part).trim())).join(", ") || "Адрес не указан";
+}
 
-const primaryButtonStyle: React.CSSProperties = {
-  padding: "13px 22px",
-  borderRadius: 12,
-  border: 0,
-  background: "linear-gradient(135deg, #dc2626, #ef4444)",
-  color: "#ffffff",
-  fontWeight: 800,
-  cursor: "pointer",
-  boxShadow: "0 12px 24px rgba(220,38,38,.22)",
-};
+function inlineSaleMoney(value: InlineSaleProperty["price"]) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) && amount > 0 ? `${inlineSaleNumberFormat.format(amount)} ₽` : "—";
+}
+
+function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpening }: { refreshKey: number; onCreateClick: () => void; onOpenProperty: (id: number) => void; isOpening: boolean }) {
+  const [items, setItems] = useState<InlineSaleProperty[]>([]);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [propertyType, setPropertyType] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [view, setView] = useState<"published" | "drafts">("published");
+  const [page, setPage] = useState(1);
+  const [totalFromServer, setTotalFromServer] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, propertyType, status, view]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      const params = new URLSearchParams({
+        deal_type: "sale",
+        offset: String((page - 1) * INLINE_SALE_PAGE_SIZE),
+        limit: String(INLINE_SALE_PAGE_SIZE),
+        is_draft: view === "drafts" ? "true" : "false",
+      });
+      if (propertyType !== "all") params.set("property_type", propertyType);
+      if (status !== "all") params.set("status", status);
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      try {
+        const response = await fetch(`${API_URL}/properties?${params.toString()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Сервер вернул код ${response.status}`);
+        const payload: unknown = await response.json();
+        if (cancelled) return;
+        if (Array.isArray(payload)) {
+          setItems(payload as InlineSaleProperty[]);
+          setTotalFromServer(null);
+        } else if (payload && typeof payload === "object" && Array.isArray((payload as InlineSaleListResponse).items)) {
+          const result = payload as InlineSaleListResponse;
+          setItems(result.items);
+          setTotalFromServer(Number(result.total ?? result.items.length));
+        } else {
+          throw new Error("Сервер вернул неожиданный формат списка объектов");
+        }
+      } catch (caught) {
+        if (cancelled) return;
+        setError(caught instanceof Error ? caught.message : "Не удалось загрузить объекты");
+        setItems([]);
+        setTotalFromServer(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [page, debouncedSearch, propertyType, status, view, refreshCounter, refreshKey]);
+
+  const localFiltered = useMemo(() => items.filter((item) => {
+    if ((item.deal_type || "sale") !== "sale") return false;
+    if (view === "drafts" ? !inlineSaleIsDraft(item) : inlineSaleIsDraft(item)) return false;
+    if (propertyType !== "all" && item.property_type !== propertyType) return false;
+    if (status !== "all" && (item.status || "") !== status) return false;
+    if (debouncedSearch) {
+      const haystack = [item.id, item.title, item.city, item.district, item.address, item.public_address, item.real_address, item.property_type_label]
+        .filter(Boolean).join(" ").toLocaleLowerCase("ru-RU");
+      if (!haystack.includes(debouncedSearch.toLocaleLowerCase("ru-RU"))) return false;
+    }
+    return true;
+  }), [items, view, propertyType, status, debouncedSearch]);
+
+  const total = totalFromServer ?? localFiltered.length;
+  const maxPage = Math.max(1, Math.ceil(total / INLINE_SALE_PAGE_SIZE));
+  const visible = totalFromServer === null ? localFiltered.slice((page - 1) * INLINE_SALE_PAGE_SIZE, page * INLINE_SALE_PAGE_SIZE) : localFiltered;
+
+  async function updateListing(id: number, action: "publish" | "delete", itemTitle?: string) {
+    if (busyId !== null) return;
+    if (action === "delete" && !window.confirm(`Удалить объект №${id}${itemTitle ? ` «${itemTitle}»` : ""}? Это действие нельзя отменить.`)) return;
+    setBusyId(id);
+    try {
+      const response = await fetch(action === "publish" ? `${API_URL}/properties/${id}/publish` : `${API_URL}/properties/${id}`, { method: action === "publish" ? "PUT" : "DELETE" });
+      if (!response.ok) throw new Error((await response.text()) || `Сервер вернул код ${response.status}`);
+      setRefreshCounter((value) => value + 1);
+    } catch (caught) {
+      window.alert(`Не удалось ${action === "publish" ? "опубликовать" : "удалить"} объект №${id}: ${caught instanceof Error ? caught.message : "ошибка запроса"}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section style={inlineSaleStyles.panel} aria-label="Список объектов на продаже">
+      <style>{`.doma-sale-inline-table { width:100%; border-collapse:collapse; min-width:920px; } .doma-sale-inline-table th { padding:7px; border-bottom:1px solid #b7c1c9; } .doma-sale-inline-row:hover { background:#eef6fc; } .doma-sale-inline-scroll { overflow-x:auto; width:100%; } @media(max-width:760px){.doma-sale-inline-filters{grid-template-columns:1fr 1fr!important}.doma-sale-inline-heading{align-items:flex-start!important;flex-direction:column!important}} @media(max-width:480px){.doma-sale-inline-filters{grid-template-columns:1fr!important}}`}</style>
+      <div className="doma-sale-inline-heading" style={inlineSaleStyles.panelHeader}>
+        <div>
+          <h2 style={inlineSaleStyles.title}>Объекты на продаже</h2>
+          <p style={inlineSaleStyles.subtitle}>Список расположен прямо на странице продажи — без перехода в отдельный раздел</p>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={loading} style={{ ...inlineSaleStyles.btn, opacity: loading ? 0.6 : 1 }}>↻ Обновить</button>
+          <button type="button" onClick={onCreateClick} style={inlineSaleStyles.blueBtn}>＋ Добавить объект</button>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, padding: 7, borderBottom: "1px solid #d0d7dd" }}>
+        <button type="button" onClick={() => setView("published")} style={{ ...inlineSaleStyles.btn, background: view === "published" ? "#e0f2e8" : "#fff", borderColor: view === "published" ? "#7cc49a" : "#9eacb7", color: view === "published" ? "#166534" : "#263746" }}>Объявления</button>
+        <button type="button" onClick={() => setView("drafts")} style={{ ...inlineSaleStyles.btn, background: view === "drafts" ? "#fff2d6" : "#fff", borderColor: view === "drafts" ? "#d9ad5d" : "#9eacb7", color: view === "drafts" ? "#8a5700" : "#263746" }}>Черновики</button>
+        <span style={{ marginLeft: "auto", color: "#536575", fontSize: 10 }}>Найдено: <b>{total.toLocaleString("ru-RU")}</b></span>
+      </div>
+      <div className="doma-sale-inline-filters" style={{ display: "grid", gridTemplateColumns: "minmax(200px,2fr) minmax(140px,1fr) minmax(130px,1fr)", gap: 7, padding: 8, borderBottom: "1px solid #d0d7dd" }}>
+        <label><span style={inlineSaleStyles.label}>Поиск по ID, названию, адресу или району</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, ЖК, улица, район…" style={inlineSaleStyles.input} /></label>
+        <label><span style={inlineSaleStyles.label}>Тип недвижимости</span><select value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все типы</option>{Object.entries(inlineSaleTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label><span style={inlineSaleStyles.label}>Статус</span><select value={status} onChange={(event) => setStatus(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+      </div>
+      {error && <div role="alert" style={{ padding: 9, color: "#a61b16", background: "#fff1f0", borderBottom: "1px solid #e8b4b1" }}>Не удалось загрузить список: {error}. Проверь доступность API.</div>}
+      <div className="doma-sale-inline-scroll">
+        <table className="doma-sale-inline-table">
+          <thead><tr style={{ background: "#e6ebef", color: "#34495a", textAlign: "left", fontSize: 10, whiteSpace: "nowrap" }}><th>ID</th><th>Фото</th><th>Объект</th><th>Тип</th><th>Адрес</th><th>Площадь</th><th>Комнат</th><th>Цена</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22 }}>Загрузка объектов…</td></tr> : visible.length === 0 ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22, color: "#536575" }}>{error ? "Нет данных для отображения" : view === "drafts" ? "Черновиков по выбранным условиям нет" : "Объектов по выбранным условиям нет"}</td></tr> : visible.map((item) => {
+              const draft = inlineSaleIsDraft(item);
+              const type = item.property_type_label || inlineSaleTypeLabels[item.property_type || ""] || item.property_type || "—";
+              const address = inlineSaleAddress(item);
+              return <tr key={item.id} className="doma-sale-inline-row">
+                <td style={{ ...inlineSaleStyles.cell, color: "#536575" }}>#{item.id}</td>
+                <td style={inlineSaleStyles.cell}>{item.image_url ? <img src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`} alt="" loading="lazy" style={{ display: "block", width: 54, height: 39, objectFit: "cover", border: "1px solid #bdc7cf" }} /> : <span style={{ display: "grid", placeItems: "center", width: 54, height: 39, border: "1px solid #bdc7cf", background: "#e8edf2", color: "#80909e", fontSize: 9 }}>Нет фото</span>}</td>
+                <td style={{ ...inlineSaleStyles.cell, minWidth: 150 }}><div style={{ fontWeight: 700, color: "#163e5d" }}>{item.title?.trim() || "Без названия"}</div><div style={{ color: "#667887", marginTop: 2, fontSize: 9 }}>{item.property_subtype_label || item.property_subtype || ""}</div></td>
+                <td style={inlineSaleStyles.cell}>{type}</td>
+                <td style={{ ...inlineSaleStyles.cell, maxWidth: 235, color: "#455866" }}>{address}</td>
+                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap" }}>{Number(item.area || 0) ? `${inlineSaleNumberFormat.format(Number(item.area))} м²` : "—"}</td>
+                <td style={{ ...inlineSaleStyles.cell, textAlign: "center" }}>{["land", "commercial", "garage"].includes(item.property_type || "") ? "—" : Number(item.rooms || 0) || "—"}</td>
+                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap", fontWeight: 700, color: "#163e5d" }}>{inlineSaleMoney(item.price)}</td>
+                <td style={inlineSaleStyles.cell}><span style={{ display: "inline-block", padding: "3px 5px", border: `1px solid ${draft ? "#d9ad5d" : "#7cc49a"}`, background: draft ? "#fff2d6" : "#e0f2e8", color: draft ? "#8a5700" : "#166534", whiteSpace: "nowrap" }}>{draft ? "Черновик" : item.status || "Активен"}</span></td>
+                <td style={inlineSaleStyles.cell}><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}><button type="button" disabled={isOpening} onClick={() => onOpenProperty(item.id)} style={{ ...inlineSaleStyles.btn, opacity: isOpening ? 0.55 : 1 }}>{isOpening ? "Загрузка…" : "Открыть"}</button>{draft && <button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "publish")} style={{ ...inlineSaleStyles.blueBtn, opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Опубликовать"}</button>}<button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "delete", item.title)} style={{ ...inlineSaleStyles.btn, color: "#ae2922", borderColor: "#d9a6a3", opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Удалить"}</button></div></td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+      <footer style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 7, padding: 8, background: "#eef1f4", borderTop: "1px solid #c4cdd4" }}>
+        <span style={{ color: "#536575", fontSize: 10 }}>Страница {page} из {maxPage} · по {INLINE_SALE_PAGE_SIZE} объектов</span>
+        <div style={{ display: "flex", gap: 4 }}><button type="button" disabled={page <= 1 || loading} onClick={() => setPage(1)} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>« Первая</button><button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>‹ Назад</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage((value) => Math.min(maxPage, value + 1))} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Вперёд ›</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage(maxPage)} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Последняя »</button></div>
+      </footer>
+    </section>
+  );
+}
+
