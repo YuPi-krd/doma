@@ -2088,3 +2088,26 @@ function RentPropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
   );
 }
 
+
+
+// Styles required by the rental status indicator in the property form.
+const rentBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 10px",
+  borderRadius: 2,
+  background: "#e7f1fb",
+  border: "1px solid #8ab6de",
+  color: "#155b93",
+  fontWeight: 700,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+};
+
+const rentDotStyle: React.CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  background: "#1976c9",
+};
