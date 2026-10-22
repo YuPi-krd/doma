@@ -210,7 +210,14 @@ export default function RentPage() {
   async function loadPropertyIntoForm(propertyId: number) {
     setIsLoadingExisting(true);
     try {
-      const response = await fetch(`${API_URL}/properties/${propertyId}`, { cache: "no-store" });
+      const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+      if (!token) {
+        throw new Error("Не найдена авторизация CRM. Войдите в систему заново.");
+      }
+      const response = await fetch(`${API_URL}/crm/properties/${propertyId}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const raw = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(raw.detail || `Не удалось загрузить объект №${propertyId}`);
       const p = (raw.property && typeof raw.property === "object" ? raw.property : raw) as Record<string, unknown>;
@@ -220,7 +227,7 @@ export default function RentPage() {
       setPropertySubtype(asFormString(p.property_subtype));
       setDistrict(asFormString(p.district));
       setRealAddress(asFormString(p.real_address));
-      setPublicAddress(asFormString(p.public_address));
+      setPublicAddress(asFormString(p.public_address || p.address));
       setPrice(asFormString(p.price));
       setArea(asFormString(p.area));
       setRooms(asFormString(p.rooms));
@@ -269,6 +276,7 @@ export default function RentPage() {
       setGarage(Boolean(p.garage));
       setEditingPropertyId(propertyId);
       setSavedId(null);
+      setShowCharacteristics(false);
 
       // Главное изображение и фотографии из галереи показываются в том же блоке, что и новые фото.
       const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { cache: "no-store" }).catch(() => null);
@@ -712,82 +720,6 @@ export default function RentPage() {
             </section>
 
             <section style={cardStyle}>
-              <SectionHeading
-                number="02"
-                title="Фотографии"
-                description="Добавьте фотографии объекта для будущей публикации"
-              />
-
-              <div
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  if (e.dataTransfer.files.length) {
-                    addPhotos(e.dataTransfer.files);
-                  }
-                }}
-                style={dropzoneStyle(dragActive)}
-              >
-                <div style={uploadIconStyle}>↥</div>
-                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
-                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
-                <label style={uploadButtonStyle}>
-                  Выбрать фотографии
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFiles}
-                    hidden
-                  />
-                </label>
-                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
-              </div>
-
-              {photos.length > 0 && (
-                <div style={photoGridStyle}>
-                  {photos.map((photo, index) => (
-                    <div key={photo.id} style={photoCardStyle}>
-                      <img
-                        src={photo.url}
-                        alt={photo.name}
-                        style={photoImageStyle}
-                      />
-                      <div style={photoOverlayStyle}>
-                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => setMainPhoto(photo.id)}
-                          style={photoActionStyle}
-                          title="Сделать главным"
-                        >
-                          ★
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(photo.id)}
-                          style={photoActionDangerStyle}
-                          title="Удалить"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section style={cardStyle}>
               <button
                 type="button"
                 aria-expanded={showCharacteristics}
@@ -799,6 +731,12 @@ export default function RentPage() {
                   {showCharacteristics ? "Скрыть ▲" : "Открыть характеристики ▼"}
                 </span>
               </button>
+
+              {!showCharacteristics && (
+                <div role="note" style={{ margin: "0 0 7px", padding: "6px 8px", border: "1px solid #cbd5e1", background: "#f4f7fa", color: "#586674", fontSize: 10, lineHeight: 1.4 }}>
+                  ℹ️ Дополнительные характеристики скрыты. Нажмите на заголовок «Характеристики», чтобы открыть поля.
+                </div>
+              )}
 
               {showCharacteristics && (
               <div className="doma-crm-fields" style={formGridStyle}>
@@ -1163,7 +1101,7 @@ export default function RentPage() {
             </section>
             <section style={cardStyle}>
               <SectionHeading
-                number="04"
+                number="03"
                 title="Описание"
                 description="Текст для карточки объекта"
               />
@@ -1176,6 +1114,82 @@ export default function RentPage() {
                 style={textareaStyle}
               />
               <div style={counterStyle}>{description.length} символов</div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="04"
+                title="Фотографии"
+                description="Добавьте фотографии объекта для будущей публикации"
+              />
+
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files.length) {
+                    addPhotos(e.dataTransfer.files);
+                  }
+                }}
+                style={dropzoneStyle(dragActive)}
+              >
+                <div style={uploadIconStyle}>↥</div>
+                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
+                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
+                <label style={uploadButtonStyle}>
+                  Выбрать фотографии
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFiles}
+                    hidden
+                  />
+                </label>
+                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              </div>
+
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} style={photoCardStyle}>
+                      <img
+                        src={photo.url}
+                        alt={photo.name}
+                        style={photoImageStyle}
+                      />
+                      <div style={photoOverlayStyle}>
+                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMainPhoto(photo.id)}
+                          style={photoActionStyle}
+                          title="Сделать главным"
+                        >
+                          ★
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          style={photoActionDangerStyle}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section style={cardStyle}>
@@ -2142,6 +2156,9 @@ function RentPropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
   const [error, setError] = useState("");
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -2233,7 +2250,7 @@ function RentPropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
           <p style={inlineRentStyles.subtitle}>Список расположен прямо на странице аренды — без перехода в отдельный раздел</p>
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={loading} style={{ ...inlineRentStyles.btn, opacity: loading ? 0.6 : 1 }}>↻ Обновить</button>
+          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={hasMounted && loading} style={{ ...inlineRentStyles.btn, opacity: hasMounted && loading ? 0.6 : 1 }}>↻ Обновить</button>
           <button type="button" onClick={onCreateClick} style={inlineRentStyles.blueBtn}>＋ Добавить объект</button>
         </div>
       </div>

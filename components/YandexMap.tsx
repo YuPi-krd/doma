@@ -15,6 +15,16 @@ interface MapMarker {
   address?: string;
   district?: string;
   city?: string;
+  image_url?: string | null;
+  area?: number | null;
+  rooms?: number | null;
+  status?: string | null;
+  property_type?: string | null;
+  property_type_label?: string | null;
+  property_subtype?: string | null;
+  property_subtype_label?: string | null;
+  deal_type?: string | null;
+  deal_type_label?: string | null;
 }
 
 interface YandexMapProps {
@@ -34,6 +44,73 @@ const KRASNODAR_CENTER: [
   number,
   number
 ] = [38.9769, 45.0355];
+
+const MAP_PROPERTY_TYPE_LABELS: Record<string, string> = {
+  apartment: "Квартира",
+  house: "Дом",
+  land: "Участок",
+  commercial: "Коммерция",
+  garage: "Гараж",
+};
+
+const MAP_DEAL_TYPE_LABELS: Record<string, string> = {
+  sale: "Продажа",
+  rent: "Аренда",
+  lease: "Сдача",
+};
+
+const MAP_SUBTYPE_LABELS: Record<string, string> = {
+  secondary: "Вторичка",
+  new_building: "Новостройка",
+  studio: "Студия",
+  "1_room": "1-комнатная",
+  "2_room": "2-комнатная",
+  "3_room": "3-комнатная",
+  "4_room": "4-комнатная",
+  "5_room": "5-комнатная",
+  penthouse: "Пентхаус",
+  house: "Дом",
+  part_of_house: "Часть дома",
+  townhouse: "Таунхаус",
+  duplex: "Дуплекс",
+  cottage: "Коттедж",
+  dacha: "Дача",
+  izhs: "ИЖС",
+  gardening: "Садоводство",
+  commercial_land: "Коммерческий участок",
+  lph: "ЛПХ",
+  dnp: "ДНП",
+  office: "Офис",
+  business: "Готовый бизнес",
+  separate_building: "Отдельное здание",
+  production: "Производство",
+  warehouse: "Склад",
+  retail: "Торговое помещение",
+  sto: "СТО",
+  hotel: "Гостиница",
+  car_wash: "Автомойка",
+  cafe: "Кафе",
+  shop: "Магазин",
+  garage_box: "Гараж-бокс",
+  residential_complex: "Паркинг ЖК",
+  covered_parking: "Крытый паркинг",
+  separate_garage: "Отдельный гараж",
+  parking: "Машино-место",
+};
+
+function normalizeMapImageUrl(value?: string | null): string {
+  const path = (value || "").trim();
+  if (!path) return "";
+  if (/^(https?:\/\/|data:|blob:)/i.test(path)) return path;
+  return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function getMapAddress(item: MapMarker): string {
+  return [item.address, item.district, item.city]
+    .map((part) => (part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
 
 let ymapsPromise: Promise<any> | null =
   null;
@@ -627,9 +704,19 @@ export default function YandexMap({
               coordinates: hasCoordinates
                 ? [Number(item.longitude), Number(item.latitude)] as [number, number]
                 : undefined,
-              address: String(item.address ?? item.public_address ?? ""),
+              address: String(item.public_address ?? item.address ?? ""),
               district: String(item.district ?? ""),
               city: String(item.city ?? "Краснодар"),
+              image_url: item.image_url ? String(item.image_url) : "",
+              area: Number(item.area ?? 0),
+              rooms: Number(item.rooms ?? 0),
+              status: String(item.status ?? ""),
+              property_type: String(item.property_type ?? ""),
+              property_type_label: String(item.property_type_label ?? ""),
+              property_subtype: String(item.property_subtype ?? ""),
+              property_subtype_label: String(item.property_subtype_label ?? ""),
+              deal_type: String(item.deal_type ?? ""),
+              deal_type_label: String(item.deal_type_label ?? ""),
             };
           })
           .filter((item: MapMarker) => item.coordinates || item.address || item.district);
@@ -782,15 +869,140 @@ export default function YandexMap({
         map.update({ location: { center, zoom: valid.length === 1 ? 14 : 11, duration: 300 } });
       }
 
+      // At most one preview card is open at a time.
+      let activePopup: HTMLDivElement | null = null;
+
       valid.forEach(({ item, coordinates }) => {
         const content = document.createElement("div");
         content.className = "doma-map-marker";
-        content.setAttribute("title", [item.title, item.address].filter(Boolean).join(" · "));
-        content.innerHTML = `
-          <div class="doma-map-marker__price">
-            ${Number(item.price || 0).toLocaleString("ru-RU")} ₽
-          </div>
-        `;
+        content.setAttribute("title", [item.title, getMapAddress(item)].filter(Boolean).join(" · "));
+
+        const priceButton = document.createElement("button");
+        priceButton.type = "button";
+        priceButton.className = "doma-map-marker__price";
+        priceButton.textContent = `${Number(item.price || 0).toLocaleString("ru-RU")} ₽`;
+        priceButton.setAttribute("aria-label", `Показать объявление: ${item.title || "Объект недвижимости"}`);
+        priceButton.setAttribute("aria-expanded", "false");
+
+        const popup = document.createElement("div");
+        popup.className = "doma-map-marker__popup";
+        popup.hidden = true;
+        popup.setAttribute("role", "dialog");
+        popup.setAttribute("aria-label", `Объявление: ${item.title || "Объект недвижимости"}`);
+        popup.addEventListener("click", (event) => event.stopPropagation());
+
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "doma-map-marker__close";
+        closeButton.textContent = "×";
+        closeButton.setAttribute("aria-label", "Закрыть объявление");
+        closeButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          popup.hidden = true;
+          priceButton.setAttribute("aria-expanded", "false");
+          if (activePopup === popup) activePopup = null;
+        });
+
+        const cardLink = document.createElement("a");
+        cardLink.className = "doma-map-marker__link";
+        cardLink.href = `/property/${item.id}`;
+        cardLink.setAttribute("aria-label", `Открыть объявление ${item.title || "Объект недвижимости"}`);
+
+        const photoBox = document.createElement("div");
+        photoBox.className = "doma-map-marker__photo";
+        const imageUrl = normalizeMapImageUrl(item.image_url);
+        if (imageUrl) {
+          const image = document.createElement("img");
+          image.src = imageUrl;
+          image.alt = item.title || "Фотография объекта";
+          image.loading = "lazy";
+          image.onerror = () => {
+            image.remove();
+            photoBox.classList.add("doma-map-marker__photo--empty");
+            photoBox.textContent = "Фото объекта";
+          };
+          photoBox.appendChild(image);
+        } else {
+          photoBox.classList.add("doma-map-marker__photo--empty");
+          photoBox.textContent = "Фото объекта";
+        }
+
+        const details = document.createElement("div");
+        details.className = "doma-map-marker__details";
+
+        const dealType = item.deal_type_label || MAP_DEAL_TYPE_LABELS[item.deal_type || ""] || "Недвижимость";
+        const propertyType = item.property_type_label || MAP_PROPERTY_TYPE_LABELS[item.property_type || ""] || "Объект";
+        const subtype = item.property_subtype_label || MAP_SUBTYPE_LABELS[item.property_subtype || ""] || "";
+
+        const typeLine = document.createElement("div");
+        typeLine.className = "doma-map-marker__type";
+        typeLine.textContent = `${dealType} · ${propertyType}`;
+
+        const title = document.createElement("div");
+        title.className = "doma-map-marker__title";
+        title.textContent = item.title || "Объект недвижимости";
+
+        const address = document.createElement("div");
+        address.className = "doma-map-marker__address";
+        address.textContent = getMapAddress(item) || "Краснодар";
+
+        const price = document.createElement("div");
+        price.className = "doma-map-marker__full-price";
+        price.textContent = `${Number(item.price || 0).toLocaleString("ru-RU")} ₽${item.deal_type === "rent" || item.deal_type === "lease" ? "/мес." : ""}`;
+
+        const facts = document.createElement("div");
+        facts.className = "doma-map-marker__facts";
+        if (subtype) {
+          const subtypeTag = document.createElement("span");
+          subtypeTag.className = "doma-map-marker__tag";
+          subtypeTag.textContent = subtype;
+          facts.appendChild(subtypeTag);
+        }
+        if (Number(item.area) > 0) {
+          const areaTag = document.createElement("span");
+          areaTag.className = "doma-map-marker__fact";
+          areaTag.textContent = `${Number(item.area).toLocaleString("ru-RU")} м²`;
+          facts.appendChild(areaTag);
+        }
+        if (Number(item.rooms) > 0 && item.property_type !== "land" && item.property_type !== "commercial" && item.property_type !== "garage") {
+          const roomsTag = document.createElement("span");
+          roomsTag.className = "doma-map-marker__fact";
+          roomsTag.textContent = `${Number(item.rooms)} комн.`;
+          facts.appendChild(roomsTag);
+        }
+        if (item.status) {
+          const statusTag = document.createElement("span");
+          statusTag.className = `doma-map-marker__tag${item.status === "Свободен" ? " doma-map-marker__tag--free" : ""}`;
+          statusTag.textContent = item.status;
+          facts.appendChild(statusTag);
+        }
+
+        const action = document.createElement("div");
+        action.className = "doma-map-marker__action";
+        action.textContent = "Подробнее об объекте →";
+
+        details.append(typeLine, title, address, price);
+        if (facts.childElementCount) details.appendChild(facts);
+        details.appendChild(action);
+        cardLink.append(photoBox, details);
+        popup.append(closeButton, cardLink);
+
+        priceButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const shouldOpen = popup.hidden;
+          if (activePopup && activePopup !== popup) {
+            activePopup.hidden = true;
+            const previousButton = activePopup.parentElement?.querySelector<HTMLButtonElement>(".doma-map-marker__price");
+            previousButton?.setAttribute("aria-expanded", "false");
+          }
+          popup.hidden = !shouldOpen;
+          priceButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+          activePopup = shouldOpen ? popup : null;
+        });
+
+        content.append(priceButton, popup);
         const marker = new ymaps.YMapMarker({ coordinates }, content);
         map.addChild(marker);
         markersRef.current.push(marker);
@@ -907,35 +1119,135 @@ export default function YandexMap({
         }
 
         .doma-map-marker {
-          transform:
-            translate(
-              -50%,
-              -100%
-            );
-          cursor: pointer;
+          position: relative;
+          width: max-content;
+          transform: translate(-50%, -100%);
+          cursor: default;
+          font-family: Arial, Helvetica, sans-serif;
         }
 
         .doma-map-marker__price {
-          display: inline-block;
-          padding:
-            8px
-            11px;
-          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 28px;
+          padding: 7px 10px;
+          border: 0;
+          border-radius: 9px;
           background: #ef4444;
           color: #ffffff;
-          box-shadow:
-            0 5px 15px
-              rgba(
-                0,
-                0,
-                0,
-                0.18
-              );
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.18);
+          font: inherit;
           font-size: 12px;
           font-weight: 700;
           line-height: 1;
           white-space: nowrap;
+          cursor: pointer;
+          transition: background .15s ease, transform .15s ease;
         }
+
+        .doma-map-marker__price:hover,
+        .doma-map-marker__price[aria-expanded="true"] {
+          background: #d92f3b;
+          transform: translateY(-1px);
+        }
+
+        .doma-map-marker__popup[hidden] { display: none !important; }
+
+        .doma-map-marker__popup {
+          position: absolute;
+          z-index: 1000;
+          left: 50%;
+          bottom: calc(100% + 10px);
+          width: 286px;
+          max-width: min(286px, calc(100vw - 32px));
+          overflow: visible;
+          transform: translateX(-50%);
+          border: 1px solid #e5eaf0;
+          border-radius: 15px;
+          background: #ffffff;
+          box-shadow: 0 12px 32px rgba(15, 23, 42, .22);
+          color: #13202e;
+          white-space: normal;
+        }
+
+        .doma-map-marker__popup::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -7px;
+          width: 13px;
+          height: 13px;
+          background: #fff;
+          border-right: 1px solid #e5eaf0;
+          border-bottom: 1px solid #e5eaf0;
+          transform: translateX(-50%) rotate(45deg);
+        }
+
+        .doma-map-marker__close {
+          position: absolute;
+          z-index: 2;
+          top: 7px;
+          right: 7px;
+          display: grid;
+          place-items: center;
+          width: 27px;
+          height: 27px;
+          padding: 0;
+          border: 1px solid rgba(225, 231, 239, .9);
+          border-radius: 50%;
+          background: rgba(255, 255, 255, .96);
+          color: #334155;
+          font-size: 19px;
+          line-height: 1;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(15, 23, 42, .10);
+        }
+
+        .doma-map-marker__link {
+          position: relative;
+          z-index: 1;
+          display: block;
+          overflow: hidden;
+          border-radius: 14px;
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .doma-map-marker__link:hover .doma-map-marker__action { color: #d92f3b; }
+
+        .doma-map-marker__photo {
+          display: grid;
+          place-items: center;
+          width: 100%;
+          height: 132px;
+          overflow: hidden;
+          background: #edf1f5;
+          color: #7b8795;
+          font-size: 12px;
+        }
+
+        .doma-map-marker__photo img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .doma-map-marker__photo--empty {
+          background: linear-gradient(135deg, #edf1f5, #dce3eb);
+        }
+
+        .doma-map-marker__details { padding: 11px 13px 12px; }
+        .doma-map-marker__type { margin-bottom: 4px; color: #ef4444; font-size: 10px; font-weight: 700; line-height: 1.3; }
+        .doma-map-marker__title { overflow: hidden; color: #172333; font-size: 14px; font-weight: 750; line-height: 1.3; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .doma-map-marker__address { overflow: hidden; margin-top: 4px; color: #738094; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+        .doma-map-marker__full-price { margin-top: 9px; color: #142033; font-size: 19px; font-weight: 800; line-height: 1.2; }
+        .doma-map-marker__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; }
+        .doma-map-marker__tag,
+        .doma-map-marker__fact { display: inline-flex; align-items: center; min-height: 20px; padding: 3px 7px; border-radius: 6px; background: #f0f3f6; color: #667386; font-size: 10px; line-height: 1; }
+        .doma-map-marker__tag--free { background: #dcfce7; color: #15803d; }
+        .doma-map-marker__action { margin-top: 10px; padding-top: 9px; border-top: 1px solid #edf0f4; color: #344256; font-size: 11px; font-weight: 700; transition: color .15s ease; }
       `}</style>
     </div>
   );

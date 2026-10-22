@@ -1225,6 +1225,16 @@ export default function CatalogPage() {
       address: item.address || "",
       district: item.district || "",
       city: item.city || "",
+      image_url: item.image_url || "",
+      area: Number(item.area || 0),
+      rooms: Number(item.rooms || 0),
+      status: item.status || "",
+      property_type: item.property_type || "",
+      property_type_label: item.property_type_label || "",
+      property_subtype: item.property_subtype || "",
+      property_subtype_label: item.property_subtype_label || "",
+      deal_type: item.deal_type || "",
+      deal_type_label: item.deal_type_label || "",
     };
   }).filter((item) => item.coordinates || item.address || item.district), [filteredProperties]);
 
