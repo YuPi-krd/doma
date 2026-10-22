@@ -51,6 +51,11 @@ PropertySubtype = Literal[
     "production",
     "warehouse",
     "retail",
+    "sto",
+    "hotel",
+    "car_wash",
+    "cafe",
+    "shop",
 
     # Гаражи
     "garage_box",
