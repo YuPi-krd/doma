@@ -46,6 +46,11 @@ const subtypeOptions: Record<string, { value: string; label: string }[]> = {
     { value: "production", label: "Производство" },
     { value: "warehouse", label: "Склад" },
     { value: "retail", label: "Торговое помещение" },
+    { value: "sto", label: "СТО" },
+    { value: "hotel", label: "Гостиница" },
+    { value: "car_wash", label: "Автомойка" },
+    { value: "cafe", label: "Кафе" },
+    { value: "shop", label: "Магазин" },
   ],
   garage: [
     { value: "garage_box", label: "Гараж-бокс" },
@@ -88,11 +93,8 @@ export default function SalePage() {
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agentComment, setAgentComment] = useState("");
   const [source, setSource] = useState("Рекомендация");
-  const [dealDate, setDealDate] = useState("");
   const [hasMaternalCapital, setHasMaternalCapital] = useState(false);
   const [showPricePerSqm, setShowPricePerSqm] = useState(false);
-  const [mortgageRate, setMortgageRate] = useState("");
-  const [monthlyPayment, setMonthlyPayment] = useState("");
   const [residentialComplex, setResidentialComplex] = useState("");
   const [cadastralNumber, setCadastralNumber] = useState("");
   const [landCadastralNumber, setLandCadastralNumber] = useState("");
@@ -125,6 +127,8 @@ export default function SalePage() {
   const [editingPropertyId, setEditingPropertyId] = useState<number | null>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [showCharacteristics, setShowCharacteristics] = useState(false);
+  const [showReferenceSummary, setShowReferenceSummary] = useState(false);
 
   const currentSubtypes = useMemo(
     () => subtypeOptions[propertyType] ?? subtypeOptions.apartment,
@@ -231,9 +235,6 @@ export default function SalePage() {
       setOwnerPhone(asFormString(p.owner_phone));
       setAgentComment(asFormString(p.agent_comment));
       setSource(asFormString(p.source));
-      setDealDate(asFormString(p.deal_date));
-      setMortgageRate(asFormString(p.mortgage_rate));
-      setMonthlyPayment(asFormString(p.monthly_payment));
       setResidentialComplex(asFormString(p.residential_complex));
       setCadastralNumber(asFormString(p.cadastral_number));
       setLandCadastralNumber(asFormString(p.land_cadastral_number));
@@ -319,9 +320,6 @@ export default function SalePage() {
     setOwnerPhone("");
     setAgentComment("");
     setSource("Рекомендация");
-    setDealDate("");
-    setMortgageRate("");
-    setMonthlyPayment("");
     setResidentialComplex("");
     setCadastralNumber("");
     setLandCadastralNumber("");
@@ -354,6 +352,8 @@ export default function SalePage() {
     setPropertySubtype("secondary");
     setPhotos([]);
     setEditingPropertyId(null);
+    setShowCharacteristics(false);
+    setShowReferenceSummary(false);
     setSavedId(null);
     document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -383,11 +383,8 @@ export default function SalePage() {
       ownerPhone,
       agentComment,
       source,
-      dealDate,
       hasMaternalCapital,
       showPricePerSqm,
-      mortgageRate,
-      monthlyPayment,
       residentialComplex,
       cadastralNumber,
       landCadastralNumber,
@@ -465,11 +462,8 @@ export default function SalePage() {
           owner_phone: ownerPhone,
           agent_comment: agentComment,
           source,
-          deal_date: dealDate || null,
           has_maternal_capital: hasMaternalCapital,
           show_price_per_sqm: showPricePerSqm,
-          mortgage_rate: Number(mortgageRate) || 0,
-          monthly_payment: Number(monthlyPayment) || 0,
           residential_complex: residentialComplex,
           cadastral_number: cadastralNumber,
           land_cadastral_number: landCadastralNumber,
@@ -675,19 +669,10 @@ export default function SalePage() {
                   </div>
                 </Field>
 
-                <Field label="Дата сделки / заселения">
-                  <input type="date" value={dealDate} onChange={(e) => setDealDate(e.target.value)} style={inputStyle} />
-                </Field>
                 <Field label="Источник обращения">
                   <select value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
                     <option>Рекомендация</option><option>Сайт</option><option>Звонок</option><option>Социальные сети</option><option>Реклама</option><option>Партнёр</option><option>Повторный клиент</option><option>Другое</option>
                   </select>
-                </Field>
-                <Field label="Ипотечная ставка, %">
-                  <input type="number" min="0" max="100" step="0.1" value={mortgageRate} onChange={(e) => setMortgageRate(e.target.value)} placeholder="0" style={inputStyle} />
-                </Field>
-                <Field label="Платёж в месяц, ₽">
-                  <input type="number" min="0" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0" style={inputStyle} />
                 </Field>
                 <Field label="Кадастровый номер объекта">
                   <input value={cadastralNumber} onChange={(e) => setCadastralNumber(e.target.value)} placeholder="XX:XX:XXXXXXX:XXX" style={inputStyle} />
@@ -707,50 +692,99 @@ export default function SalePage() {
                     <span>Возможна сделка с маткапиталом</span>
                   </span>
                 </Field>
-
-                <Field label="Реальный адрес" required full>
-                  <div style={{ position: "relative" }}>
-                    <div style={privateFieldWrapStyle}>
-                      <input
-                        value={realAddress}
-                        onChange={(e) => setRealAddress(e.target.value)}
-                        placeholder="Полный фактический адрес"
-                        style={{ ...inputStyle, borderColor: "#fecaca", paddingRight: 120 }}
-                      />
-                      <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
-                    </div>
-                    {realAddress.trim() && (
-                      <AddressMap address={realAddress} label="Карта реального адреса" />
-                    )}
-                  </div>
-                </Field>
-
-                <Field label="Рекламный адрес" full>
-                  <div style={{ position: "relative" }}>
-                    <div style={publicFieldWrapStyle}>
-                      <input
-                        value={publicAddress}
-                        onChange={(e) => setPublicAddress(e.target.value)}
-                        placeholder="Адрес для публикации на сайте"
-                        style={{ ...inputStyle, borderColor: "#bbf7d0", paddingRight: 135 }}
-                      />
-                      <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
-                    </div>
-                    {publicAddress.trim() && (
-                      <AddressMap address={publicAddress} label="Карта рекламного адреса" />
-                    )}
-                  </div>
-                </Field>
-              </div>
+</div>
             </section>
 
             <section style={cardStyle}>
               <SectionHeading
-                number="04"
-                title="Характеристики"
-                description={`Параметры объекта: ${propertyTypeLabels[propertyType] ?? "недвижимость"}`}
+                number="02"
+                title="Фотографии"
+                description="Добавьте фотографии объекта для будущей публикации"
               />
 
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files.length) {
+                    addPhotos(e.dataTransfer.files);
+                  }
+                }}
+                style={dropzoneStyle(dragActive)}
+              >
+                <div style={uploadIconStyle}>↥</div>
+                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
+                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
+                <label style={uploadButtonStyle}>
+                  Выбрать фотографии
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFiles}
+                    hidden
+                  />
+                </label>
+                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              </div>
+
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} style={photoCardStyle}>
+                      <img
+                        src={photo.url}
+                        alt={photo.name}
+                        style={photoImageStyle}
+                      />
+                      <div style={photoOverlayStyle}>
+                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMainPhoto(photo.id)}
+                          style={photoActionStyle}
+                          title="Сделать главным"
+                        >
+                          ★
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          style={photoActionDangerStyle}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={cardStyle}>
+              <button
+                type="button"
+                aria-expanded={showCharacteristics}
+                onClick={() => setShowCharacteristics((value) => !value)}
+                style={{ ...sectionHeadingStyle, width: "calc(100% + 16px)", border: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit", color: "#fff" }}
+              >
+                <span style={sectionTitleStyle}>Характеристики</span>
+                <span style={{ marginLeft: "auto", color: "#fff", fontSize: 10, whiteSpace: "nowrap" }}>
+                  {showCharacteristics ? "Скрыть ▲" : "Открыть характеристики ▼"}
+                </span>
+              </button>
+
+              {showCharacteristics && (
               <div className="doma-crm-fields" style={formGridStyle}>
                 <Field label="Состояние объекта">
                   <select value={condition} onChange={(e) => setCondition(e.target.value)} style={inputStyle}>
@@ -1109,10 +1143,11 @@ export default function SalePage() {
                   </>
                 )}
               </div>
+              )}
             </section>
             <section style={cardStyle}>
               <SectionHeading
-                number="02"
+                number="04"
                 title="Описание"
                 description="Текст для карточки объекта"
               />
@@ -1211,85 +1246,57 @@ export default function SalePage() {
               </div>
             </section>
 
+
             <section style={cardStyle}>
               <SectionHeading
-                number="03"
-                title="Фотографии"
-                description="Добавьте фотографии объекта для будущей публикации"
+                number="07"
+                title="Карта адресов"
+                description="Одна карта с двумя метками: реальный и рекламный адрес"
               />
-
-              <div
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  if (e.dataTransfer.files.length) {
-                    addPhotos(e.dataTransfer.files);
-                  }
-                }}
-                style={dropzoneStyle(dragActive)}
-              >
-                <div style={uploadIconStyle}>↥</div>
-                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
-                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
-                <label style={uploadButtonStyle}>
-                  Выбрать фотографии
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFiles}
-                    hidden
-                  />
-                </label>
-                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Реальный адрес" required full>
+                  <div style={privateFieldWrapStyle}>
+                    <input
+                      value={realAddress}
+                      onChange={(e) => setRealAddress(e.target.value)}
+                      placeholder="Полный фактический адрес"
+                      style={{ ...inputStyle, borderColor: "#fecaca", paddingRight: 125 }}
+                    />
+                    <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
+                  </div>
+                </Field>
+                <Field label="Рекламный адрес" full>
+                  <div style={publicFieldWrapStyle}>
+                    <input
+                      value={publicAddress}
+                      onChange={(e) => setPublicAddress(e.target.value)}
+                      placeholder="Адрес для публикации на сайте"
+                      style={{ ...inputStyle, borderColor: "#bbf7d0", paddingRight: 145 }}
+                    />
+                    <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
+                  </div>
+                </Field>
               </div>
-
-              {photos.length > 0 && (
-                <div style={photoGridStyle}>
-                  {photos.map((photo, index) => (
-                    <div key={photo.id} style={photoCardStyle}>
-                      <img
-                        src={photo.url}
-                        alt={photo.name}
-                        style={photoImageStyle}
-                      />
-                      <div style={photoOverlayStyle}>
-                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
-                        <button
-                          type="button"
-                          onClick={() => setMainPhoto(photo.id)}
-                          style={photoActionStyle}
-                          title="Сделать главным"
-                        >
-                          ★
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(photo.id)}
-                          style={photoActionDangerStyle}
-                          title="Удалить"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AddressMap
+                realAddress={realAddress}
+                publicAddress={publicAddress}
+                onRealAddressChange={setRealAddress}
+                onPublicAddressChange={setPublicAddress}
+              />
             </section>
           </div>
 
           <aside className="doma-crm-reference" style={referencePanelStyle}>
-            <div style={referencePanelHeaderStyle}>Характеристики объекта</div>
+            <button
+              type="button"
+              aria-expanded={showReferenceSummary}
+              onClick={() => setShowReferenceSummary((value) => !value)}
+              style={{ ...referencePanelHeaderStyle, display: "block", width: "calc(100% + 12px)", border: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Сводка объекта {showReferenceSummary ? "−" : "+"}
+            </button>
+            {showReferenceSummary && (
+            <>
             <table style={referenceTableStyle}>
               <tbody>
                 {[
@@ -1331,9 +1338,6 @@ export default function SalePage() {
                   ["Микрорайон", district || "—"],
                   ["Метро / остановка", metro || "—"],
                   ["Источник обращения", source || "—"],
-                  ["Дата сделки / заселения", dealDate || "—"],
-                  ["Ипотечная ставка", mortgageRate ? `${mortgageRate}%` : "—"],
-                  ["Платёж в месяц", monthlyPayment ? `${Number(monthlyPayment).toLocaleString("ru-RU")} ₽` : "—"],
                   ["Материнский капитал", hasMaternalCapital ? "Возможен" : "Нет / не указано"],
                   ["Цена за м² на сайте", showPricePerSqm ? "Показывать" : "Не показывать"],
                   ["Кадастровый номер объекта", cadastralNumber || "—"],
@@ -1347,6 +1351,8 @@ export default function SalePage() {
               </tbody>
             </table>
             <div style={referencePanelFooterStyle}>Значения обновляются при заполнении формы.</div>
+            </>
+            )}
           </aside>
         </section>
 
@@ -1528,87 +1534,292 @@ function DistrictPicker({ value, onChange }: { value: string; onChange: (value: 
   );
 }
 
-function AddressMap({ address, label }: { address: string; label: string }) {
-  const query = address.trim();
-  const [mapQuery, setMapQuery] = useState(query);
-  const [resolvedPoint, setResolvedPoint] = useState<{
-    query: string;
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+type DomaAddressKind = "real" | "public";
+type DomaLngLat = [number, number];
 
-  // Уменьшаем количество перезагрузок iframe: ждём, пока ввод адреса завершится.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setMapQuery(query), 600);
-    return () => window.clearTimeout(timer);
-  }, [query]);
+declare global {
+  interface Window {
+    ymaps3?: any;
+  }
+}
 
-  useEffect(() => {
-    if (!mapQuery.trim()) {
-      setResolvedPoint(null);
-      return;
-    }
+let domaCrmYmapsPromise: Promise<any> | null = null;
 
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
+async function loadDomaCrmYmaps(): Promise<any> {
+  if (typeof window === "undefined") throw new Error("Яндекс.Карты доступны только в браузере.");
+  if (window.ymaps3) {
+    await window.ymaps3.ready;
+    return window.ymaps3;
+  }
+  if (domaCrmYmapsPromise) return domaCrmYmapsPromise;
+
+  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+  if (!apiKey) throw new Error("Не найден NEXT_PUBLIC_YANDEX_MAPS_API_KEY.");
+
+  domaCrmYmapsPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector('script[data-yandex-maps="true"]') as HTMLScriptElement | null;
+    const script = existingScript ?? document.createElement("script");
+    const handleLoad = async () => {
       try {
-        const addressForLookup = `${mapQuery.trim()}, Краснодар`;
-        const response = await fetch(
-          `${API_URL}/geocode?address=${encodeURIComponent(addressForLookup)}`,
-          { cache: "no-store" }
-        );
-        if (!response.ok) throw new Error(`Геокодер вернул HTTP ${response.status}`);
-        const data = await response.json();
-        if (cancelled) return;
-        const latitude = Number(data?.latitude);
-        const longitude = Number(data?.longitude);
-        if (data?.found === true && Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          setResolvedPoint({ query: mapQuery.trim(), latitude, longitude });
-        } else {
-          setResolvedPoint(null);
-        }
+        if (!window.ymaps3) throw new Error("Яндекс.Карты не инициализировались после загрузки API.");
+        await window.ymaps3.ready;
+        resolve(window.ymaps3);
       } catch (error) {
+        reject(error);
+      }
+    };
+    const handleError = () => reject(new Error("Не удалось загрузить API Яндекс.Карт. Проверьте ключ и ограничения домена."));
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    if (!existingScript) {
+      script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+      script.async = true;
+      script.dataset.yandexMaps = "true";
+      document.head.appendChild(script);
+    } else if (window.ymaps3) {
+      void handleLoad();
+    }
+  });
+
+  return domaCrmYmapsPromise;
+}
+
+function isDomaLngLat(value: unknown): value is DomaLngLat {
+  return Array.isArray(value) && value.length === 2 && Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1]));
+}
+
+function AddressMap({
+  realAddress,
+  publicAddress,
+  onRealAddressChange,
+  onPublicAddressChange,
+}: {
+  realAddress: string;
+  publicAddress: string;
+  onRealAddressChange: (value: string) => void;
+  onPublicAddressChange: (value: string) => void;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<Record<DomaAddressKind, any>>({ real: null, public: null });
+  const coordinatesRef = useRef<Record<DomaAddressKind, DomaLngLat>>({
+    real: [38.9769, 45.0355],
+    public: [38.9822, 45.0380],
+  });
+  const latestPropsRef = useRef({ onRealAddressChange, onPublicAddressChange });
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapError, setMapError] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [mapNotice, setMapNotice] = useState("Перетаскивайте красную и синюю метки. После перемещения соответствующий адрес заполнится автоматически.");
+  const [markerCoordinates, setMarkerCoordinates] = useState<Record<DomaAddressKind, DomaLngLat>>({
+    real: [38.9769, 45.0355],
+    public: [38.9822, 45.0380],
+  });
+
+  useEffect(() => {
+    latestPropsRef.current = { onRealAddressChange, onPublicAddressChange };
+  }, [onRealAddressChange, onPublicAddressChange]);
+
+  const reverseGeocodeMarker = async (kind: DomaAddressKind, coordinates: DomaLngLat) => {
+    const [longitude, latitude] = coordinates;
+    setMapNotice(`Определяем адрес для ${kind === "real" ? "реальной" : "рекламной"} метки…`);
+    try {
+      const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+      const response = await fetch(`${API_URL}/reverse-geocode?${query.toString()}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      const formatted = typeof data?.formatted === "string" ? data.formatted.trim() : "";
+      if (!response.ok || data?.found !== true || !formatted) {
+        throw new Error(data?.detail || "Не удалось получить адрес по координатам.");
+      }
+      const setter = kind === "real"
+        ? latestPropsRef.current.onRealAddressChange
+        : latestPropsRef.current.onPublicAddressChange;
+      setter(formatted);
+      setMapNotice(`${kind === "real" ? "Реальный" : "Рекламный"} адрес обновлён по положению метки.`);
+    } catch (error) {
+      console.error("Ошибка обратного геокодирования DOMA:", error);
+      setMapNotice("Метка перемещена, но адрес не определился. Проверьте доступность обратного геокодирования на сервере.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let map: any = null;
+
+    async function initMap() {
+      try {
+        setMapStatus("loading");
+        const ymaps = await loadDomaCrmYmaps();
+        if (cancelled || !mapContainerRef.current) return;
+        map = new ymaps.YMap(mapContainerRef.current, {
+          location: { center: [38.9769, 45.0355], zoom: 12 },
+          mode: "vector",
+        });
+        map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
+        map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
+        mapRef.current = map;
+        setMapStatus("ready");
+      } catch (error) {
+        console.error("Ошибка инициализации карты CRM:", error);
         if (!cancelled) {
-          setResolvedPoint(null);
-          console.warn("Не удалось найти точку адреса для карты:", error);
+          setMapError(error instanceof Error ? error.message : "Не удалось загрузить карту.");
+          setMapStatus("error");
         }
       }
-    }, 100);
+    }
+
+    void initMap();
+    return () => {
+      cancelled = true;
+      const currentMap = mapRef.current ?? map;
+      if (currentMap) {
+        (Object.keys(markersRef.current) as DomaAddressKind[]).forEach((kind) => {
+          const marker = markersRef.current[kind];
+          if (marker) {
+            try { currentMap.removeChild(marker); } catch { /* метка уже удалена */ }
+          }
+          markersRef.current[kind] = null;
+        });
+        try { currentMap.destroy(); } catch { /* карта уже уничтожена */ }
+      }
+      if (mapRef.current === currentMap) mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current) return;
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      const entries: Array<{ kind: DomaAddressKind; address: string; coordinates: DomaLngLat; resolved: boolean }> = [];
+      const inputs: Array<{ kind: DomaAddressKind; address: string }> = [
+        { kind: "real", address: realAddress.trim() },
+        { kind: "public", address: publicAddress.trim() },
+      ];
+
+      await Promise.all(inputs.map(async ({ kind, address }) => {
+        let coordinates = coordinatesRef.current[kind];
+        let resolved = false;
+        if (address) {
+          try {
+            const query = new URLSearchParams({ address: `${address}, Краснодар` });
+            const response = await fetch(`${API_URL}/geocode?${query.toString()}`, { cache: "no-store" });
+            const data = await response.json().catch(() => ({}));
+            const longitude = Number(data?.longitude);
+            const latitude = Number(data?.latitude);
+            if (response.ok && data?.found === true && Number.isFinite(longitude) && Number.isFinite(latitude)) {
+              coordinates = [longitude, latitude];
+              resolved = true;
+            }
+          } catch (error) {
+            console.warn(`Не удалось определить координаты адреса (${kind}):`, error);
+          }
+        }
+        if (cancelled) return;
+        coordinatesRef.current[kind] = coordinates;
+        const marker = markersRef.current[kind];
+        const ymaps = window.ymaps3;
+        const onDragMove = (value: unknown) => {
+          if (!isDomaLngLat(value)) return;
+          const point: DomaLngLat = [Number(value[0]), Number(value[1])];
+          coordinatesRef.current[kind] = point;
+          markersRef.current[kind]?.update({ coordinates: point });
+        };
+        const onDragEnd = (value: unknown) => {
+          if (!isDomaLngLat(value)) return;
+          const point: DomaLngLat = [Number(value[0]), Number(value[1])];
+          coordinatesRef.current[kind] = point;
+          setMarkerCoordinates((current) => ({ ...current, [kind]: point }));
+          void reverseGeocodeMarker(kind, point);
+        };
+
+        if (marker) {
+          marker.update({ coordinates, draggable: true, mapFollowsOnDrag: true, onDragMove, onDragEnd });
+        } else if (ymaps && mapRef.current) {
+          const element = document.createElement("div");
+          element.textContent = kind === "real" ? "Реальный адрес" : "Рекламный адрес";
+          element.title = `Перетащите, чтобы изменить ${kind === "real" ? "реальный" : "рекламный"} адрес`;
+          element.setAttribute("role", "img");
+          element.setAttribute("aria-label", element.title);
+          element.style.cssText = [
+            "position:relative",
+            "transform:translate(-50%,-100%)",
+            `background:${kind === "real" ? "#dc2626" : "#2563eb"}`,
+            "color:#fff",
+            "border:2px solid #fff",
+            "border-radius:8px 8px 8px 2px",
+            "padding:6px 9px",
+            "font:700 11px/1.2 Arial,sans-serif",
+            "white-space:nowrap",
+            "box-shadow:0 2px 7px rgba(15,23,42,.35)",
+            "cursor:grab",
+            "user-select:none",
+          ].join(";");
+          const newMarker = new ymaps.YMapMarker({
+            coordinates,
+            draggable: true,
+            mapFollowsOnDrag: true,
+            onDragMove,
+            onDragEnd,
+          }, element);
+          mapRef.current.addChild(newMarker);
+          markersRef.current[kind] = newMarker;
+        }
+        entries.push({ kind, address, coordinates, resolved });
+      }));
+
+      if (cancelled) return;
+      setMarkerCoordinates({
+        real: coordinatesRef.current.real,
+        public: coordinatesRef.current.public,
+      });
+      setIsSearching(false);
+
+      const resolvedEntries = entries.filter((entry) => entry.address && entry.resolved);
+      const centerEntries = resolvedEntries.length
+        ? resolvedEntries
+        : entries.filter((entry) => entry.address).length
+          ? entries.filter((entry) => entry.address)
+          : entries;
+      const center: DomaLngLat = centerEntries.length
+        ? [
+            centerEntries.reduce((sum, entry) => sum + entry.coordinates[0], 0) / centerEntries.length,
+            centerEntries.reduce((sum, entry) => sum + entry.coordinates[1], 0) / centerEntries.length,
+          ]
+        : [38.9769, 45.0355];
+      const zoom = resolvedEntries.length > 1 ? 12 : resolvedEntries.length === 1 ? 16 : 12;
+      mapRef.current?.update({ location: { center, zoom, duration: 300 } });
+    }, 450);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [mapQuery]);
+  }, [realAddress, publicAddress, mapStatus]);
 
-    if (!query) return null;
-
-  const activeQuery = mapQuery.trim() || query;
-  const exactPoint = resolvedPoint?.query === activeQuery ? resolvedPoint : null;
-  const mapUrl = exactPoint
-    ? `https://yandex.ru/map-widget/v1/?ll=${exactPoint.longitude}%2C${exactPoint.latitude}&z=17&pt=${exactPoint.longitude}%2C${exactPoint.latitude},pm2rdm&lang=ru_RU`
-    : `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent(activeQuery + ", Краснодар")}&z=15&lang=ru_RU`;
-  const largeMapUrl = exactPoint
-    ? `https://yandex.ru/maps/?ll=${exactPoint.longitude}%2C${exactPoint.latitude}&z=17&pt=${exactPoint.longitude}%2C${exactPoint.latitude},pm2rdm`
-    : `https://yandex.ru/maps/?text=${encodeURIComponent(activeQuery + ", Краснодар")}`;
+  const markerParam = [
+    `${markerCoordinates.real[0]},${markerCoordinates.real[1]},pm2rdm`,
+    `${markerCoordinates.public[0]},${markerCoordinates.public[1]},pm2blm`,
+  ].join("~");
+  const largeMapUrl = `https://yandex.ru/maps/?ll=${markerCoordinates.real[0]}%2C${markerCoordinates.real[1]}&z=12&pt=${markerParam}`;
 
   return (
     <div style={addressMapWrapStyle}>
-      <div style={addressMapTitleStyle}>{label}</div>
-      <iframe
-        key={mapUrl}
-        title={label}
-        src={mapUrl}
-        width="100%"
-        height={220}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        style={addressMapFrameStyle}
-        allowFullScreen
+      <div
+        ref={mapContainerRef}
+        role="application"
+        aria-label="Карта адресов DOMA с двумя перетаскиваемыми метками"
+        style={{ display: "block", width: "100%", height: 300, minHeight: 260, overflow: "hidden", borderRadius: 12, background: "#e9eef5" }}
       />
+      {mapStatus === "loading" && <div style={{ ...addressMapCaptionStyle, marginTop: 0 }}>Загружаем карту Яндекса…</div>}
+      {mapStatus === "error" && <div style={{ ...addressMapCaptionStyle, color: "#b91c1c" }}>Не удалось загрузить карту: {mapError}</div>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
         <div style={addressMapCaptionStyle}>
-          {exactPoint ? "Точка адреса найдена и отмечена на карте." : "Ищем адрес; если точка не определится, карта покажет результаты поиска."}
+          {isSearching ? "Определяем координаты адресов… " : ""}
+          <span style={{ color: "#dc2626", fontWeight: 700 }}>Красная метка</span> — только агенту;{" "}
+          <span style={{ color: "#2563eb", fontWeight: 700 }}>синяя метка</span> — рекламный адрес. {mapNotice}
         </div>
         <a href={largeMapUrl} target="_blank" rel="noreferrer" style={{ color: "#dc2626", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
           Открыть большую карту ↗
@@ -1739,24 +1950,6 @@ const addressMapWrapStyle: React.CSSProperties = {
   borderRadius: 2,
   background: "#fff",
   boxShadow: "0 4px 12px rgba(22,42,60,.12)",
-};
-const addressMapTitleStyle: React.CSSProperties = { marginBottom: 6, fontSize: 11, fontWeight: 700, color: "#334155" };
-const addressMapFrameStyle: React.CSSProperties = { display: "block", border: 0, borderRadius: 2, background: "#eef2f7" };
-const addressMapPinStyle: React.CSSProperties = {
-  position: "absolute",
-  left: "50%",
-  top: "50%",
-  transform: "translate(-50%, -58%)",
-  zIndex: 2,
-  pointerEvents: "none",
-  filter: "drop-shadow(0 2px 3px rgba(15,23,42,.35))",
-};
-const addressMapPinFlagStyle: React.CSSProperties = {
-  display: "block",
-  color: "#dc2626",
-  fontSize: 34,
-  lineHeight: 1,
-  textShadow: "0 1px 0 #fff",
 };
 const addressMapCaptionStyle: React.CSSProperties = { marginTop: 7, fontSize: 11, color: "#64748b" };
 
@@ -2083,7 +2276,18 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
               const address = inlineSaleAddress(item);
               return <tr key={item.id} className="doma-sale-inline-row">
                 <td style={{ ...inlineSaleStyles.cell, color: "#536575" }}>#{item.id}</td>
-                <td style={inlineSaleStyles.cell}>{item.image_url ? <img src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`} alt="" loading="lazy" style={{ display: "block", width: 54, height: 39, objectFit: "cover", border: "1px solid #bdc7cf" }} /> : <span style={{ display: "grid", placeItems: "center", width: 54, height: 39, border: "1px solid #bdc7cf", background: "#e8edf2", color: "#80909e", fontSize: 9 }}>Нет фото</span>}</td>
+                <td style={{ ...inlineSaleStyles.cell }}>
+                  <button
+                    type="button"
+                    disabled={isOpening}
+                    onClick={() => onOpenProperty(item.id)}
+                    aria-label={`Открыть данные объекта №${item.id}`}
+                    title="Открыть данные объекта"
+                    style={{ display: "block", border: 0, background: "transparent", padding: 0, cursor: isOpening ? "wait" : "pointer", opacity: isOpening ? 0.6 : 1 }}
+                  >
+                    {item.image_url ? <img src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`} alt={item.title || "Фото объекта"} loading="lazy" style={{ display: "block", width: 54, height: 39, objectFit: "cover", border: "1px solid #bdc7cf" }} /> : <span style={{ display: "grid", placeItems: "center", width: 54, height: 39, border: "1px solid #bdc7cf", background: "#e8edf2", color: "#80909e", fontSize: 9 }}>Нет фото</span>}
+                  </button>
+                </td>
                 <td style={{ ...inlineSaleStyles.cell, minWidth: 150 }}><div style={{ fontWeight: 700, color: "#163e5d" }}>{item.title?.trim() || "Без названия"}</div><div style={{ color: "#667887", marginTop: 2, fontSize: 9 }}>{item.property_subtype_label || item.property_subtype || ""}</div></td>
                 <td style={inlineSaleStyles.cell}>{type}</td>
                 <td style={{ ...inlineSaleStyles.cell, maxWidth: 235, color: "#455866" }}>{address}</td>

@@ -532,6 +532,9 @@ export default function CatalogPage() {
     "list" | "map"
   >("list");
 
+  // Компактные карточки включены по умолчанию; размер можно переключить в шапке.
+  const [cardSize, setCardSize] = useState<"compact" | "large">("compact");
+
   const [
     filterOpen,
     setFilterOpen,
@@ -863,47 +866,6 @@ export default function CatalogPage() {
       nextSubtype:
         propertySubtype,
     });
-  }
-
-  /* ==========================================================
-     QUICK FILTERS
-  ========================================================== */
-
-  function handleRoomQuickFilter(
-    value: string
-  ) {
-    setRooms(
-      rooms === value
-        ? "all"
-        : value
-    );
-  }
-
-  function handleQuickSubtype(
-    value: string
-  ) {
-    if (
-      propertyType !==
-      "apartment"
-    ) {
-      updateCategory({
-        nextDealType:
-          dealType,
-        nextPropertyType:
-          "apartment",
-        nextSubtype:
-          value,
-      });
-
-      return;
-    }
-
-    handleSubtypeChange(
-      propertySubtype ===
-        value
-        ? "all"
-        : value
-    );
   }
 
   /* ==========================================================
@@ -1339,9 +1301,10 @@ export default function CatalogPage() {
               </span>
             </div>
 
-            <button
-              type="button"
-              className="filter-button"
+            <div className="top-bar-actions">
+              <button
+                type="button"
+                className="filter-button"
               onClick={() =>
                 setFilterOpen(
                   true
@@ -1403,6 +1366,28 @@ export default function CatalogPage() {
                 </span>
               </button>
 
+            </div>
+
+              <div className="size-switch" role="group" aria-label="Размер карточек">
+                <button
+                  type="button"
+                  className={cardSize === "compact" ? "active" : ""}
+                  onClick={() => setCardSize("compact")}
+                  aria-pressed={cardSize === "compact"}
+                  title="Показывать компактные карточки"
+                >
+                  ▤ Компактно
+                </button>
+                <button
+                  type="button"
+                  className={cardSize === "large" ? "active" : ""}
+                  onClick={() => setCardSize("large")}
+                  aria-pressed={cardSize === "large"}
+                  title="Показывать крупные карточки"
+                >
+                  ▦ Крупно
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1509,127 +1494,6 @@ export default function CatalogPage() {
                   );
                 }
               )}
-
-            </div>
-          )}
-
-          {/* ==================================================
-              QUICK FILTERS
-          ================================================== */}
-
-          {propertyType ===
-            "apartment" && (
-            <div className="quick-filters">
-
-              {[
-                [
-                  "1",
-                  "1-комнатные",
-                ],
-                [
-                  "2",
-                  "2-комнатные",
-                ],
-                [
-                  "3",
-                  "3-комнатные",
-                ],
-                [
-                  "4",
-                  "4-комнатные",
-                ],
-                [
-                  "5",
-                  "5-комнатные",
-                ],
-              ].map(
-                (item) => (
-                  <button
-                    key={
-                      item[0]
-                    }
-                    type="button"
-                    className={
-                      rooms ===
-                      item[0]
-                        ? "quick-active"
-                        : ""
-                    }
-                    onClick={() =>
-                      handleRoomQuickFilter(
-                        item[0]
-                      )
-                    }
-                  >
-                    {
-                      item[1]
-                    }
-                  </button>
-                )
-              )}
-
-              <button
-                type="button"
-                className={
-                  propertySubtype ===
-                  "studio"
-                    ? "quick-active"
-                    : ""
-                }
-                onClick={() =>
-                  handleQuickSubtype(
-                    "studio"
-                  )
-                }
-              >
-                Студии
-              </button>
-
-              <button
-                type="button"
-                className={
-                  propertySubtype ===
-                  "secondary"
-                    ? "quick-active"
-                    : ""
-                }
-                onClick={() =>
-                  handleQuickSubtype(
-                    "secondary"
-                  )
-                }
-              >
-                Вторичка
-              </button>
-
-              <button
-                type="button"
-                className={
-                  propertySubtype ===
-                  "new_building"
-                    ? "quick-active"
-                    : ""
-                }
-                onClick={() =>
-                  handleQuickSubtype(
-                    "new_building"
-                  )
-                }
-              >
-                Новостройки
-              </button>
-
-              <button
-                type="button"
-                className="arrow-button"
-                onClick={() =>
-                  setFilterOpen(
-                    true
-                  )
-                }
-              >
-                →
-              </button>
 
             </div>
           )}
@@ -1743,7 +1607,7 @@ export default function CatalogPage() {
               {!loading &&
                 filteredProperties.length >
                   0 && (
-                  <div className="property-grid">
+                  <div className={`property-grid ${cardSize === "compact" ? "compact-view" : "large-view"}`}>
 
                     {filteredProperties.map(
                       (item) => {
@@ -1800,38 +1664,6 @@ export default function CatalogPage() {
                                   variant="card"
                                 />
 
-                                <div className="photo-top-actions">
-
-                                  <button
-                                    type="button"
-                                    className="circle-action"
-                                    onClick={(
-                                      e
-                                    ) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    aria-label="Добавить в избранное"
-                                  >
-                                    ♡
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="circle-action"
-                                    onClick={(
-                                      e
-                                    ) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    aria-label="Дополнительные действия"
-                                  >
-                                    ☷
-                                  </button>
-
-                                </div>
-
                                 {item.status ===
                                   "Забронирован" && (
                                   <div className="status-badge">
@@ -1844,7 +1676,8 @@ export default function CatalogPage() {
                               {/* CARD CONTENT */}
 
                               <div className="card-content">
-
+                                <div className="card-row">
+                                  <div className="card-info">
                                 <div className="card-type">
                                   {dealLabel}
                                   {" · "}
@@ -1953,15 +1786,14 @@ export default function CatalogPage() {
                                   )}
 
                                 </div>
-
-                                <div className="card-bottom">
-
-                                  <span className="contact-button">
-                                    Связаться
-                                  </span>
-
                                 </div>
 
+                                  <div className="card-bottom">
+                                    <span className="contact-button">
+                                      Связаться
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
                             </article>
@@ -2816,7 +2648,6 @@ export default function CatalogPage() {
           grid-template-columns:
             48px
             minmax(240px, 1fr)
-            auto
             auto;
           gap: 12px;
           align-items: center;
@@ -2864,6 +2695,15 @@ export default function CatalogPage() {
           margin-top: 3px;
           color: #788290;
           font-size: 12px;
+        }
+
+        .top-bar-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          min-width: 0;
+          flex-wrap: nowrap;
         }
 
         .filter-button {
@@ -2935,13 +2775,40 @@ export default function CatalogPage() {
               );
         }
 
+        .size-switch {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 4px;
+          border-radius: 24px;
+          background: #f1f3f6;
+          white-space: nowrap;
+        }
+
+        .size-switch button {
+          border: 0;
+          border-radius: 20px;
+          padding: 10px 11px;
+          background: transparent;
+          color: #8b94a1;
+          cursor: pointer;
+          font-size: 12px;
+          white-space: nowrap;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .size-switch button.active {
+          background: #ffffff;
+          color: #2f3741;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
         /* ========================================================
            CATEGORY / SUBTYPE
         ======================================================== */
 
         .category-tabs,
-        .subtype-tabs,
-        .quick-filters {
+        .subtype-tabs {
           display: flex;
           align-items: center;
           gap: 8px;
@@ -2950,8 +2817,7 @@ export default function CatalogPage() {
         }
 
         .category-tabs::-webkit-scrollbar,
-        .subtype-tabs::-webkit-scrollbar,
-        .quick-filters::-webkit-scrollbar {
+        .subtype-tabs::-webkit-scrollbar {
           display: none;
         }
 
@@ -2969,16 +2835,8 @@ export default function CatalogPage() {
             10px;
         }
 
-        .quick-filters {
-          padding:
-            0
-            0
-            18px;
-        }
-
         .category-tabs button,
-        .subtype-tabs button,
-        .quick-filters button {
+        .subtype-tabs button {
           flex: 0 0 auto;
           border:
             1px solid
@@ -3024,29 +2882,6 @@ export default function CatalogPage() {
         .subtype-tabs button small {
           color: #7e8794;
           font-size: 11px;
-        }
-
-        .quick-filters button {
-          padding:
-            12px
-            18px;
-          font-size: 13px;
-        }
-
-        .quick-filters button.quick-active {
-          border-color: #2f3640;
-          background: #2f3640;
-          color: #ffffff;
-        }
-
-        .quick-filters .arrow-button {
-          width: 46px;
-          height: 46px;
-          display: grid;
-          place-items: center;
-          padding: 0;
-          background: #ffffff;
-          font-size: 22px;
         }
 
         /* ========================================================
@@ -3141,6 +2976,141 @@ export default function CatalogPage() {
               0.18s ease;
         }
 
+        /* Компактный режим: больше объявлений помещается на экране. */
+        .property-grid.compact-view {
+          gap: 8px;
+          width: 100%;
+          max-width: 1240px;
+        }
+
+        .property-grid.compact-view .property-card-link {
+          display: block;
+          height: 126px;
+          min-height: 126px;
+          max-height: 126px;
+        }
+
+        .property-grid.compact-view .property-card {
+          box-sizing: border-box;
+          height: 100%;
+          min-height: 0;
+          max-height: 100%;
+          grid-template-rows: minmax(0, 1fr);
+          grid-template-columns: 210px minmax(0, 1fr);
+          border-radius: 13px;
+        }
+
+        .property-grid.compact-view .photo-wrap {
+          height: 100%;
+          min-height: 0 !important;
+          max-height: 100%;
+          align-self: stretch;
+          overflow: hidden;
+        }
+
+        .property-grid.compact-view .photo-wrap > * {
+          width: 100%;
+          min-width: 0;
+          height: 100% !important;
+          min-height: 0 !important;
+          max-height: 100% !important;
+          flex: 1 1 0;
+          overflow: hidden;
+        }
+
+        .property-grid.compact-view .card-content {
+          min-height: 0;
+          padding: 8px 12px;
+          overflow: hidden;
+        }
+
+        .property-grid.compact-view .card-row {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          min-width: 0;
+        }
+
+        .property-grid.compact-view .card-type {
+          margin-bottom: 2px;
+          font-size: 10px;
+          line-height: 1.15;
+        }
+
+        .property-grid.compact-view .card-title {
+          font-size: 15px;
+          line-height: 1.15;
+        }
+
+        .property-grid.compact-view .card-address {
+          min-height: 0;
+          margin-top: 2px;
+          font-size: 10px;
+          line-height: 1.2;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .property-grid.compact-view .price-row {
+          gap: 7px;
+          margin-top: 4px;
+          line-height: 1.1;
+        }
+
+        .property-grid.compact-view .price {
+          font-size: 17px;
+          line-height: 1.1;
+        }
+
+        .property-grid.compact-view .price-meter {
+          font-size: 10px;
+        }
+
+        .property-grid.compact-view .finance-row {
+          gap: 4px;
+          margin-top: 3px;
+        }
+
+        .property-grid.compact-view .subtype-chip,
+        .property-grid.compact-view .status-chip {
+          padding: 2px 5px;
+          font-size: 9px;
+          line-height: 1.1;
+        }
+
+        .property-grid.compact-view .card-meta {
+          gap: 9px;
+          margin-top: 4px;
+          font-size: 10px;
+          line-height: 1.15;
+        }
+
+        .property-grid.compact-view .card-info {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+
+        .property-grid.compact-view .card-bottom {
+          flex: 0 0 auto;
+          display: flex;
+          justify-content: flex-end;
+          align-self: center;
+          margin: 0;
+          padding: 0;
+          border-top: 0;
+        }
+
+        .property-grid.compact-view .contact-button {
+          width: auto;
+          min-width: 112px;
+          padding: 7px 13px;
+          font-size: 10px;
+          line-height: 1.1;
+          white-space: nowrap;
+        }
+
         .property-card:hover {
           transform:
             translateY(-2px);
@@ -3167,35 +3137,6 @@ export default function CatalogPage() {
           background: #e9edf2;
         }
 
-        .photo-top-actions {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          z-index: 20;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .circle-action {
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          border: 0;
-          border-radius: 50%;
-          background:
-            rgba(
-              36,
-              40,
-              45,
-              0.82
-            );
-          color: #ffffff;
-          cursor: pointer;
-          font-size: 16px;
-        }
-
         .status-badge {
           position: absolute;
           top: 10px;
@@ -3218,6 +3159,18 @@ export default function CatalogPage() {
         .card-content {
           min-width: 0;
           padding: 22px 24px 20px;
+        }
+
+        .card-row {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          min-width: 0;
+        }
+
+        .card-info {
+          flex: 1 1 auto;
+          min-width: 0;
         }
 
         .card-type {
@@ -3303,17 +3256,22 @@ export default function CatalogPage() {
         }
 
         .card-bottom {
-          margin-top: 15px;
-          padding-top: 14px;
-          border-top:
-            1px solid
-            #eceff3;
+          flex: 0 0 auto;
+          display: flex;
+          justify-content: flex-end;
+          align-self: center;
+          margin: 0;
+          padding: 0;
+          border-top: 0;
         }
 
         .contact-button {
-          display: block;
-          width: 100%;
-          padding: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: auto;
+          min-width: 170px;
+          padding: 12px 22px;
           border:
             1px solid
             #dbe1e7;
@@ -3738,17 +3696,14 @@ export default function CatalogPage() {
           .top-bar {
             grid-template-columns:
               48px
-              minmax(
-                220px,
-                1fr
-              )
+              minmax(0, 1fr)
               auto;
           }
 
-          .view-switch {
-            grid-column:
-              2 / -1;
-            justify-self: end;
+          .top-bar-actions {
+            max-width: 100%;
+            flex-wrap: wrap;
+            justify-content: flex-end;
           }
         }
 
@@ -3771,14 +3726,24 @@ export default function CatalogPage() {
             border-radius: 24px;
           }
 
+          .top-bar-actions {
+            grid-column: 1 / -1;
+            width: 100%;
+            justify-content: stretch;
+            flex-wrap: wrap;
+          }
+
           .filter-button {
-            grid-column: 2;
+            flex: 1 1 180px;
             justify-content: center;
           }
 
+          .size-switch {
+            flex: 0 0 auto;
+          }
+
           .view-switch {
-            grid-column:
-              1 / -1;
+            flex: 1 0 100%;
             width: 100%;
           }
 
@@ -3800,9 +3765,47 @@ export default function CatalogPage() {
             display: block;
           }
 
+          .card-content {
+            display: block;
+          }
+
+          .card-row {
+            display: block;
+          }
+
+          .card-bottom,
+          .property-grid.compact-view .card-bottom {
+            justify-content: flex-end;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #eceff3;
+          }
+
           .photo-wrap {
             height: 230px;
             min-height: 0;
+          }
+
+          .property-grid.compact-view .photo-wrap {
+            height: 96px;
+            min-height: 96px;
+            max-height: 96px;
+          }
+
+          .property-grid.compact-view .property-card-link {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+
+          .property-grid.compact-view .property-card {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+          }
+
+          .property-grid.compact-view .card-content {
+            padding: 10px 12px 10px;
           }
 
           .filter-modal {
@@ -3850,8 +3853,7 @@ export default function CatalogPage() {
           }
 
           .category-tabs button,
-          .subtype-tabs button,
-          .quick-filters button {
+          .subtype-tabs button {
             padding:
               9px
               12px;
