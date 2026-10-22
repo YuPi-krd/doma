@@ -1600,6 +1600,68 @@ def get_property(
         db.close()
 
 
+@app.get("/crm/properties/{property_id}")
+def get_crm_property(
+    property_id: int,
+    authorization: str | None = Header(default=None),
+):
+    """Return the full property form data only to an authenticated CRM administrator.
+
+    Private contact and real-address fields are intentionally not added to the
+    public /properties serialization.
+    """
+    require_admin(authorization)
+    db = SessionLocal()
+
+    try:
+        property_obj = (
+            db.query(Property)
+            .filter(Property.id == property_id)
+            .first()
+        )
+        if property_obj is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Объект недвижимости не найден.",
+            )
+
+        result = property_to_dict(property_obj)
+
+        # CRM-only fields are retrieved separately so the public catalogue
+        # does not expose the owner's private address or contact information.
+        result.update({
+            "real_address": getattr(property_obj, "real_address", "") or "",
+            "public_address": (
+                getattr(property_obj, "public_address", "")
+                or getattr(property_obj, "address", "")
+                or ""
+            ),
+            "owner_name": getattr(property_obj, "owner_name", "") or "",
+            "owner_phone": getattr(property_obj, "owner_phone", "") or "",
+            "agent_comment": getattr(property_obj, "agent_comment", "") or "",
+            "source": getattr(property_obj, "source", "") or "",
+            "deal_date": (
+                getattr(property_obj, "deal_date", None).isoformat()
+                if hasattr(getattr(property_obj, "deal_date", None), "isoformat")
+                else str(getattr(property_obj, "deal_date", "") or "")
+            ),
+            "has_maternal_capital": bool(getattr(property_obj, "has_maternal_capital", False)),
+            "show_price_per_sqm": bool(getattr(property_obj, "show_price_per_sqm", False)),
+            "monthly_payment": getattr(property_obj, "monthly_payment", 0) or 0,
+            "residential_complex": getattr(property_obj, "residential_complex", "") or "",
+            "cadastral_number": getattr(property_obj, "cadastral_number", "") or "",
+            "land_cadastral_number": getattr(property_obj, "land_cadastral_number", "") or "",
+            "metro": getattr(property_obj, "metro", "") or "",
+            "condition": getattr(property_obj, "condition", "") or "",
+            "ceiling_height": getattr(property_obj, "ceiling_height", 0) or 0,
+            "furniture": getattr(property_obj, "furniture", "") or "",
+        })
+        return result
+    finally:
+        db.close()
+
+
+
 @app.post("/properties")
 async def create_property(
     request: Request,
