@@ -4,10 +4,12 @@ import hashlib
 import os
 import shutil
 import uuid
+import time
+from threading import Lock
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
@@ -554,6 +556,53 @@ def delete_local_file(
     except OSError:
         pass
 
+
+
+def local_image_filename(image_url: str | None) -> str | None:
+    """Return a local /images filename; never treats external URLs as local files."""
+    if not image_url:
+        return None
+    value = str(image_url).strip()
+    if not value:
+        return None
+    # Local uploads are stored under /images/. Do not try to remove remote images.
+    if value.startswith(("http://", "https://")):
+        from urllib.parse import urlsplit
+        parsed = urlsplit(value)
+        if not parsed.path.startswith("/images/"):
+            return None
+        path_value = parsed.path
+    else:
+        path_value = value.split("?", 1)[0].split("#", 1)[0]
+        if not path_value.startswith("/images/") and not path_value.startswith("images/"):
+            return None
+    filename = Path(path_value).name
+    if not filename or filename == Path(DEFAULT_IMAGE).name:
+        return None
+    return filename
+
+
+def delete_local_file_if_unreferenced(db: Session, image_url: str | None) -> None:
+    """Delete a local image only when no property or gallery row refers to it."""
+    filename = local_image_filename(image_url)
+    if not filename:
+        return
+
+    try:
+        property_urls = db.query(Property.image_url).filter(Property.image_url.isnot(None)).all()
+        for row in property_urls:
+            if local_image_filename(row[0]) == filename:
+                return
+
+        gallery_urls = db.query(PropertyImage.image_url).filter(PropertyImage.image_url.isnot(None)).all()
+        for row in gallery_urls:
+            if local_image_filename(row[0]) == filename:
+                return
+
+        delete_local_file(image_url)
+    except Exception as exc:
+        # A cleanup failure must not break saving/deleting the database row.
+        print(f"Не удалось безопасно удалить файл изображения {filename}: {exc}")
 
 
 def image_content_digest(image_url: str | None) -> str | None:
@@ -1949,22 +1998,10 @@ async def update_property(
             )
 
         if image:
-
-            property_obj.image_url = (
-                await save_upload(
-                    image
-                )
-            )
-
-        elif (
-            "image_url" in payload
-            and data["image_url"]
-            is not None
-        ):
-
-            property_obj.image_url = (
-                data["image_url"]
-            )
+            property_obj.image_url = await save_upload(image)
+        elif "image_url" in payload:
+            # Explicit null/empty means the CRM removed the cover photo.
+            property_obj.image_url = data["image_url"] or None
 
         db.commit()
 
@@ -1972,14 +2009,10 @@ async def update_property(
             property_obj
         )
 
-        if (
-            image
-            and old_image
-            != property_obj.image_url
-        ):
-            delete_local_file(
-                old_image
-            )
+        if old_image and old_image != property_obj.image_url:
+            # Wait until the cover reference is updated; another gallery/property
+            # may still use the same file. The helper checks those references.
+            delete_local_file_if_unreferenced(db, old_image)
 
         return {
             "status":
@@ -2383,6 +2416,298 @@ def reverse_geocode(
         f"{longitude},{latitude}"
     )
 
+    return result
+
+
+# ============================================================
+# SEARCHABLE SETTLEMENTS AND DYNAMIC CITY DISTRICTS
+# ============================================================
+# These routes are consumed by CityPicker and DistrictPicker in the CRM.
+# They are intentionally isolated from the existing property/auth routes.
+# Results are cached in memory to reduce calls to the external geo services.
+
+_GEO_CACHE: dict[str, tuple[datetime, Any]] = {}
+_NOMINATIM_LOCK = Lock()
+_NOMINATIM_LAST_REQUEST_AT = 0.0
+
+
+def _respect_nominatim_rate_limit() -> None:
+    """Respect the public Nominatim service limit of at most one request/sec."""
+    global _NOMINATIM_LAST_REQUEST_AT
+    with _NOMINATIM_LOCK:
+        now = time.monotonic()
+        wait_seconds = 1.1 - (now - _NOMINATIM_LAST_REQUEST_AT)
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+        _NOMINATIM_LAST_REQUEST_AT = time.monotonic()
+
+
+def _geo_cache_get(key: str) -> Any | None:
+    entry = _GEO_CACHE.get(key)
+    if not entry:
+        return None
+    expires_at, value = entry
+    if datetime.utcnow() >= expires_at:
+        _GEO_CACHE.pop(key, None)
+        return None
+    return value
+
+
+def _geo_cache_set(key: str, value: Any, ttl_seconds: int) -> None:
+    _GEO_CACHE[key] = (
+        datetime.utcnow() + timedelta(seconds=ttl_seconds),
+        value,
+    )
+
+
+def _request_json(url: str, *, timeout: int = 12, headers: dict[str, str] | None = None) -> Any:
+    request = UrlRequest(
+        url,
+        headers=headers or {"User-Agent": "DOMA-RealEstate-CRM/1.0"},
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        # Avoid leaking URLs or provider credentials to API consumers.
+        print("Geo provider HTTP error:", exc.code)
+        raise
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        print("Geo provider request failed:", type(exc).__name__)
+        raise
+
+
+@app.get("/geo/settlements")
+def search_settlements(
+    q: str = Query(..., min_length=2, max_length=120),
+):
+    """Search Russian cities, villages and other settlements via Yandex Geocoder."""
+    query = " ".join((q or "").split())
+    if len(query) < 2:
+        raise HTTPException(status_code=400, detail="Введите не менее двух символов.")
+    if not YANDEX_GEOCODER_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="На сервере не настроен YANDEX_GEOCODER_API_KEY.",
+        )
+
+    cache_key = f"settlements:{query.casefold()}"
+    cached = _geo_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    params = urlencode({
+        "apikey": YANDEX_GEOCODER_API_KEY,
+        "geocode": f"{query}, Россия",
+        "lang": "ru_RU",
+        "format": "json",
+        "results": 10,
+    })
+    url = f"https://geocode-maps.yandex.ru/v1/?{params}"
+
+    try:
+        data = _request_json(url, timeout=10, headers={"User-Agent": "DOMA-RealEstate-CRM/1.0"})
+    except HTTPError as exc:
+        status = 403 if exc.code == 403 else (429 if exc.code == 429 else 502)
+        detail = "Яндекс отклонил ключ Геокодера." if exc.code == 403 else (
+            "Сервис поиска населённых пунктов временно ограничил запросы. Попробуйте позже."
+            if exc.code == 429 else "Не удалось выполнить поиск населённых пунктов."
+        )
+        raise HTTPException(status_code=status, detail=detail) from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Не удалось подключиться к сервису поиска населённых пунктов.",
+        ) from exc
+
+    try:
+        collection = data["response"]["GeoObjectCollection"]
+        members = collection.get("featureMember", [])
+    except (KeyError, TypeError) as exc:
+        raise HTTPException(status_code=502, detail="Яндекс вернул некорректный ответ поиска.") from exc
+
+    items: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for member in members:
+        geo_object = member.get("GeoObject", {}) if isinstance(member, dict) else {}
+        metadata = (
+            geo_object.get("metaDataProperty", {})
+            .get("GeocoderMetaData", {})
+        )
+        address_data = metadata.get("Address", {})
+        components = address_data.get("Components", []) or []
+        component_map = {
+            str(component.get("kind", "")).lower(): str(component.get("name", "")).strip()
+            for component in components
+            if isinstance(component, dict)
+        }
+        country = component_map.get("country", "")
+        if country and country.casefold() not in {"россия", "russia", "российская федерация"}:
+            continue
+
+        # Exclude streets, buildings and organizations; the picker is for settlements.
+        kind = str(metadata.get("kind", "")).lower()
+        locality_name = component_map.get("locality", "")
+        if kind != "locality" and not locality_name:
+            continue
+
+        name = locality_name or str(geo_object.get("name", "")).strip()
+        if not name:
+            continue
+
+        subtitle = str(metadata.get("text", "") or address_data.get("formatted", "")).strip()
+        if subtitle.casefold() == name.casefold():
+            subtitle = ""
+
+        position = str(geo_object.get("Point", {}).get("pos", "")).split()
+        latitude = longitude = None
+        if len(position) == 2:
+            try:
+                longitude, latitude = float(position[0]), float(position[1])
+            except (TypeError, ValueError):
+                latitude = longitude = None
+
+        dedupe_key = (name.casefold(), subtitle.casefold())
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        items.append({
+            "name": name,
+            "subtitle": subtitle,
+            "latitude": latitude,
+            "longitude": longitude,
+        })
+
+    result = {"items": items[:10]}
+    _geo_cache_set(cache_key, result, ttl_seconds=600)
+    return result
+
+
+@app.get("/geo/city-districts")
+def get_city_districts(
+    city: str = Query(..., min_length=2, max_length=180),
+):
+    """Return mapped districts/neighbourhoods for a selected Russian locality.
+
+    Nominatim is queried only after a locality has been selected (not on each
+    autocomplete keystroke); named neighbourhoods and administrative areas are
+    then retrieved from Overpass. Coverage depends on OpenStreetMap mapping.
+    """
+    clean_city = " ".join((city or "").split())
+    if len(clean_city) < 2:
+        raise HTTPException(status_code=400, detail="Населённый пункт не указан.")
+
+    cache_key = f"city-districts:{clean_city.casefold()}"
+    cached = _geo_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    nominatim_params = urlencode({
+        "q": f"{clean_city}, Россия",
+        "format": "jsonv2",
+        "limit": 1,
+        "addressdetails": 1,
+        "countrycodes": "ru",
+    })
+    nominatim_url = f"https://nominatim.openstreetmap.org/search?{nominatim_params}"
+    headers = {
+        "User-Agent": "DOMA-RealEstate-CRM/1.0 (https://doma-fawn.vercel.app)",
+        "Accept": "application/json",
+    }
+
+    try:
+        _respect_nominatim_rate_limit()
+        nominatim_data = _request_json(nominatim_url, timeout=12, headers=headers)
+    except HTTPError as exc:
+        raise HTTPException(status_code=502, detail="OpenStreetMap не смог найти границы населённого пункта.") from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=502, detail="Не удалось подключиться к OpenStreetMap.") from exc
+
+    if not isinstance(nominatim_data, list) or not nominatim_data:
+        result = {"items": [], "source": "OpenStreetMap"}
+        _geo_cache_set(cache_key, result, ttl_seconds=1800)
+        return result
+
+    place = nominatim_data[0]
+    try:
+        # Nominatim boundingbox order: south, north, west, east.
+        south, north, west, east = (float(value) for value in place["boundingbox"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="OpenStreetMap не вернул границы населённого пункта.") from exc
+
+    if south > north:
+        south, north = north, south
+    if west > east:
+        west, east = east, west
+
+    bbox = f"{south:.6f},{west:.6f},{north:.6f},{east:.6f}"
+    overpass_query = f"""
+[out:json][timeout:20];
+(
+  node["place"~"^(suburb|neighbourhood|quarter|district)$"]({bbox});
+  way["place"~"^(suburb|neighbourhood|quarter|district)$"]({bbox});
+  relation["place"~"^(suburb|neighbourhood|quarter|district)$"]({bbox});
+  way["boundary"="administrative"]["admin_level"~"^(7|8|9|10)$"]({bbox});
+  relation["boundary"="administrative"]["admin_level"~"^(7|8|9|10)$"]({bbox});
+);
+out center tags;
+""".strip()
+
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    request = UrlRequest(
+        overpass_url,
+        data=urlencode({"data": overpass_query}).encode("utf-8"),
+        headers={
+            **headers,
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=25) as response:
+            overpass_data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        print("Overpass HTTP error:", exc.code)
+        raise HTTPException(status_code=502, detail="Сервис OpenStreetMap временно не смог загрузить районы.") from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        print("Overpass request failed:", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Не удалось загрузить районы из OpenStreetMap.") from exc
+
+    elements = overpass_data.get("elements", []) if isinstance(overpass_data, dict) else []
+    descriptions = {
+        "suburb": "Район города",
+        "neighbourhood": "Микрорайон",
+        "quarter": "Часть города",
+        "district": "Район",
+    }
+    items: list[dict[str, str]] = []
+    seen_names: set[str] = set()
+    for element in elements:
+        tags = element.get("tags", {}) if isinstance(element, dict) else {}
+        name = str(tags.get("name:ru") or tags.get("name") or tags.get("official_name") or "").strip()
+        if not name:
+            continue
+        place_type = str(tags.get("place", "")).lower()
+        admin_level = str(tags.get("admin_level", "")).strip()
+        boundary = tags.get("boundary") == "administrative"
+        if place_type not in descriptions and not boundary:
+            continue
+
+        normalized_name = name.casefold()
+        if normalized_name in seen_names:
+            continue
+        seen_names.add(normalized_name)
+
+        description = descriptions.get(place_type, "Административный район")
+        items.append({
+            "label": name,
+            "description": description,
+            "type": place_type or (f"admin_level_{admin_level}" if admin_level else "administrative"),
+        })
+
+    items.sort(key=lambda item: item["label"].casefold())
+    result = {"items": items[:250], "source": "OpenStreetMap"}
+    _geo_cache_set(cache_key, result, ttl_seconds=43200)
     return result
 
 
@@ -3756,6 +4081,64 @@ def get_property_images(
         db.close()
 
 
+@app.put("/properties/{property_id}/images")
+async def sync_property_images(property_id: int, request: Request):
+    """Synchronize gallery rows with the image IDs retained by the CRM form.
+
+    The cover photo is stored separately on Property.image_url. This route only
+    synchronizes PropertyImage rows and removes duplicate/removed gallery rows.
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ожидался JSON со списком keep_ids.")
+
+    keep_ids_raw = payload.get("keep_ids", []) if isinstance(payload, dict) else None
+    if not isinstance(keep_ids_raw, list):
+        raise HTTPException(status_code=400, detail="Поле keep_ids должно быть списком ID фотографий.")
+
+    try:
+        keep_ids = {int(value) for value in keep_ids_raw}
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Все значения keep_ids должны быть числовыми ID.")
+    if any(value <= 0 for value in keep_ids):
+        raise HTTPException(status_code=400, detail="ID фотографий должны быть положительными числами.")
+
+    db = SessionLocal()
+    try:
+        property_obj = db.query(Property).filter(Property.id == property_id).first()
+        if property_obj is None:
+            raise HTTPException(status_code=404, detail="Объект недвижимости не найден.")
+
+        all_images = (
+            db.query(PropertyImage)
+            .filter(PropertyImage.property_id == property_id)
+            .all()
+        )
+        removed_urls: list[str | None] = []
+        kept_ids: list[int] = []
+        for image in all_images:
+            if image.id in keep_ids:
+                kept_ids.append(image.id)
+            else:
+                removed_urls.append(image.image_url)
+                db.delete(image)
+
+        db.commit()
+
+        for image_url in removed_urls:
+            delete_local_file_if_unreferenced(db, image_url)
+
+        return {
+            "status": "synced",
+            "property_id": property_id,
+            "kept_gallery_images": len(kept_ids),
+            "deleted_gallery_images": len(removed_urls),
+        }
+    finally:
+        db.close()
+
+
 @app.delete(
     "/property-images/{image_id}"
 )
@@ -3787,19 +4170,15 @@ def delete_property_image(
                 ),
             )
 
-        delete_local_file(
-            image.image_url
-        )
-
-        db.delete(
-            image
-        )
-
+        image_url = image.image_url
+        db.delete(image)
         db.commit()
 
+        # Do not remove the file if a cover photo or another gallery row still uses it.
+        delete_local_file_if_unreferenced(db, image_url)
+
         return {
-            "status":
-                "deleted"
+            "status": "deleted"
         }
 
     finally:
@@ -3852,9 +4231,7 @@ async def set_property_image(
             property_obj
         )
 
-        delete_local_file(
-            old_image
-        )
+        delete_local_file_if_unreferenced(db, old_image)
 
         return {
             "image_url":
