@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 
-const API_URL = "https://doma-nq4u.onrender.com";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://doma-nq4u.onrender.com").replace(/\/+$/, "");
 
 interface PhotoPreview {
   id: string;
@@ -1491,6 +1491,14 @@ type DistrictNode = { label: string; children?: DistrictNode[]; description?: st
 
 // Иерархический справочник по районам и микрорайонам Краснодара.
 // Составлен по присланным скриншотам; отдельные общегородские районы также сохранены.
+// Styles used by the district selection tree and dropdown.
+const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 320, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 1, boxShadow: "0 4px 10px rgba(0,0,0,.16)" };
+const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
+const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
+const districtExpandSpacerStyle: React.CSSProperties = { display: "inline-block", width: 18, flex: "0 0 auto" };
+const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
+const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
+
 const krasnodarDistricts: DistrictNode[] = [
   { label: "Центральный", children: [
     { label: "мкр Центральный" },
