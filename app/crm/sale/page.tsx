@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 
-const API_URL = "https://doma-nq4u.onrender.com";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://doma-nq4u.onrender.com").replace(/\/+$/, "");
 
 interface PhotoPreview {
   id: string;
@@ -1563,6 +1563,9 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
   }, [city, open]);
 
   const remoteNodes: DistrictNode[] = remoteDistricts.map((item) => ({ label: item.label, description: item.description, type: item.type } as DistrictNode));
+  const filteredRemoteDistricts = remoteDistricts.filter((item) =>
+    !query || item.label.toLocaleLowerCase("ru-RU").includes(query) || (item.description || "").toLocaleLowerCase("ru-RU").includes(query)
+  );
   const krasnodarMerged = isKrasnodar
     ? [...krasnodarDistricts, ...remoteNodes.filter((item) => !krasnodarDistricts.some((local) => local.label.toLocaleLowerCase("ru-RU") === item.label.toLocaleLowerCase("ru-RU")))]
     : [];
@@ -1613,16 +1616,22 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
       </button>
       {open && (
         <div style={districtDropdownStyle}>
-          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск района или микрорайона..." style={{ ...inputStyle, width: "100%", minHeight: 40, boxSizing: "border-box" }} autoFocus />
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 7 }}>Список районов и микрорайонов</div>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по списку..." style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }} autoFocus />
             <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>
-              {isKrasnodar ? "Справочник Краснодара и дополнения из OpenStreetMap." : "Районы и микрорайоны из OpenStreetMap. Покрытие зависит от карты; у небольших сёл внутрипоселковых районов может не быть."}
+              {isKrasnodar ? "Выберите пункт из списка ниже; поиск фильтрует варианты." : "Выберите район в списке ниже. Поиск только фильтрует загруженные варианты."}
             </div>
           </div>
           {districtLoading && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Загружаем районы...</div>}
           {districtError && <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>{districtError}</div>}
           {isKrasnodar && <div>{renderNodes(krasnodarMerged)}</div>}
-          {!isKrasnodar && remoteDistricts.filter((item) => !query || item.label.toLocaleLowerCase("ru-RU").includes(query) || (item.description || "").toLocaleLowerCase("ru-RU").includes(query)).map((item, index) => (
+          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length > 0 && (
+            <div style={{ padding: "7px 10px", fontSize: 11, color: "#64748b", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              {query ? `Найдено: ${filteredRemoteDistricts.length}` : `Вариантов в списке: ${filteredRemoteDistricts.length}`}
+            </div>
+          )}
+          {!isKrasnodar && filteredRemoteDistricts.map((item, index) => (
             <div key={`${item.label}-${index}`} style={{ ...districtTreeRowStyle, background: item.label === value ? "#fff1f2" : "#fff", padding: "8px 10px" }}>
               <span style={{ width: 16, flex: "0 0 16px", color: "#dc2626", fontWeight: 700, textAlign: "center" }}>{item.label === value ? "✓" : ""}</span>
               <button type="button" onClick={() => chooseDistrict(item.label)} style={districtNodeLabelStyle}>
@@ -1631,7 +1640,7 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
               </button>
             </div>
           ))}
-          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length === 0 && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>В картографическом справочнике не найдено внутригородских районов для этого населённого пункта.</div>}
+          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length === 0 && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>В списке пока нет районов для этого населённого пункта. Попробуйте ещё раз позже или укажите район вручную.</div>}
           <div style={{ borderTop: "1px solid #e2e8f0", padding: 10, background: "#fff" }}>
             <button type="button" onClick={() => { setManualEntry((current) => !current); setOpen(false); }} style={{ ...districtClearStyle, fontSize: 12 }}>＋ Указать район вручную</button>
           </div>
@@ -2233,7 +2242,7 @@ const inputWithSuffixStyle: React.CSSProperties = { display: "flex", alignItems:
 
 const suffixStyle: React.CSSProperties = { color: "#586674", fontSize: 10, fontWeight: 600 };
 
-const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 320, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 1, boxShadow: "0 4px 10px rgba(0,0,0,.16)" };
+const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 420, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 4, boxShadow: "0 6px 18px rgba(15,23,42,.18)" };
 
 const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
 const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
