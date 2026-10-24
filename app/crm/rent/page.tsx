@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL = "https://doma-nq4u.onrender.com";
 
@@ -74,6 +74,7 @@ export default function RentPage() {
   const [dealType] = useState("rent");
   const [propertyType, setPropertyType] = useState("apartment");
   const [propertySubtype, setPropertySubtype] = useState("secondary");
+  const [city, setCity] = useState("Краснодар");
   const [district, setDistrict] = useState("");
   const [realAddress, setRealAddress] = useState("");
   const [publicAddress, setPublicAddress] = useState("");
@@ -138,6 +139,7 @@ export default function RentPage() {
   );
 
   const photosRef = useRef<PhotoPreview[]>([]);
+  const gallerySyncReadyRef = useRef(true);
 
   useEffect(() => {
     photosRef.current = photos;
@@ -207,6 +209,19 @@ export default function RentPage() {
     return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
   }
 
+  function toStoredImageUrl(value: string): string | null {
+    const url = value.trim();
+    if (!url) return null;
+    // Persist the local API path instead of an absolute URL when possible.
+    if (url.startsWith(`${API_URL}/`)) return url.slice(API_URL.length);
+    return url;
+  }
+
+  function isDefaultPlaceholderImage(value: unknown): boolean {
+    const url = asFormString(value).split("?", 1)[0].split("#", 1)[0].toLowerCase();
+    return url.endsWith("/images/test-flat.jpg") || url === "test-flat.jpg";
+  }
+
   async function loadPropertyIntoForm(propertyId: number) {
     setIsLoadingExisting(true);
     try {
@@ -225,6 +240,7 @@ export default function RentPage() {
       setTitle(asFormString(p.title));
       setPropertyType(asFormString(p.property_type));
       setPropertySubtype(asFormString(p.property_subtype));
+      setCity(asFormString(p.city) || "Краснодар");
       setDistrict(asFormString(p.district));
       setRealAddress(asFormString(p.real_address));
       setPublicAddress(asFormString(p.public_address || p.address));
@@ -278,24 +294,36 @@ export default function RentPage() {
       setSavedId(null);
       setShowCharacteristics(false);
 
-      // Главное изображение и фотографии из галереи показываются в том же блоке, что и новые фото.
+      // Photo deletion must be synchronized with the database on save. Do not mark
+      // the gallery ready unless the API returned a valid list; otherwise a save
+      // could mistakenly delete gallery rows that were never loaded.
+      gallerySyncReadyRef.current = false;
       const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { cache: "no-store" }).catch(() => null);
-      const galleryRaw = galleryResponse?.ok ? await galleryResponse.json().catch(() => []) : [];
-      const images: Array<{ id?: number | string; image_url?: string }> = Array.isArray(galleryRaw) ? galleryRaw : [];
-      const photoUrls = [
-        { id: `cover-${propertyId}`, image_url: asFormString(p.image_url) },
+      if (!galleryResponse?.ok) {
+        throw new Error("Не удалось загрузить галерею фотографий объекта. Проверьте API и повторите открытие объекта.");
+      }
+      const galleryRaw = await galleryResponse.json().catch(() => null);
+      if (!Array.isArray(galleryRaw)) {
+        throw new Error("Сервер вернул некорректный список фотографий.");
+      }
+      const images: Array<{ id?: number | string; image_url?: string }> = galleryRaw;
+      const coverUrl = asFormString(p.image_url);
+      const photoSources: Array<{ id?: number | string; image_url?: string }> = [
+        ...(!isDefaultPlaceholderImage(coverUrl) && coverUrl ? [{ id: `cover-${propertyId}`, image_url: coverUrl }] : []),
         ...images,
-      ].filter((photo) => Boolean(photo.image_url))
-       .map((photo, index) => ({
-         id: String(photo.id ?? `existing-${propertyId}-${index}`),
-         serverId: typeof photo.id === "number" ? photo.id : undefined,
-         name: index === 0 ? "Главное фото" : `Фото ${index + 1}`,
-         url: normalizeImageUrl(photo.image_url),
-         existing: true as const,
-       }))
-       .filter((photo, index, list) => list.findIndex((entry) => entry.url === photo.url) === index);
+      ];
+      const photoUrls = photoSources
+        .filter((photo) => Boolean(photo.image_url))
+        .map((photo, index) => ({
+          id: String(photo.id ?? `existing-${propertyId}-${index}`),
+          serverId: typeof photo.id === "number" ? photo.id : undefined,
+          name: index === 0 ? "Главное фото" : `Фото ${index + 1}`,
+          url: normalizeImageUrl(photo.image_url),
+          existing: true as const,
+        }))
+        .filter((photo, index, list) => list.findIndex((entry) => entry.url === photo.url) === index);
       setPhotos(photoUrls);
-      document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      gallerySyncReadyRef.current = true;      document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Не удалось загрузить данные объекта.");
@@ -313,6 +341,7 @@ export default function RentPage() {
     setTitle("");
     setPropertyType("");
     setPropertySubtype("");
+    setCity("Краснодар");
     setDistrict("");
     setRealAddress("");
     setPublicAddress("");
@@ -365,6 +394,7 @@ export default function RentPage() {
     setPropertyType("apartment");
     setPropertySubtype("secondary");
     setPhotos([]);
+    gallerySyncReadyRef.current = true;
     setEditingPropertyId(null);
     setShowCharacteristics(false);
     setShowReferenceSummary(false);
@@ -439,8 +469,18 @@ export default function RentPage() {
       return;
     }
 
+    if (!city.trim()) {
+      alert("Введите город или населённый пункт.");
+      return;
+    }
+
     if (!realAddress.trim()) {
       alert("Введите реальный адрес объекта.");
+      return;
+    }
+
+    if (editingPropertyId !== null && !gallerySyncReadyRef.current) {
+      alert("Галерея объекта не загрузилась. Откройте объект заново перед сохранением, чтобы фотографии не потерялись.");
       return;
     }
 
@@ -469,11 +509,15 @@ export default function RentPage() {
           renovation,
           building_material: buildingMaterial,
           year_built: Number(yearBuilt) || 0,
-          city: "Краснодар",
+          city: city.trim() || "Краснодар",
           district,
           address: publicAddress,
           real_address: realAddress,
           public_address: publicAddress,
+          // Keep an existing selected photo as cover, or clear the cover before uploading a new one.
+          image_url: editingPropertyId !== null
+            ? (!photos[0] ? null : (!photos[0].file ? toStoredImageUrl(photos[0].url) : undefined))
+            : null,
           owner_name: ownerName,
           owner_phone: ownerPhone,
           agent_comment: agentComment,
@@ -527,37 +571,54 @@ export default function RentPage() {
         throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
       }
 
-      // Сначала устанавливаем главное фото, затем сохраняем все выбранные фото в галерею.
-      // Оригинальный выбор файлов и превью остаются без изменений.
-      if (photos.length > 0) {
-        const primaryPhoto = photos[0];
-        if (primaryPhoto.file) {
-          const coverForm = new FormData();
-          coverForm.append("file", primaryPhoto.file, primaryPhoto.file.name);
-          const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, { method: "POST", body: coverForm });
-          if (!coverResponse.ok) {
-            const detail = await coverResponse.text();
-            throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
-          }
+      // The cover photo is stored in Property.image_url. Additional photos are stored
+      // in PropertyImage. Keep existing gallery IDs, upload new files, then sync the
+      // gallery so removed photos cannot reappear when the object is reopened.
+      const primaryPhoto = photos[0];
+      const keepGalleryIds = photos
+        .filter((photo) => photo.existing && typeof photo.serverId === "number")
+        .map((photo) => photo.serverId as number);
+
+      if (primaryPhoto?.file) {
+        const coverForm = new FormData();
+        coverForm.append("file", primaryPhoto.file, primaryPhoto.file.name);
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, { method: "POST", body: coverForm });
+        if (!coverResponse.ok) {
+          const detail = await coverResponse.text();
+          throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
         }
-        // Существующие фото не загружаем повторно; отправляем только новые файлы.
-        const newPhotos = photos.filter((photo) => Boolean(photo.file) && photo !== primaryPhoto || Boolean(photo.file) && primaryPhoto.existing);
-        for (const photo of newPhotos) {
-          if (!photo.file) continue;
-          const imageForm = new FormData();
-          imageForm.append("file", photo.file, photo.file.name);
-          const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { method: "POST", body: imageForm });
-          if (!imageResponse.ok) {
-            const detail = await imageResponse.text();
-            throw new Error(`Объект №${propertyId} сохранён, но фотография «${photo.name}» не загрузилась: ${detail}`);
-          }
+      }
+
+      // Only newly added photos other than the selected cover belong in the gallery.
+      const newGalleryPhotos = photos.filter((photo) => Boolean(photo.file) && photo !== primaryPhoto);
+      for (const photo of newGalleryPhotos) {
+        if (!photo.file) continue;
+        const imageForm = new FormData();
+        imageForm.append("file", photo.file, photo.file.name);
+        const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { method: "POST", body: imageForm });
+        const imageData = await imageResponse.json().catch(() => ({}));
+        if (!imageResponse.ok) {
+          const detail = imageData.detail || "Неизвестная ошибка";
+          throw new Error(`Объект №${propertyId} сохранён, но фотография «${photo.name}» не загрузилась: ${detail}`);
         }
+        const newGalleryId = Number(imageData.id);
+        if (Number.isInteger(newGalleryId) && newGalleryId > 0) keepGalleryIds.push(newGalleryId);
+      }
+
+      const syncResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keep_ids: keepGalleryIds }),
+      });
+      const syncData = await syncResponse.json().catch(() => ({}));
+      if (!syncResponse.ok) {
+        throw new Error(syncData.detail || "Объект сохранён, но не удалось синхронизировать галерею фотографий.");
       }
 
       setSavedId(propertyId);
       const wasEditing = editingPropertyId !== null;
       setEditingPropertyId(null);
-      alert(`${wasEditing ? "Изменения сохранены" : "Объект сохранён"}. ID: ${propertyId}${photos.length ? `. Фотографий в форме: ${photos.length}` : ""}`);
+      alert(`${wasEditing ? "Изменения сохранены" : "Объект сохранён"}. ID: ${propertyId}. Фотографий в форме: ${photos.length}`);
     } catch (error) {
       console.error(error);
       alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
@@ -604,10 +665,10 @@ export default function RentPage() {
 
               <div className="doma-crm-fields" style={formGridStyle}>
                 <Field label="Тип сделки">
-                  <select value={dealType} disabled style={{ ...inputStyle, background: "#e8edf2", color: "#253b4d", fontWeight: 700 }}>
+                  <SearchableSelect value={dealType} disabled style={{ ...inputStyle, background: "#e8edf2", color: "#253b4d", fontWeight: 700 }}>
                     <option value="sale">Продажа</option>
                     <option value="rent">Аренда</option>
-                  </select>
+                  </SearchableSelect>
                 </Field>
                 <Field label="Название объекта" required>
 
@@ -620,7 +681,7 @@ export default function RentPage() {
                 </Field>
 
                 <Field label="Тип недвижимости" required>
-                  <select
+                  <SearchableSelect
                     value={propertyType}
                     onChange={(e) => handlePropertyTypeChange(e.target.value)}
                     style={inputStyle}
@@ -630,11 +691,11 @@ export default function RentPage() {
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </Field>
 
                 <Field label="Подтип недвижимости">
-                  <select
+                  <SearchableSelect
                     value={propertySubtype}
                     onChange={(e) => setPropertySubtype(e.target.value)}
                     style={inputStyle}
@@ -644,11 +705,19 @@ export default function RentPage() {
                         {item.label}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
+                </Field>
+
+                <Field label="Город / населённый пункт" required>
+                  <CityPicker
+                    value={city}
+                    onChange={(nextCity) => { setCity(nextCity); setDistrict(""); }}
+                    style={inputStyle}
+                  />
                 </Field>
 
                 <Field label="Район / микрорайон">
-                  <DistrictPicker value={district} onChange={setDistrict} />
+                  <DistrictPicker value={district} onChange={setDistrict} city={city} />
                 </Field>
 
                 <Field label="Жилой комплекс (ЖК)">
@@ -691,9 +760,9 @@ export default function RentPage() {
                   <input type="date" value={dealDate} onChange={(e) => setDealDate(e.target.value)} style={inputStyle} />
                 </Field>
                 <Field label="Источник обращения">
-                  <select value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
+                  <SearchableSelect value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
                     <option>Рекомендация</option><option>Сайт</option><option>Звонок</option><option>Социальные сети</option><option>Реклама</option><option>Партнёр</option><option>Повторный клиент</option><option>Другое</option>
-                  </select>
+                  </SearchableSelect>
                 </Field>
                 <Field label="Платёж в месяц, ₽">
                   <input type="number" min="0" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0" style={inputStyle} />
@@ -741,17 +810,17 @@ export default function RentPage() {
               {showCharacteristics && (
               <div className="doma-crm-fields" style={formGridStyle}>
                 <Field label="Состояние объекта">
-                  <select value={condition} onChange={(e) => setCondition(e.target.value)} style={inputStyle}>
+                  <SearchableSelect value={condition} onChange={(e) => setCondition(e.target.value)} style={inputStyle}>
                     <option value="">Не указано</option><option value="Новое">Новое</option><option value="Отличное">Отличное</option><option value="Хорошее">Хорошее</option><option value="Удовлетворительное">Удовлетворительное</option><option value="Требует ремонта">Требует ремонта</option>
-                  </select>
+                  </SearchableSelect>
                 </Field>
                 <Field label="Высота потолков, м">
                   <input type="number" min="0" step="0.1" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} placeholder="2.7" style={inputStyle} />
                 </Field>
                 <Field label="Мебель">
-                  <select value={furniture} onChange={(e) => setFurniture(e.target.value)} style={inputStyle}>
+                  <SearchableSelect value={furniture} onChange={(e) => setFurniture(e.target.value)} style={inputStyle}>
                     <option value="">Не указано</option><option value="С мебелью">С мебелью</option><option value="Частично меблирована">Частично меблирована</option><option value="Без мебели">Без мебели</option>
-                  </select>
+                  </SearchableSelect>
                 </Field>
                 {propertyType === "apartment" && (
                   <>
@@ -774,25 +843,25 @@ export default function RentPage() {
                       <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
                     </Field>
                     <Field label="Планировка комнат">
-                      <select value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Изолированная">Изолированная</option>
                         <option value="Смежно-изолированная">Смежно-изолированная</option>
                         <option value="Смежная">Смежная</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Балкон / лоджия">
-                      <select value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Балкон">Балкон</option>
                         <option value="Лоджия">Лоджия</option>
@@ -804,10 +873,10 @@ export default function RentPage() {
                         <option value="Застекленный балкон">Застекленный балкон</option>
                         <option value="Эркер">Эркер</option>
                         <option value="Несколько">Несколько</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Ремонт">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Евроремонт">Евроремонт</option>
                         <option value="Косметический">Косметический</option>
@@ -821,10 +890,10 @@ export default function RentPage() {
                         <option value="Черновая отделка">Черновая отделка</option>
                         <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
                         <option value="Чистовая отделка">Чистовая отделка</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Материал дома">
-                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Деревянный">Деревянный</option>
                         <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
@@ -847,7 +916,7 @@ export default function RentPage() {
                         <option value="Каркасный">Каркасный</option>
                         <option value="Каркасно-щитовой">Каркасно-щитовой</option>
                         <option value="Каркасно-панельный">Каркасно-панельный</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                   </>
                 )}
@@ -870,7 +939,7 @@ export default function RentPage() {
                       <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2022" style={inputStyle} />
                     </Field>
                     <Field label="Материал дома">
-                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Деревянный">Деревянный</option>
                         <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
@@ -893,22 +962,22 @@ export default function RentPage() {
                         <option value="Каркасный">Каркасный</option>
                         <option value="Каркасно-щитовой">Каркасно-щитовой</option>
                         <option value="Каркасно-панельный">Каркасно-панельный</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Отопление">
-                      <select value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option><option value="gas">Газовое</option><option value="electric">Электрическое</option><option value="solid_fuel">Твердотопливное</option><option value="central">Центральное</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Коммуникации" full>
                       <div style={checklistStyle}>
@@ -950,9 +1019,9 @@ export default function RentPage() {
                       <input type="number" min="0" step="0.1" value={plotArea} onChange={(e) => setPlotArea(e.target.value)} placeholder="Например: 6" style={inputStyle} />
                     </Field>
                     <Field label="Назначение земли">
-                      <select value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
+                      <SearchableSelect value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
                         <option value="izhs">ИЖС</option><option value="lph">ЛПХ</option><option value="gardening">Садоводство</option><option value="dnp">ДНП</option><option value="commercial_land">Коммерческое</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Длина, м">
                       <input type="number" min="0" step="0.1" value={plotLength} onChange={(e) => setPlotLength(e.target.value)} placeholder="Например: 30" style={inputStyle} />
@@ -964,9 +1033,9 @@ export default function RentPage() {
                       <input type="number" min="0" step="0.1" value={frontage} onChange={(e) => setFrontage(e.target.value)} placeholder="Например: 20" style={inputStyle} />
                     </Field>
                     <Field label="Ограждение">
-                      <select value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Коммуникации" full>
                       <div style={checklistStyle}>
@@ -998,7 +1067,7 @@ export default function RentPage() {
                       <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2015" style={inputStyle} />
                     </Field>
                     <Field label="Ремонт">
-                      <select value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Евроремонт">Евроремонт</option>
                         <option value="Косметический">Косметический</option>
@@ -1012,10 +1081,10 @@ export default function RentPage() {
                         <option value="Черновая отделка">Черновая отделка</option>
                         <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
                         <option value="Чистовая отделка">Чистовая отделка</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Материал здания">
-                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Деревянный">Деревянный</option>
                         <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
@@ -1038,17 +1107,17 @@ export default function RentPage() {
                         <option value="Каркасный">Каркасный</option>
                         <option value="Каркасно-щитовой">Каркасно-щитовой</option>
                         <option value="Каркасно-панельный">Каркасно-панельный</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Санузел">
-                      <select value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                   </>
                 )}
@@ -1056,17 +1125,17 @@ export default function RentPage() {
                 {propertyType === "garage" && (
                   <>
                     <Field label="Тип гаража">
-                      <select value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
                         {currentSubtypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Электричество">
-                      <select value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
+                      <SearchableSelect value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
                         <option value="no">Нет / не указано</option><option value="yes">Есть</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Материал">
-                      <select value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
                         <option value="Деревянный">Деревянный</option>
                         <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
@@ -1089,7 +1158,7 @@ export default function RentPage() {
                         <option value="Каркасный">Каркасный</option>
                         <option value="Каркасно-щитовой">Каркасно-щитовой</option>
                         <option value="Каркасно-панельный">Каркасно-панельный</option>
-                      </select>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Год постройки">
                       <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
@@ -1308,6 +1377,7 @@ export default function RentPage() {
                 </Field>
               </div>
               <AddressMap
+                city={city}
                 realAddress={realAddress}
                 publicAddress={publicAddress}
                 onRealAddressChange={setRealAddress}
@@ -1417,7 +1487,7 @@ export default function RentPage() {
 }
 
 
-type DistrictNode = { label: string; children?: DistrictNode[] };
+type DistrictNode = { label: string; children?: DistrictNode[]; description?: string; type?: string };
 
 // Иерархический справочник по районам и микрорайонам Краснодара.
 // Составлен по присланным скриншотам; отдельные общегородские районы также сохранены.
@@ -1472,13 +1542,57 @@ const krasnodarDistricts: DistrictNode[] = [
   { label: "Другой район" },
 ];
 
-function DistrictPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function DistrictPicker({ value, onChange, city }: { value: string; onChange: (value: string) => void; city: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string[]>(["Центральный", "Фестивальный", "мкр Юбилейный"]);
+  const [remoteDistricts, setRemoteDistricts] = useState<Array<{ label: string; description?: string; type?: string }>>([]);
+  const [districtLoading, setDistrictLoading] = useState(false);
+  const [districtError, setDistrictError] = useState("");
+  const [manualEntry, setManualEntry] = useState(false);
+  const isKrasnodar = city.trim().toLocaleLowerCase("ru-RU").includes("краснодар");
   const query = search.trim().toLocaleLowerCase("ru-RU");
+
+  useEffect(() => {
+    setManualEntry(false);
+  }, [city]);
+
+  useEffect(() => {
+    if (!city.trim() || !open) {
+      setDistrictLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setDistrictLoading(true);
+    setDistrictError("");
+    fetch(`${API_URL}/geo/city-districts?city=${encodeURIComponent(city)}`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Не удалось загрузить районы.");
+        setRemoteDistricts(Array.isArray(payload.items) ? payload.items : []);
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setRemoteDistricts([]);
+        setDistrictError(error instanceof Error ? error.message : "Не удалось загрузить районы.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setDistrictLoading(false); });
+    return () => controller.abort();
+  }, [city, open]);
+
+  const remoteNodes: DistrictNode[] = remoteDistricts.map((item) => ({ label: item.label, description: item.description, type: item.type } as DistrictNode));
+  const krasnodarMerged = isKrasnodar
+    ? [...krasnodarDistricts, ...remoteNodes.filter((item) => !krasnodarDistricts.some((local) => local.label.toLocaleLowerCase("ru-RU") === item.label.toLocaleLowerCase("ru-RU")))]
+    : [];
   const matches = (node: DistrictNode): boolean =>
     !query || node.label.toLocaleLowerCase("ru-RU").includes(query) || Boolean(node.children?.some(matches));
+
+  function chooseDistrict(label: string) {
+    onChange(label);
+    setOpen(false);
+    setSearch("");
+    setManualEntry(false);
+  }
 
   function renderNodes(nodes: DistrictNode[], depth = 0): React.ReactNode {
     return nodes.filter(matches).map((node) => {
@@ -1493,9 +1607,10 @@ function DistrictPicker({ value, onChange }: { value: string; onChange: (value: 
                 {isExpanded ? "−" : "+"}
               </button>
             ) : <span style={districtExpandSpacerStyle} />}
-            <input type="checkbox" checked={selected} onChange={() => { onChange(selected ? "" : node.label); setOpen(false); setSearch(""); }} aria-label={`Выбрать ${node.label}`} style={{ accentColor: "#dc2626", width: 15, height: 15, flex: "0 0 auto" }} />
-            <button type="button" onClick={() => { if (hasChildren) setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label]); else { onChange(node.label); setOpen(false); setSearch(""); } }} style={districtNodeLabelStyle}>
-              {node.label}
+            <input type="checkbox" checked={selected} onChange={() => chooseDistrict(selected ? "" : node.label)} aria-label={`Выбрать ${node.label}`} style={{ accentColor: "#dc2626", width: 15, height: 15, flex: "0 0 auto" }} />
+            <button type="button" onClick={() => hasChildren ? setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label]) : chooseDistrict(node.label)} style={districtNodeLabelStyle}>
+              <span style={{ display: "block" }}>{node.label}</span>
+              {!isKrasnodar && node.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{node.description}</span>}
             </button>
           </div>
           {hasChildren && isExpanded && <div>{renderNodes(node.children!, depth + 1)}</div>}
@@ -1504,33 +1619,231 @@ function DistrictPicker({ value, onChange }: { value: string; onChange: (value: 
     });
   }
 
+  if (!city.trim()) {
+    return <div style={{ ...districtNodeLabelStyle, color: "#64748b", padding: "8px 0" }}>Сначала выберите населённый пункт.</div>;
+  }
+
   return (
     <div style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} style={{ ...inputStyle, display: "flex", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12 }}>
-        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите район или микрорайон"}</span>
+      <button type="button" onClick={() => { setOpen((current) => !current); setSearch(""); }} aria-expanded={open} style={{ ...inputStyle, display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12, background: "#fff" }}>
+        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите район / микрорайон"}</span>
         <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
       </button>
       {open && (
         <div style={districtDropdownStyle}>
           <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск района или микрорайона..." style={{ ...inputStyle, minHeight: 40 }} autoFocus />
-            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>Выберите один пункт. Нажмите +, чтобы раскрыть вложенные микрорайоны.</div>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск района или микрорайона..." style={{ ...inputStyle, width: "100%", minHeight: 40, boxSizing: "border-box" }} autoFocus />
+            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>
+              {isKrasnodar ? "Справочник Краснодара и дополнения из OpenStreetMap." : "Районы и микрорайоны из OpenStreetMap. Покрытие зависит от карты; у небольших сёл внутрипоселковых районов может не быть."}
+            </div>
           </div>
-          <div>{renderNodes(krasnodarDistricts)}</div>
+          {districtLoading && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Загружаем районы...</div>}
+          {districtError && <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>{districtError}</div>}
+          {isKrasnodar && <div>{renderNodes(krasnodarMerged)}</div>}
+          {!isKrasnodar && remoteDistricts.filter((item) => !query || item.label.toLocaleLowerCase("ru-RU").includes(query) || (item.description || "").toLocaleLowerCase("ru-RU").includes(query)).map((item, index) => (
+            <div key={`${item.label}-${index}`} style={{ ...districtTreeRowStyle, background: item.label === value ? "#fff1f2" : "#fff", padding: "8px 10px" }}>
+              <span style={{ width: 16, flex: "0 0 16px", color: "#dc2626", fontWeight: 700, textAlign: "center" }}>{item.label === value ? "✓" : ""}</span>
+              <button type="button" onClick={() => chooseDistrict(item.label)} style={districtNodeLabelStyle}>
+                <span style={{ display: "block" }}>{item.label}</span>
+                {item.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{item.description}</span>}
+              </button>
+            </div>
+          ))}
+          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length === 0 && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>В картографическом справочнике не найдено внутригородских районов для этого населённого пункта.</div>}
+          <div style={{ borderTop: "1px solid #e2e8f0", padding: 10, background: "#fff" }}>
+            <button type="button" onClick={() => { setManualEntry((current) => !current); setOpen(false); }} style={{ ...districtClearStyle, fontSize: 12 }}>＋ Указать район вручную</button>
+          </div>
         </div>
       )}
-      {value && <button type="button" onClick={() => onChange("")} style={districtClearStyle}>Сбросить выбор</button>}
+      {manualEntry && <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Введите район или микрорайон" style={{ ...inputStyle, marginTop: 6 }} />}
+      {value && <button type="button" onClick={() => { onChange(""); setManualEntry(false); }} style={districtClearStyle}>Сбросить выбор</button>}
     </div>
   );
 }
 
-const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 320, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 1, boxShadow: "0 4px 10px rgba(0,0,0,.16)" };
 
-const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
-const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
-const districtExpandSpacerStyle: React.CSSProperties = { display: "inline-block", width: 18, flex: "0 0 auto" };
-const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
-const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
+type SettlementSuggestion = {
+  name: string;
+  subtitle: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+/** Searchable nationwide locality picker. Results are fetched from the backend's
+ * Yandex Geocoder endpoint, which searches cities, towns, villages and settlements.
+ */
+function CityPicker({ value, onChange, style }: {
+  value: string;
+  onChange: (city: string) => void;
+  style?: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [items, setItems] = useState<SettlementSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const query = search.trim();
+    if (!open || query.length < 2) {
+      setItems([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`${API_URL}/geo/settlements?q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Не удалось найти населённые пункты.");
+        setItems(Array.isArray(payload.items) ? payload.items : []);
+      } catch (requestError) {
+        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        setItems([]);
+        setError(requestError instanceof Error ? requestError.message : "Ошибка поиска населённых пунктов.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, search]);
+
+  function choose(item: SettlementSuggestion) {
+    onChange(item.name);
+    setOpen(false);
+    setSearch("");
+    setItems([]);
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        style={{ ...style, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, textAlign: "left", cursor: "pointer", background: "#fff", color: value ? "#0f172a" : "#64748b" }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите город или населённый пункт"}</span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Начните вводить город, село или деревню..."
+              style={{ ...inputStyle, width: "100%", minHeight: 40, boxSizing: "border-box" }}
+              autoFocus
+            />
+            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>
+              Поиск по населённым пунктам России. Введите минимум 2 символа.
+            </div>
+          </div>
+          {loading ? (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Поиск населённых пунктов...</div>
+          ) : error ? (
+            <div style={{ padding: 14, color: "#b91c1c", fontSize: 13 }}>{error}</div>
+          ) : search.trim().length < 2 ? (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Введите название, чтобы найти город, посёлок, село или деревню.</div>
+          ) : items.length ? (
+            <div>
+              {items.map((item, index) => (
+                <button
+                  key={`${item.name}-${item.subtitle}-${index}`}
+                  type="button"
+                  onClick={() => choose(item)}
+                  style={{ ...districtTreeRowStyle, width: "100%", padding: "8px 10px", minHeight: 44, textAlign: "left", cursor: "pointer", background: item.name === value ? "#fff1f2" : "#fff", border: 0, borderBottom: "1px solid #f1f5f9", display: "block" }}
+                >
+                  <span style={{ display: "block", color: "#1e293b", fontSize: 13, fontWeight: 700 }}>{item.name}</span>
+                  {item.subtitle && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11, lineHeight: 1.35 }}>{item.subtitle}</span>}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Ничего не найдено. Попробуйте ввести название вместе с областью или краем.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function plainPickerText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainPickerText).join("");
+  if (isValidElement(node)) return plainPickerText((node.props as { children?: React.ReactNode }).children);
+  return "";
+}
+
+/** Custom searchable replacement for native selects. Keeps the existing option
+ * JSX and onChange(event.target.value) handlers, but matches the DistrictPicker UI.
+ */
+function SearchableSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { value, onChange, children, style, disabled } = props;
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const options = Children.toArray(children).flatMap((child, index) => {
+    if (!isValidElement(child) || child.type !== "option") return [];
+    const option = child as React.ReactElement<{ value?: string | number; children?: React.ReactNode; disabled?: boolean }>;
+    const label = plainPickerText(option.props.children);
+    const optionValue = option.props.value === undefined ? label : String(option.props.value);
+    return [{ key: String(option.key ?? `${optionValue}-${index}`), value: optionValue, label, disabled: Boolean(option.props.disabled) }];
+  });
+  const currentValue = value === undefined || value === null ? "" : String(value);
+  const selected = options.find((option) => option.value === currentValue);
+  const query = search.trim().toLocaleLowerCase("ru-RU");
+  const filtered = options.filter((option) => !query || option.label.toLocaleLowerCase("ru-RU").includes(query) || option.value.toLocaleLowerCase("ru-RU").includes(query));
+
+  function choose(option: typeof options[number]) {
+    if (option.disabled) return;
+    onChange?.({ target: { value: option.value } } as React.ChangeEvent<HTMLSelectElement>);
+    setOpen(false);
+    setSearch("");
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        style={{ ...style, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", background: (style as React.CSSProperties | undefined)?.background || "#fff", color: disabled ? "#64748b" : "#0f172a", opacity: disabled ? 0.8 : 1 }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{selected?.label || currentValue || "Выберите значение"}</span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && !disabled && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск в списке..." style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }} autoFocus />
+          </div>
+          <div>
+            {filtered.length ? filtered.map((option) => (
+              <div key={option.key} style={{ ...districtTreeRowStyle, background: option.value === currentValue ? "#fff1f2" : "#fff", opacity: option.disabled ? 0.5 : 1 }}>
+                <span style={{ width: 16, flex: "0 0 16px", color: "#dc2626", fontWeight: 700, textAlign: "center" }}>{option.value === currentValue ? "✓" : ""}</span>
+                <button type="button" disabled={option.disabled} onClick={() => choose(option)} style={districtNodeLabelStyle}>{option.label}</button>
+              </div>
+            )) : <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Нет совпадений.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 type DomaAddressKind = "real" | "public";
 type DomaLngLat = [number, number];
@@ -1588,11 +1901,13 @@ function isDomaLngLat(value: unknown): value is DomaLngLat {
 }
 
 function AddressMap({
+  city,
   realAddress,
   publicAddress,
   onRealAddressChange,
   onPublicAddressChange,
 }: {
+  city: string;
   realAddress: string;
   publicAddress: string;
   onRealAddressChange: (value: string) => void;
@@ -1609,11 +1924,8 @@ function AddressMap({
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const [mapError, setMapError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [mapNotice, setMapNotice] = useState("Перетаскивайте красную и синюю метки. После перемещения соответствующий адрес заполнится автоматически.");
-  const [markerCoordinates, setMarkerCoordinates] = useState<Record<DomaAddressKind, DomaLngLat>>({
-    real: [38.9769, 45.0355],
-    public: [38.9822, 45.0380],
-  });
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [mapNotice, setMapNotice] = useState("Перетаскивайте красную и синюю точки. После перемещения соответствующий адрес заполнится автоматически.");
 
   useEffect(() => {
     latestPropsRef.current = { onRealAddressChange, onPublicAddressChange };
@@ -1700,15 +2012,23 @@ function AddressMap({
       await Promise.all(inputs.map(async ({ kind, address }) => {
         let coordinates = coordinatesRef.current[kind];
         let resolved = false;
-        if (address) {
+        const cityName = city.trim() || "Краснодар";
+        // Resolve full address when available; otherwise center the map on the chosen city.
+        const geocodeText = address ? `${address}, ${cityName}` : cityName;
+        if (geocodeText) {
           try {
-            const query = new URLSearchParams({ address: `${address}, Краснодар` });
+            const query = new URLSearchParams({ address: geocodeText });
             const response = await fetch(`${API_URL}/geocode?${query.toString()}`, { cache: "no-store" });
             const data = await response.json().catch(() => ({}));
             const longitude = Number(data?.longitude);
             const latitude = Number(data?.latitude);
             if (response.ok && data?.found === true && Number.isFinite(longitude) && Number.isFinite(latitude)) {
-              coordinates = [longitude, latitude];
+              // Keep the two initial points visible rather than exactly on top of each other.
+              coordinates = address
+                ? [longitude, latitude]
+                : kind === "public"
+                  ? [longitude + 0.002, latitude + 0.001]
+                  : [longitude, latitude];
               resolved = true;
             }
           } catch (error) {
@@ -1729,7 +2049,6 @@ function AddressMap({
           if (!isDomaLngLat(value)) return;
           const point: DomaLngLat = [Number(value[0]), Number(value[1])];
           coordinatesRef.current[kind] = point;
-          setMarkerCoordinates((current) => ({ ...current, [kind]: point }));
           void reverseGeocodeMarker(kind, point);
         };
 
@@ -1737,21 +2056,21 @@ function AddressMap({
           marker.update({ coordinates, draggable: true, mapFollowsOnDrag: true, onDragMove, onDragEnd });
         } else if (ymaps && mapRef.current) {
           const element = document.createElement("div");
-          element.textContent = kind === "real" ? "Реальный адрес" : "Рекламный адрес";
-          element.title = `Перетащите, чтобы изменить ${kind === "real" ? "реальный" : "рекламный"} адрес`;
+          element.textContent = "";
+          element.title = `Перетащите точку, чтобы изменить ${kind === "real" ? "реальный" : "рекламный"} адрес`;
           element.setAttribute("role", "img");
           element.setAttribute("aria-label", element.title);
           element.style.cssText = [
             "position:relative",
-            "transform:translate(-50%,-100%)",
-            `background:${kind === "real" ? "#dc2626" : "#2563eb"}`,
-            "color:#fff",
+            "transform:translate(-50%,-50%)",
+            "width:12px",
+            "height:12px",
+            "box-sizing:border-box",
+            `background:${kind === "real" ? "#e53935" : "#2878f0"}`,
             "border:2px solid #fff",
-            "border-radius:8px 8px 8px 2px",
-            "padding:6px 9px",
-            "font:700 11px/1.2 Arial,sans-serif",
-            "white-space:nowrap",
-            "box-shadow:0 2px 7px rgba(15,23,42,.35)",
+            "border-radius:50%",
+            "padding:0",
+            "box-shadow:0 1px 5px rgba(15,23,42,.55)",
             "cursor:grab",
             "user-select:none",
           ].join(";");
@@ -1769,10 +2088,6 @@ function AddressMap({
       }));
 
       if (cancelled) return;
-      setMarkerCoordinates({
-        real: coordinatesRef.current.real,
-        public: coordinatesRef.current.public,
-      });
       setIsSearching(false);
 
       const resolvedEntries = entries.filter((entry) => entry.address && entry.resolved);
@@ -1795,13 +2110,17 @@ function AddressMap({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [realAddress, publicAddress, mapStatus]);
+  }, [realAddress, publicAddress, mapStatus, city]);
 
-  const markerParam = [
-    `${markerCoordinates.real[0]},${markerCoordinates.real[1]},pm2rdm`,
-    `${markerCoordinates.public[0]},${markerCoordinates.public[1]},pm2blm`,
-  ].join("~");
-  const largeMapUrl = `https://yandex.ru/maps/?ll=${markerCoordinates.real[0]}%2C${markerCoordinates.real[1]}&z=12&pt=${markerParam}`;
+  useEffect(() => {
+    if (mapStatus !== "ready") return;
+    const timer = window.setTimeout(() => {
+      // Yandex Maps v3 observes its container size; this event also refreshes layouts
+      // in browsers that defer size updates after a React inline-height transition.
+      window.dispatchEvent(new Event("resize"));
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [isExpanded, mapStatus]);
 
   return (
     <div style={addressMapWrapStyle}>
@@ -1809,7 +2128,7 @@ function AddressMap({
         ref={mapContainerRef}
         role="application"
         aria-label="Карта адресов DOMA с двумя перетаскиваемыми метками"
-        style={{ display: "block", width: "100%", height: 300, minHeight: 260, overflow: "hidden", borderRadius: 12, background: "#e9eef5" }}
+        style={{ display: "block", width: "100%", height: isExpanded ? 560 : 300, minHeight: isExpanded ? 460 : 260, overflow: "hidden", borderRadius: 12, background: "#e9eef5", transition: "height 180ms ease" }}
       />
       {mapStatus === "loading" && <div style={{ ...addressMapCaptionStyle, marginTop: 0 }}>Загружаем карту Яндекса…</div>}
       {mapStatus === "error" && <div style={{ ...addressMapCaptionStyle, color: "#b91c1c" }}>Не удалось загрузить карту: {mapError}</div>}
@@ -1819,9 +2138,14 @@ function AddressMap({
           <span style={{ color: "#dc2626", fontWeight: 700 }}>Красная метка</span> — только агенту;{" "}
           <span style={{ color: "#2563eb", fontWeight: 700 }}>синяя метка</span> — рекламный адрес. {mapNotice}
         </div>
-        <a href={largeMapUrl} target="_blank" rel="noreferrer" style={{ color: "#dc2626", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
-          Открыть большую карту ↗
-        </a>
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          style={{ color: "#dc2626", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", border: "1px solid #fecaca", background: "#fff", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
+        >
+          {isExpanded ? "Свернуть карту ↑" : "Развернуть карту ↓"}
+        </button>
       </div>
     </div>
   );
@@ -2261,8 +2585,8 @@ function RentPropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
       </div>
       <div className="doma-sale-inline-filters" style={{ display: "grid", gridTemplateColumns: "minmax(200px,2fr) minmax(140px,1fr) minmax(130px,1fr)", gap: 7, padding: 8, borderBottom: "1px solid #d0d7dd" }}>
         <label><span style={inlineRentStyles.label}>Поиск по ID, названию, адресу или району</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, ЖК, улица, район…" style={inlineRentStyles.input} /></label>
-        <label><span style={inlineRentStyles.label}>Тип недвижимости</span><select value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineRentStyles.input}><option value="all">Все типы</option>{Object.entries(inlineRentTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label><span style={inlineRentStyles.label}>Статус</span><select value={status} onChange={(event) => setStatus(event.target.value)} style={inlineRentStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label><span style={inlineRentStyles.label}>Тип недвижимости</span><SearchableSelect value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineRentStyles.input}><option value="all">Все типы</option>{Object.entries(inlineRentTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SearchableSelect></label>
+        <label><span style={inlineRentStyles.label}>Статус</span><SearchableSelect value={status} onChange={(event) => setStatus(event.target.value)} style={inlineRentStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</SearchableSelect></label>
       </div>
       {error && <div role="alert" style={{ padding: 9, color: "#a61b16", background: "#fff1f0", borderBottom: "1px solid #e8b4b1" }}>Не удалось загрузить список: {error}. Проверь доступность API.</div>}
       <div className="doma-sale-inline-scroll">
