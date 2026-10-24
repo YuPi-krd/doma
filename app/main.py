@@ -2653,27 +2653,53 @@ def get_city_districts(
 out center tags;
 """.strip()
 
-    overpass_url = "https://overpass-api.de/api/interpreter"
-    request = UrlRequest(
-        overpass_url,
-        data=urlencode({"data": overpass_query}).encode("utf-8"),
-        headers={
-            **headers,
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        },
-        method="POST",
+    # The default Overpass endpoint is often busy. Try independent public mirrors
+    # in order; keep the same query and output format for every instance.
+    overpass_urls = (
+        "https://overpass.private.coffee/api/interpreter",
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
     )
-    try:
-        with urlopen(request, timeout=25) as response:
-            overpass_data = json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        print("Overpass HTTP error:", exc.code)
-        raise HTTPException(status_code=502, detail="Сервис OpenStreetMap временно не смог загрузить районы.") from exc
-    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
-        print("Overpass request failed:", type(exc).__name__)
-        raise HTTPException(status_code=502, detail="Не удалось загрузить районы из OpenStreetMap.") from exc
+    overpass_data = None
+    empty_successful_response = None
+    last_overpass_error = None
+    for overpass_url in overpass_urls:
+        request = UrlRequest(
+            overpass_url,
+            data=urlencode({"data": overpass_query}).encode("utf-8"),
+            headers={
+                **headers,
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=14) as response:
+                candidate = json.loads(response.read().decode("utf-8"))
+            if not isinstance(candidate, dict) or not isinstance(candidate.get("elements"), list):
+                raise ValueError("Unexpected Overpass response format")
+            # Prefer a populated response; if one instance returns an empty list,
+            # try another mirror before deciding the area has no mapped districts.
+            if candidate["elements"]:
+                overpass_data = candidate
+                break
+            empty_successful_response = candidate
+        except HTTPError as exc:
+            last_overpass_error = exc
+            print("Overpass HTTP error:", exc.code, "endpoint:", overpass_url)
+        except (URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
+            last_overpass_error = exc
+            print("Overpass request failed:", type(exc).__name__, "endpoint:", overpass_url)
 
-    elements = overpass_data.get("elements", []) if isinstance(overpass_data, dict) else []
+    if overpass_data is None:
+        overpass_data = empty_successful_response
+    if overpass_data is None:
+        raise HTTPException(
+            status_code=502,
+            detail="Список районов временно недоступен. Попробуйте открыть список ещё раз.",
+        ) from last_overpass_error
+
+    elements = overpass_data.get("elements", [])
     descriptions = {
         "suburb": "Район города",
         "neighbourhood": "Микрорайон",
