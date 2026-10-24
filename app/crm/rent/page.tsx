@@ -1494,8 +1494,6 @@ type DistrictNode = { label: string; children?: DistrictNode[]; description?: st
 // Styles used by the district selection tree and dropdown.
 const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 420, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 4, boxShadow: "0 6px 18px rgba(15,23,42,.18)" };
 const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
-const districtExpandButtonStyle: React.CSSProperties = { width: 18, height: 18, padding: 0, border: "1px solid #cbd5e1", borderRadius: 3, background: "#fff", color: "#334155", fontSize: 14, lineHeight: "16px", cursor: "pointer", flex: "0 0 auto" };
-const districtExpandSpacerStyle: React.CSSProperties = { display: "inline-block", width: 18, flex: "0 0 auto" };
 const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
 const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
 
@@ -1550,19 +1548,26 @@ const krasnodarDistricts: DistrictNode[] = [
   { label: "Другой район" },
 ];
 
+function flattenDistrictOptions(nodes: DistrictNode[]): Array<{ label: string; description?: string; type?: string }> {
+  return nodes.flatMap((node) => [
+    { label: node.label },
+    ...(node.children ? flattenDistrictOptions(node.children) : []),
+  ]);
+}
+
 function DistrictPicker({ value, onChange, city }: { value: string; onChange: (value: string) => void; city: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<string[]>(["Центральный", "Фестивальный", "мкр Юбилейный"]);
   const [remoteDistricts, setRemoteDistricts] = useState<Array<{ label: string; description?: string; type?: string }>>([]);
   const [districtLoading, setDistrictLoading] = useState(false);
   const [districtError, setDistrictError] = useState("");
-  const [manualEntry, setManualEntry] = useState(false);
+  const [districtRetry, setDistrictRetry] = useState(0);
   const isKrasnodar = city.trim().toLocaleLowerCase("ru-RU").includes("краснодар");
   const query = search.trim().toLocaleLowerCase("ru-RU");
 
   useEffect(() => {
-    setManualEntry(false);
+    setSearch("");
+    setOpen(false);
   }, [city]);
 
   useEffect(() => {
@@ -1570,10 +1575,14 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
       setDistrictLoading(false);
       return;
     }
+
     const controller = new AbortController();
     setDistrictLoading(true);
     setDistrictError("");
-    fetch(`${API_URL}/geo/city-districts?city=${encodeURIComponent(city)}`, { cache: "no-store", signal: controller.signal })
+    fetch(`${API_URL}/geo/city-districts?city=${encodeURIComponent(city)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.detail || "Не удалось загрузить районы.");
@@ -1584,96 +1593,110 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
         setRemoteDistricts([]);
         setDistrictError(error instanceof Error ? error.message : "Не удалось загрузить районы.");
       })
-      .finally(() => { if (!controller.signal.aborted) setDistrictLoading(false); });
-    return () => controller.abort();
-  }, [city, open]);
+      .finally(() => {
+        if (!controller.signal.aborted) setDistrictLoading(false);
+      });
 
-  const remoteNodes: DistrictNode[] = remoteDistricts.map((item) => ({ label: item.label, description: item.description, type: item.type } as DistrictNode));
-  const filteredRemoteDistricts = remoteDistricts.filter((item) =>
-    !query || item.label.toLocaleLowerCase("ru-RU").includes(query) || (item.description || "").toLocaleLowerCase("ru-RU").includes(query)
+    return () => controller.abort();
+  }, [city, open, districtRetry]);
+
+  const localOptions = isKrasnodar ? flattenDistrictOptions(krasnodarDistricts) : [];
+  const allOptions = [...localOptions, ...remoteDistricts];
+  const seen = new Set<string>();
+  const uniqueOptions = allOptions.filter((item) => {
+    const key = item.label.trim().toLocaleLowerCase("ru-RU");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const filteredOptions = uniqueOptions.filter((item) =>
+    !query || item.label.toLocaleLowerCase("ru-RU").includes(query) ||
+    (item.description || "").toLocaleLowerCase("ru-RU").includes(query) ||
+    (item.type || "").toLocaleLowerCase("ru-RU").includes(query)
   );
-  const krasnodarMerged = isKrasnodar
-    ? [...krasnodarDistricts, ...remoteNodes.filter((item) => !krasnodarDistricts.some((local) => local.label.toLocaleLowerCase("ru-RU") === item.label.toLocaleLowerCase("ru-RU")))]
-    : [];
-  const matches = (node: DistrictNode): boolean =>
-    !query || node.label.toLocaleLowerCase("ru-RU").includes(query) || Boolean(node.children?.some(matches));
 
   function chooseDistrict(label: string) {
     onChange(label);
     setOpen(false);
     setSearch("");
-    setManualEntry(false);
-  }
-
-  function renderNodes(nodes: DistrictNode[], depth = 0): React.ReactNode {
-    return nodes.filter(matches).map((node) => {
-      const hasChildren = Boolean(node.children?.length);
-      const isExpanded = expanded.includes(node.label) || Boolean(query);
-      const selected = value === node.label;
-      return (
-        <div key={`${depth}-${node.label}`}>
-          <div style={{ ...districtTreeRowStyle, paddingLeft: 8 + depth * 20, background: selected ? "#fff1f2" : "#fff" }}>
-            {hasChildren ? (
-              <button type="button" aria-label={isExpanded ? `Свернуть ${node.label}` : `Развернуть ${node.label}`} onClick={() => setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label])} style={districtExpandButtonStyle}>
-                {isExpanded ? "−" : "+"}
-              </button>
-            ) : <span style={districtExpandSpacerStyle} />}
-            <input type="checkbox" checked={selected} onChange={() => chooseDistrict(selected ? "" : node.label)} aria-label={`Выбрать ${node.label}`} style={{ accentColor: "#dc2626", width: 15, height: 15, flex: "0 0 auto" }} />
-            <button type="button" onClick={() => hasChildren ? setExpanded((current) => isExpanded ? current.filter((item) => item !== node.label) : [...current, node.label]) : chooseDistrict(node.label)} style={districtNodeLabelStyle}>
-              <span style={{ display: "block" }}>{node.label}</span>
-              {!isKrasnodar && node.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{node.description}</span>}
-            </button>
-          </div>
-          {hasChildren && isExpanded && <div>{renderNodes(node.children!, depth + 1)}</div>}
-        </div>
-      );
-    });
   }
 
   if (!city.trim()) {
-    return <div style={{ ...districtNodeLabelStyle, color: "#64748b", padding: "8px 0" }}>Сначала выберите населённый пункт.</div>;
+    return <div style={{ color: "#64748b", padding: "8px 0", fontSize: 12 }}>Сначала выберите населённый пункт.</div>;
   }
 
   return (
     <div style={{ position: "relative" }}>
-      <button type="button" onClick={() => { setOpen((current) => !current); setSearch(""); }} aria-expanded={open} style={{ ...inputStyle, display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12, background: "#fff" }}>
-        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите район / микрорайон"}</span>
+      <button
+        type="button"
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        aria-expanded={open}
+        style={{ ...inputStyle, display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12, background: "#fff" }}
+      >
+        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {value || "Выберите район / микрорайон"}
+        </span>
         <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
       </button>
+
       {open && (
         <div style={districtDropdownStyle}>
           <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#334155", marginBottom: 7 }}>Список районов и микрорайонов</div>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по списку..." style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }} autoFocus />
-            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>
-              {isKrasnodar ? "Выберите пункт из списка ниже; поиск фильтрует варианты." : "Выберите район в списке ниже. Поиск только фильтрует загруженные варианты."}
-            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Поиск района или микрорайона..."
+              style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }}
+              autoFocus
+            />
           </div>
+
           {districtLoading && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Загружаем районы...</div>}
-          {districtError && <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>{districtError}</div>}
-          {isKrasnodar && <div>{renderNodes(krasnodarMerged)}</div>}
-          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length > 0 && (
-            <div style={{ padding: "7px 10px", fontSize: 11, color: "#64748b", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {query ? `Найдено: ${filteredRemoteDistricts.length}` : `Вариантов в списке: ${filteredRemoteDistricts.length}`}
-            </div>
-          )}
-          {!isKrasnodar && filteredRemoteDistricts.map((item, index) => (
-            <div key={`${item.label}-${index}`} style={{ ...districtTreeRowStyle, background: item.label === value ? "#fff1f2" : "#fff", padding: "8px 10px" }}>
-              <span style={{ width: 16, flex: "0 0 16px", color: "#dc2626", fontWeight: 700, textAlign: "center" }}>{item.label === value ? "✓" : ""}</span>
-              <button type="button" onClick={() => chooseDistrict(item.label)} style={districtNodeLabelStyle}>
-                <span style={{ display: "block" }}>{item.label}</span>
-                {item.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{item.description}</span>}
+
+          {!districtLoading && districtError && uniqueOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>
+              Не удалось загрузить список районов.
+              <button type="button" onClick={() => setDistrictRetry((current) => current + 1)} style={{ display: "block", marginTop: 8, border: 0, background: "transparent", color: "#2563eb", padding: 0, cursor: "pointer" }}>
+                Повторить загрузку
               </button>
             </div>
+          )}
+
+          {!districtLoading && !districtError && uniqueOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Для этого населённого пункта список районов не найден.</div>
+          )}
+
+          {!districtLoading && uniqueOptions.length > 0 && filteredOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Ничего не найдено.</div>
+          )}
+
+          {!districtLoading && filteredOptions.map((item, index) => (
+            <button
+              key={`${item.label}-${index}`}
+              type="button"
+              onClick={() => chooseDistrict(item.label)}
+              style={{
+                ...districtTreeRowStyle,
+                width: "100%",
+                padding: "8px 10px",
+                background: item.label === value ? "#fff1f2" : "#fff",
+                border: 0,
+                borderBottom: "1px solid #f1f5f9",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", color: "#1e293b", fontSize: 13 }}>{item.label}</span>
+                {item.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{item.description}</span>}
+              </span>
+              {item.label === value && <span style={{ color: "#dc2626", fontWeight: 700 }}>✓</span>}
+            </button>
           ))}
-          {!isKrasnodar && !districtLoading && !districtError && remoteDistricts.length === 0 && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>В списке пока нет районов для этого населённого пункта. Попробуйте ещё раз позже или укажите район вручную.</div>}
-          <div style={{ borderTop: "1px solid #e2e8f0", padding: 10, background: "#fff" }}>
-            <button type="button" onClick={() => { setManualEntry((current) => !current); setOpen(false); }} style={{ ...districtClearStyle, fontSize: 12 }}>＋ Указать район вручную</button>
-          </div>
         </div>
       )}
-      {manualEntry && <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Введите район или микрорайон" style={{ ...inputStyle, marginTop: 6 }} />}
-      {value && <button type="button" onClick={() => { onChange(""); setManualEntry(false); }} style={districtClearStyle}>Сбросить выбор</button>}
+
+      {value && <button type="button" onClick={() => onChange("")} style={districtClearStyle}>Сбросить выбор</button>}
     </div>
   );
 }
