@@ -39,6 +39,7 @@ declare global {
 }
 
 const API_URL = "https://doma-nq4u.onrender.com";
+const DOMA_MAP_MARKER_SOURCE = "doma-property-markers";
 
 const KRASNODAR_CENTER: [
   number,
@@ -760,6 +761,8 @@ export default function YandexMap({
           YMap,
           YMapDefaultSchemeLayer,
           YMapDefaultFeaturesLayer,
+          YMapFeatureDataSource,
+          YMapLayer,
         } = ymaps;
 
         const map =
@@ -786,6 +789,14 @@ export default function YandexMap({
             {}
           )
         );
+
+        // Separate marker layer is required by YMapClusterer.
+        map.addChild(new YMapFeatureDataSource({ id: DOMA_MAP_MARKER_SOURCE }));
+        map.addChild(new YMapLayer({
+          source: DOMA_MAP_MARKER_SOURCE,
+          type: "markers",
+          zIndex: 1800,
+        }));
 
         mapRef.current = map;
 
@@ -834,8 +845,8 @@ export default function YandexMap({
     if (!map || !ymaps || status !== "ready") return;
 
     let cancelled = false;
-    markersRef.current.forEach((marker) => {
-      try { map.removeChild(marker); } catch { /* already removed */ }
+    markersRef.current.forEach((entity) => {
+      try { map.removeChild(entity); } catch { /* already removed */ }
     });
     markersRef.current = [];
 
@@ -869,20 +880,40 @@ export default function YandexMap({
         map.update({ location: { center, zoom: valid.length === 1 ? 14 : 11, duration: 300 } });
       }
 
-      // At most one preview card is open at a time.
+      if (!valid.length) return;
+
+      // Keep the source record available when the clusterer asks us to render a point.
+      const itemById = new Map<number, MapMarker>();
+      valid.forEach(({ item }) => itemById.set(item.id, item));
+
+      // Repeatedly clicking a dense cluster keeps increasing zoom until points split.
+      let clusterClickCount = 0;
+      const initialZoom = valid.length === 1 ? 14 : 11;
+
+      // Only one listing preview may be open at a time.
       let activePopup: HTMLDivElement | null = null;
 
-      valid.forEach(({ item, coordinates }) => {
+      const renderPropertyMarker = (feature: any) => {
+        const itemId = Number(feature?.properties?.propertyId ?? feature?.id);
+        const item = itemById.get(itemId);
+        const coordinates = feature?.geometry?.coordinates as [number, number];
         const content = document.createElement("div");
         content.className = "doma-map-marker";
+
+        if (!item) {
+          content.classList.add("doma-map-marker--empty");
+          return new ymaps.YMapMarker({ coordinates, source: DOMA_MAP_MARKER_SOURCE }, content);
+        }
+
         content.setAttribute("title", [item.title, getMapAddress(item)].filter(Boolean).join(" · "));
 
-        const priceButton = document.createElement("button");
-        priceButton.type = "button";
-        priceButton.className = "doma-map-marker__price";
-        priceButton.textContent = `${Number(item.price || 0).toLocaleString("ru-RU")} ₽`;
-        priceButton.setAttribute("aria-label", `Показать объявление: ${item.title || "Объект недвижимости"}`);
-        priceButton.setAttribute("aria-expanded", "false");
+        // Map pin is a simple red dot. Price is shown only inside the listing preview.
+        const dotButton = document.createElement("button");
+        dotButton.type = "button";
+        dotButton.className = "doma-map-marker__dot";
+        dotButton.setAttribute("aria-label", `Показать объявление: ${item.title || "Объект недвижимости"}`);
+        dotButton.setAttribute("aria-expanded", "false");
+        dotButton.title = item.title || "Объект недвижимости";
 
         const popup = document.createElement("div");
         popup.className = "doma-map-marker__popup";
@@ -900,7 +931,7 @@ export default function YandexMap({
           event.preventDefault();
           event.stopPropagation();
           popup.hidden = true;
-          priceButton.setAttribute("aria-expanded", "false");
+          dotButton.setAttribute("aria-expanded", "false");
           if (activePopup === popup) activePopup = null;
         });
 
@@ -988,25 +1019,74 @@ export default function YandexMap({
         cardLink.append(photoBox, details);
         popup.append(closeButton, cardLink);
 
-        priceButton.addEventListener("click", (event) => {
+        dotButton.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
           const shouldOpen = popup.hidden;
           if (activePopup && activePopup !== popup) {
             activePopup.hidden = true;
-            const previousButton = activePopup.parentElement?.querySelector<HTMLButtonElement>(".doma-map-marker__price");
-            previousButton?.setAttribute("aria-expanded", "false");
+            activePopup.parentElement?.querySelector<HTMLButtonElement>(".doma-map-marker__dot")?.setAttribute("aria-expanded", "false");
           }
           popup.hidden = !shouldOpen;
-          priceButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+          dotButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
           activePopup = shouldOpen ? popup : null;
         });
 
-        content.append(priceButton, popup);
-        const marker = new ymaps.YMapMarker({ coordinates }, content);
-        map.addChild(marker);
-        markersRef.current.push(marker);
-      });
+        content.append(dotButton, popup);
+        return new ymaps.YMapMarker({ coordinates, source: DOMA_MAP_MARKER_SOURCE }, content);
+      };
+
+      // Features are clustered by screen-space distance, so nearby pins do not stack.
+      const features = valid.map(({ item, coordinates }) => ({
+        type: "Feature" as const,
+        id: item.id,
+        geometry: { type: "Point" as const, coordinates },
+        properties: { propertyId: item.id },
+      }));
+
+      try {
+        const { YMapClusterer, clusterByGrid } = await ymaps.import("@yandex/ymaps3-clusterer");
+        if (cancelled) return;
+
+        const renderCluster = (coordinates: [number, number], clusterFeatures: any[]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "doma-map-cluster";
+          button.textContent = String(clusterFeatures.length);
+          button.setAttribute("aria-label", `${clusterFeatures.length} объявлений рядом. Приблизить карту`);
+          button.title = `${clusterFeatures.length} объявлений — нажмите, чтобы приблизить`;
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            clusterClickCount += 1;
+            const nextZoom = Math.min(initialZoom + clusterClickCount * 2, 20);
+            map.update({ location: { center: coordinates, zoom: nextZoom, duration: 300 } });
+          });
+          return new ymaps.YMapMarker({ coordinates, source: DOMA_MAP_MARKER_SOURCE }, button);
+        };
+
+        const clusterer = new YMapClusterer({
+          method: clusterByGrid({ gridSize: 64 }),
+          features,
+          marker: renderPropertyMarker,
+          cluster: renderCluster,
+        });
+        map.addChild(clusterer);
+        markersRef.current.push(clusterer);
+      } catch (error) {
+        // If the optional cluster module is unavailable, still show red dots instead of prices.
+        console.error("Не удалось включить группировку меток карты:", error);
+        if (cancelled) return;
+        valid.forEach(({ item, coordinates }) => {
+          const marker = renderPropertyMarker({
+            id: item.id,
+            geometry: { coordinates },
+            properties: { propertyId: item.id },
+          });
+          map.addChild(marker);
+          markersRef.current.push(marker);
+        });
+      }
     }
 
     void drawMarkers();
@@ -1120,36 +1200,52 @@ export default function YandexMap({
 
         .doma-map-marker {
           position: relative;
-          width: max-content;
-          transform: translate(-50%, -100%);
+          width: 18px;
+          height: 18px;
+          transform: translate(-50%, -50%);
           cursor: default;
           font-family: Arial, Helvetica, sans-serif;
         }
 
-        .doma-map-marker__price {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 28px;
-          padding: 7px 10px;
-          border: 0;
-          border-radius: 9px;
-          background: #ef4444;
-          color: #ffffff;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.18);
-          font: inherit;
-          font-size: 12px;
-          font-weight: 700;
-          line-height: 1;
-          white-space: nowrap;
+        .doma-map-marker__dot {
+          display: block;
+          width: 16px;
+          height: 16px;
+          padding: 0;
+          border: 2px solid #ffffff;
+          border-radius: 50%;
+          background: #ef3340;
+          box-shadow: 0 2px 7px rgba(15, 23, 42, .38);
           cursor: pointer;
-          transition: background .15s ease, transform .15s ease;
+          transition: transform .15s ease, background .15s ease;
         }
 
-        .doma-map-marker__price:hover,
-        .doma-map-marker__price[aria-expanded="true"] {
-          background: #d92f3b;
-          transform: translateY(-1px);
+        .doma-map-marker__dot:hover,
+        .doma-map-marker__dot[aria-expanded="true"] {
+          background: #c91f2d;
+          transform: scale(1.18);
+        }
+
+        .doma-map-cluster {
+          display: grid;
+          place-items: center;
+          width: 34px;
+          height: 34px;
+          padding: 0;
+          border: 3px solid #ffffff;
+          border-radius: 50%;
+          background: #ef3340;
+          color: #ffffff;
+          box-shadow: 0 3px 10px rgba(15, 23, 42, .30);
+          font: 700 12px/1 Arial, Helvetica, sans-serif;
+          cursor: pointer;
+          transform: translate(-50%, -50%);
+          transition: transform .15s ease, background .15s ease;
+        }
+
+        .doma-map-cluster:hover {
+          background: #c91f2d;
+          transform: translate(-50%, -50%) scale(1.08);
         }
 
         .doma-map-marker__popup[hidden] { display: none !important; }
