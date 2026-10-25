@@ -69,9 +69,9 @@ const propertyTypeLabels: Record<string, string> = {
   garage: "Гараж",
 };
 
-export default function SalePage() {
+export default function RentPage() {
   const [title, setTitle] = useState("");
-  const [dealType] = useState("sale");
+  const [dealType] = useState("rent");
   const [propertyType, setPropertyType] = useState("apartment");
   const [propertySubtype, setPropertySubtype] = useState("secondary");
   const [city, setCity] = useState("Краснодар");
@@ -94,8 +94,10 @@ export default function SalePage() {
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agentComment, setAgentComment] = useState("");
   const [source, setSource] = useState("Рекомендация");
+  const [dealDate, setDealDate] = useState("");
   const [hasMaternalCapital, setHasMaternalCapital] = useState(false);
   const [showPricePerSqm, setShowPricePerSqm] = useState(false);
+  const [monthlyPayment, setMonthlyPayment] = useState("");
   const [residentialComplex, setResidentialComplex] = useState("");
   const [cadastralNumber, setCadastralNumber] = useState("");
   const [landCadastralNumber, setLandCadastralNumber] = useState("");
@@ -258,6 +260,8 @@ export default function SalePage() {
       setOwnerPhone(asFormString(p.owner_phone));
       setAgentComment(asFormString(p.agent_comment));
       setSource(asFormString(p.source));
+      setDealDate(asFormString(p.deal_date));
+      setMonthlyPayment(asFormString(p.monthly_payment));
       setResidentialComplex(asFormString(p.residential_complex));
       setCadastralNumber(asFormString(p.cadastral_number));
       setLandCadastralNumber(asFormString(p.land_cadastral_number));
@@ -319,7 +323,7 @@ export default function SalePage() {
         }))
         .filter((photo, index, list) => list.findIndex((entry) => entry.url === photo.url) === index);
       setPhotos(photoUrls);
-      gallerySyncReadyRef.current = true;      document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      gallerySyncReadyRef.current = true;      document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Не удалось загрузить данные объекта.");
@@ -330,7 +334,7 @@ export default function SalePage() {
 
   function resetFormForNewObject() {
     if (editingPropertyId === null && !title.trim()) {
-      document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     if (!window.confirm("Начать создание нового объекта? Несохранённые изменения будут потеряны.")) return;
@@ -357,6 +361,8 @@ export default function SalePage() {
     setOwnerPhone("");
     setAgentComment("");
     setSource("Рекомендация");
+    setDealDate("");
+    setMonthlyPayment("");
     setResidentialComplex("");
     setCadastralNumber("");
     setLandCadastralNumber("");
@@ -393,7 +399,7 @@ export default function SalePage() {
     setShowCharacteristics(false);
     setShowReferenceSummary(false);
     setSavedId(null);
-    document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function saveDraft() {
@@ -421,8 +427,10 @@ export default function SalePage() {
       ownerPhone,
       agentComment,
       source,
+      dealDate,
       hasMaternalCapital,
       showPricePerSqm,
+      monthlyPayment,
       residentialComplex,
       cadastralNumber,
       landCadastralNumber,
@@ -451,7 +459,7 @@ export default function SalePage() {
       garage,
     };
 
-    localStorage.setItem("doma-sale-draft", JSON.stringify(draft));
+    localStorage.setItem("doma-rent-draft", JSON.stringify(draft));
     alert("Черновик сохранён на этом устройстве.");
   }
 
@@ -514,8 +522,10 @@ export default function SalePage() {
           owner_phone: ownerPhone,
           agent_comment: agentComment,
           source,
+          deal_date: dealDate || null,
           has_maternal_capital: hasMaternalCapital,
           show_price_per_sqm: showPricePerSqm,
+          monthly_payment: Number(monthlyPayment) || 0,
           residential_complex: residentialComplex,
           cadastral_number: cadastralNumber,
           land_cadastral_number: landCadastralNumber,
@@ -626,25 +636,25 @@ export default function SalePage() {
             <div style={eyebrowStyle}>CRM DOMA · ОБЪЕКТ</div>
             <h1 style={titleStyle}>{editingPropertyId !== null ? `Редактирование объекта №${editingPropertyId}` : "Создание объекта"}</h1>
             <p style={subtitleStyle}>
-              Заполните данные для продажи недвижимости
+              Заполните данные для сдачи недвижимости в аренду
             </p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, flexWrap: "wrap" }}>
-            <button type="button" onClick={editingPropertyId !== null ? resetFormForNewObject : () => document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 24, padding: "4px 8px", border: "1px solid #b7d8f3", borderRadius: 2, background: "#f7fbff", color: "#075ba8", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button type="button" onClick={editingPropertyId !== null ? resetFormForNewObject : () => document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 24, padding: "4px 8px", border: "1px solid #b7d8f3", borderRadius: 2, background: "#f7fbff", color: "#075ba8", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
               {editingPropertyId !== null ? "＋ Новый объект" : "＋ Добавить объект"}
             </button>
-            <div style={saleBadgeStyle}>
-              <span style={saleDotStyle} />
-              Продажа
+            <div style={rentBadgeStyle}>
+              <span style={rentDotStyle} />
+              Аренда
             </div>
           </div>
         </header>
 
-        {/* Список находится прямо на странице продажи, как в видео; отдельный маршрут не нужен. */}
-        <SalePropertiesList refreshKey={savedId ?? 0} onCreateClick={() => document.getElementById("doma-sale-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} onOpenProperty={loadPropertyIntoForm} isOpening={isLoadingExisting} />
+        {/* Список объектов аренды расположен на этой же странице, как и список продажи. */}
+        <RentPropertiesList refreshKey={savedId ?? 0} onCreateClick={() => document.getElementById("doma-rent-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} onOpenProperty={loadPropertyIntoForm} isOpening={isLoadingExisting} />
 
-        <section id="doma-sale-create-form" className="doma-crm-layout" style={layoutStyle}>
+        <section id="doma-rent-create-form" className="doma-crm-layout" style={layoutStyle}>
           <div style={columnStyle}>
             <section style={cardStyle}>
               <SectionHeading
@@ -717,14 +727,14 @@ export default function SalePage() {
                   <input value={metro} onChange={(e) => setMetro(e.target.value)} placeholder="Ближайшая станция" style={inputStyle} />
                 </Field>
 
-                <Field label="Цена" required>
+                <Field label="Цена аренды, ₽/мес." required>
                   <div style={inputWithSuffixStyle}>
                     <input
                       type="number"
                       min="0"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      placeholder="0"
+                      placeholder="45000"
                       style={inputBareStyle}
                     />
                     <span style={suffixStyle}>₽</span>
@@ -746,10 +756,16 @@ export default function SalePage() {
                   </div>
                 </Field>
 
+                <Field label="Дата сделки / заселения">
+                  <input type="date" value={dealDate} onChange={(e) => setDealDate(e.target.value)} style={inputStyle} />
+                </Field>
                 <Field label="Источник обращения">
                   <SearchableSelect value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
                     <option>Рекомендация</option><option>Сайт</option><option>Звонок</option><option>Социальные сети</option><option>Реклама</option><option>Партнёр</option><option>Повторный клиент</option><option>Другое</option>
                   </SearchableSelect>
+                </Field>
+                <Field label="Платёж в месяц, ₽">
+                  <input type="number" min="0" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0" style={inputStyle} />
                 </Field>
                 <Field label="Кадастровый номер объекта">
                   <input value={cadastralNumber} onChange={(e) => setCadastralNumber(e.target.value)} placeholder="XX:XX:XXXXXXX:XXX" style={inputStyle} />
@@ -921,6 +937,23 @@ export default function SalePage() {
                     </Field>
                     <Field label="Год постройки">
                       <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2022" style={inputStyle} />
+                    </Field>
+                    <Field label="Ремонт">
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Материал дома">
                       <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
@@ -1303,10 +1336,10 @@ export default function SalePage() {
 
               <div style={statusListStyle}>
                 {[
-                  ["Свободен", "Объект доступен для продажи"],
+                  ["Свободен", "Объект доступен для аренды"],
                   ["Бронь", "Есть временная договорённость"],
                   ["Задаток", "Получен задаток"],
-                  ["Продан", "Сделка завершена"],
+                  ["Сдан", "Объект передан арендатору"],
                 ].map(([value, descriptionText]) => {
                   const active = status === value;
                   return (
@@ -1422,6 +1455,8 @@ export default function SalePage() {
                   ["Микрорайон", district || "—"],
                   ["Метро / остановка", metro || "—"],
                   ["Источник обращения", source || "—"],
+                  ["Дата сделки / заселения", dealDate || "—"],
+                  ["Платёж в месяц", monthlyPayment ? `${Number(monthlyPayment).toLocaleString("ru-RU")} ₽` : "—"],
                   ["Материнский капитал", hasMaternalCapital ? "Возможен" : "Нет / не указано"],
                   ["Цена за м² на сайте", showPricePerSqm ? "Показывать" : "Не показывать"],
                   ["Кадастровый номер объекта", cadastralNumber || "—"],
@@ -1471,7 +1506,14 @@ export default function SalePage() {
 
 type DistrictNode = { label: string; children?: DistrictNode[]; description?: string; type?: string };
 
-// Справочник по видимым районам и микрорайонам с предоставленных скриншотов.
+// Иерархический справочник по районам и микрорайонам Краснодара.
+// Составлен по присланным скриншотам; отдельные общегородские районы также сохранены.
+// Styles used by the district selection tree and dropdown.
+const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 420, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 4, boxShadow: "0 6px 18px rgba(15,23,42,.18)" };
+const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
+const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
+const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
+
 const krasnodarDistricts: DistrictNode[] = [
   { label: "Центральный", children: [
     { label: "мкр Центральный" },
@@ -1488,7 +1530,6 @@ const krasnodarDistricts: DistrictNode[] = [
   ]},
   { label: "мкр Юбилейный", children: [
     { label: "мкр Сельскохозяйственный Институт" },
-    { label: "мкр Юбилейный" },
     { label: "жилой городок Аграрного Университета" },
     { label: "ЖК Виктория" },
     { label: "ЖК Новый Город" },
@@ -2267,27 +2308,27 @@ const inputWithSuffixStyle: React.CSSProperties = { display: "flex", alignItems:
 
 const suffixStyle: React.CSSProperties = { color: "#586674", fontSize: 10, fontWeight: 600 };
 
-const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 420, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 4, boxShadow: "0 6px 18px rgba(15,23,42,.18)" };
-
-const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
-const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
-const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
-
 const addressMapWrapStyle: React.CSSProperties = {
   position: "relative",
   gridColumn: "1 / -1",
-  zIndex: 1,
-  width: "100%",
   minWidth: 0,
+  width: "100%",
   boxSizing: "border-box",
   marginTop: 8,
   padding: 12,
   border: "1px solid #e2e8f0",
-  borderRadius: 2,
-  background: "#fff",
-  boxShadow: "0 4px 12px rgba(22,42,60,.12)",
+  borderRadius: 16,
+  background: "#f8fafc",
 };
-const addressMapCaptionStyle: React.CSSProperties = { marginTop: 7, fontSize: 11, color: "#64748b" };
+
+
+
+const addressMapCaptionStyle: React.CSSProperties = {
+  marginTop: 8,
+  fontSize: 11,
+  color: "#64748b",
+};
+
 
 const privateFieldWrapStyle: React.CSSProperties = { position: "relative" };
 const publicFieldWrapStyle: React.CSSProperties = { position: "relative" };
@@ -2419,7 +2460,7 @@ const secondaryButtonStyle: React.CSSProperties = { padding: "5px 8px", borderRa
 
 const primaryButtonStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 1, border: "1px solid #0864ae", background: "#0878d1", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", boxShadow: "none" };
 
-type InlineSaleProperty = {
+type InlineRentProperty = {
   id: number;
   title?: string;
   city?: string;
@@ -2443,21 +2484,21 @@ type InlineSaleProperty = {
   total_floors?: number | string | null;
 };
 
-type InlineSaleListResponse = {
-  items: InlineSaleProperty[];
+type InlineRentListResponse = {
+  items: InlineRentProperty[];
   total: number;
 };
 
-const INLINE_SALE_PAGE_SIZE = 25;
-const inlineSaleTypeLabels: Record<string, string> = {
+const INLINE_RENT_PAGE_SIZE = 25;
+const inlineRentTypeLabels: Record<string, string> = {
   apartment: "Квартира",
   house: "Дом",
   land: "Участок",
   commercial: "Коммерческая",
   garage: "Гараж / парковка",
 };
-const inlineSaleNumberFormat = new Intl.NumberFormat("ru-RU");
-const inlineSaleStyles: Record<string, React.CSSProperties> = {
+const inlineRentNumberFormat = new Intl.NumberFormat("ru-RU");
+const inlineRentStyles: Record<string, React.CSSProperties> = {
   panel: { marginTop: 8, marginBottom: 10, border: "1px solid #aeb7bf", background: "#f7f8f9", color: "#20262d", fontSize: 12 },
   panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 10px", background: "#e8edf2", borderBottom: "1px solid #b7c1c9" },
   title: { margin: 0, color: "#273746", fontSize: 13, fontWeight: 700 },
@@ -2469,22 +2510,22 @@ const inlineSaleStyles: Record<string, React.CSSProperties> = {
   cell: { padding: "6px 7px", borderBottom: "1px solid #d3d9de", verticalAlign: "middle", fontSize: 10 },
 };
 
-function inlineSaleIsDraft(item: InlineSaleProperty) {
+function inlineRentIsDraft(item: InlineRentProperty) {
   return item.is_draft === true || String(item.is_draft).toLowerCase() === "true" || String(item.is_draft) === "1";
 }
 
-function inlineSaleAddress(item: InlineSaleProperty) {
+function inlineRentAddress(item: InlineRentProperty) {
   return [item.city, item.district, item.public_address || item.address || item.real_address]
     .filter((part) => Boolean(part && String(part).trim())).join(", ") || "Адрес не указан";
 }
 
-function inlineSaleMoney(value: InlineSaleProperty["price"]) {
+function inlineRentMoney(value: InlineRentProperty["price"]) {
   const amount = Number(value || 0);
-  return Number.isFinite(amount) && amount > 0 ? `${inlineSaleNumberFormat.format(amount)} ₽` : "—";
+  return Number.isFinite(amount) && amount > 0 ? `${inlineRentNumberFormat.format(amount)} ₽` : "—";
 }
 
-function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpening }: { refreshKey: number; onCreateClick: () => void; onOpenProperty: (id: number) => void; isOpening: boolean }) {
-  const [items, setItems] = useState<InlineSaleProperty[]>([]);
+function RentPropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpening }: { refreshKey: number; onCreateClick: () => void; onOpenProperty: (id: number) => void; isOpening: boolean }) {
+  const [items, setItems] = useState<InlineRentProperty[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [propertyType, setPropertyType] = useState("all");
@@ -2513,9 +2554,9 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
       setLoading(true);
       setError("");
       const params = new URLSearchParams({
-        deal_type: "sale",
-        offset: String((page - 1) * INLINE_SALE_PAGE_SIZE),
-        limit: String(INLINE_SALE_PAGE_SIZE),
+        deal_type: "rent",
+        offset: String((page - 1) * INLINE_RENT_PAGE_SIZE),
+        limit: String(INLINE_RENT_PAGE_SIZE),
         is_draft: view === "drafts" ? "true" : "false",
       });
       if (propertyType !== "all") params.set("property_type", propertyType);
@@ -2527,10 +2568,10 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
         const payload: unknown = await response.json();
         if (cancelled) return;
         if (Array.isArray(payload)) {
-          setItems(payload as InlineSaleProperty[]);
+          setItems(payload as InlineRentProperty[]);
           setTotalFromServer(null);
-        } else if (payload && typeof payload === "object" && Array.isArray((payload as InlineSaleListResponse).items)) {
-          const result = payload as InlineSaleListResponse;
+        } else if (payload && typeof payload === "object" && Array.isArray((payload as InlineRentListResponse).items)) {
+          const result = payload as InlineRentListResponse;
           setItems(result.items);
           setTotalFromServer(Number(result.total ?? result.items.length));
         } else {
@@ -2550,8 +2591,8 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
   }, [page, debouncedSearch, propertyType, status, view, refreshCounter, refreshKey]);
 
   const localFiltered = useMemo(() => items.filter((item) => {
-    if ((item.deal_type || "sale") !== "sale") return false;
-    if (view === "drafts" ? !inlineSaleIsDraft(item) : inlineSaleIsDraft(item)) return false;
+    if ((item.deal_type || "rent") !== "rent") return false;
+    if (view === "drafts" ? !inlineRentIsDraft(item) : inlineRentIsDraft(item)) return false;
     if (propertyType !== "all" && item.property_type !== propertyType) return false;
     if (status !== "all" && (item.status || "") !== status) return false;
     if (debouncedSearch) {
@@ -2563,8 +2604,8 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
   }), [items, view, propertyType, status, debouncedSearch]);
 
   const total = totalFromServer ?? localFiltered.length;
-  const maxPage = Math.max(1, Math.ceil(total / INLINE_SALE_PAGE_SIZE));
-  const visible = totalFromServer === null ? localFiltered.slice((page - 1) * INLINE_SALE_PAGE_SIZE, page * INLINE_SALE_PAGE_SIZE) : localFiltered;
+  const maxPage = Math.max(1, Math.ceil(total / INLINE_RENT_PAGE_SIZE));
+  const visible = totalFromServer === null ? localFiltered.slice((page - 1) * INLINE_RENT_PAGE_SIZE, page * INLINE_RENT_PAGE_SIZE) : localFiltered;
 
   async function updateListing(id: number, action: "publish" | "delete", itemTitle?: string) {
     if (busyId !== null) return;
@@ -2582,40 +2623,40 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
   }
 
   return (
-    <section style={inlineSaleStyles.panel} aria-label="Список объектов на продаже">
+    <section style={inlineRentStyles.panel} aria-label="Список объектов в аренде">
       <style>{`.doma-sale-inline-table { width:100%; border-collapse:collapse; min-width:920px; } .doma-sale-inline-table th { padding:7px; border-bottom:1px solid #b7c1c9; } .doma-sale-inline-row:hover { background:#eef6fc; } .doma-sale-inline-scroll { overflow-x:auto; width:100%; } @media(max-width:760px){.doma-sale-inline-filters{grid-template-columns:1fr 1fr!important}.doma-sale-inline-heading{align-items:flex-start!important;flex-direction:column!important}} @media(max-width:480px){.doma-sale-inline-filters{grid-template-columns:1fr!important}}`}</style>
-      <div className="doma-sale-inline-heading" style={inlineSaleStyles.panelHeader}>
+      <div className="doma-sale-inline-heading" style={inlineRentStyles.panelHeader}>
         <div>
-          <h2 style={inlineSaleStyles.title}>Объекты на продаже</h2>
-          <p style={inlineSaleStyles.subtitle}>Список расположен прямо на странице продажи — без перехода в отдельный раздел</p>
+          <h2 style={inlineRentStyles.title}>Объекты в аренде</h2>
+          <p style={inlineRentStyles.subtitle}>Список расположен прямо на странице аренды — без перехода в отдельный раздел</p>
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={hasMounted && loading} style={{ ...inlineSaleStyles.btn, opacity: hasMounted && loading ? 0.6 : 1 }}>↻ Обновить</button>
-          <button type="button" onClick={onCreateClick} style={inlineSaleStyles.blueBtn}>＋ Добавить объект</button>
+          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={hasMounted && loading} style={{ ...inlineRentStyles.btn, opacity: hasMounted && loading ? 0.6 : 1 }}>↻ Обновить</button>
+          <button type="button" onClick={onCreateClick} style={inlineRentStyles.blueBtn}>＋ Добавить объект</button>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, padding: 7, borderBottom: "1px solid #d0d7dd" }}>
-        <button type="button" onClick={() => setView("published")} style={{ ...inlineSaleStyles.btn, background: view === "published" ? "#e0f2e8" : "#fff", borderColor: view === "published" ? "#7cc49a" : "#9eacb7", color: view === "published" ? "#166534" : "#263746" }}>Объявления</button>
-        <button type="button" onClick={() => setView("drafts")} style={{ ...inlineSaleStyles.btn, background: view === "drafts" ? "#fff2d6" : "#fff", borderColor: view === "drafts" ? "#d9ad5d" : "#9eacb7", color: view === "drafts" ? "#8a5700" : "#263746" }}>Черновики</button>
+        <button type="button" onClick={() => setView("published")} style={{ ...inlineRentStyles.btn, background: view === "published" ? "#e0f2e8" : "#fff", borderColor: view === "published" ? "#7cc49a" : "#9eacb7", color: view === "published" ? "#166534" : "#263746" }}>Объявления</button>
+        <button type="button" onClick={() => setView("drafts")} style={{ ...inlineRentStyles.btn, background: view === "drafts" ? "#fff2d6" : "#fff", borderColor: view === "drafts" ? "#d9ad5d" : "#9eacb7", color: view === "drafts" ? "#8a5700" : "#263746" }}>Черновики</button>
         <span style={{ marginLeft: "auto", color: "#536575", fontSize: 10 }}>Найдено: <b>{total.toLocaleString("ru-RU")}</b></span>
       </div>
       <div className="doma-sale-inline-filters" style={{ display: "grid", gridTemplateColumns: "minmax(200px,2fr) minmax(140px,1fr) minmax(130px,1fr)", gap: 7, padding: 8, borderBottom: "1px solid #d0d7dd" }}>
-        <label><span style={inlineSaleStyles.label}>Поиск по ID, названию, адресу или району</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, ЖК, улица, район…" style={inlineSaleStyles.input} /></label>
-        <label><span style={inlineSaleStyles.label}>Тип недвижимости</span><SearchableSelect value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все типы</option>{Object.entries(inlineSaleTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SearchableSelect></label>
-        <label><span style={inlineSaleStyles.label}>Статус</span><SearchableSelect value={status} onChange={(event) => setStatus(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</SearchableSelect></label>
+        <label><span style={inlineRentStyles.label}>Поиск по ID, названию, адресу или району</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, ЖК, улица, район…" style={inlineRentStyles.input} /></label>
+        <label><span style={inlineRentStyles.label}>Тип недвижимости</span><SearchableSelect value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineRentStyles.input}><option value="all">Все типы</option>{Object.entries(inlineRentTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SearchableSelect></label>
+        <label><span style={inlineRentStyles.label}>Статус</span><SearchableSelect value={status} onChange={(event) => setStatus(event.target.value)} style={inlineRentStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</SearchableSelect></label>
       </div>
       {error && <div role="alert" style={{ padding: 9, color: "#a61b16", background: "#fff1f0", borderBottom: "1px solid #e8b4b1" }}>Не удалось загрузить список: {error}. Проверь доступность API.</div>}
       <div className="doma-sale-inline-scroll">
         <table className="doma-sale-inline-table">
           <thead><tr style={{ background: "#e6ebef", color: "#34495a", textAlign: "left", fontSize: 10, whiteSpace: "nowrap" }}><th>ID</th><th>Фото</th><th>Объект</th><th>Тип</th><th>Адрес</th><th>Площадь</th><th>Комнат</th><th>Цена</th><th>Статус</th><th>Действия</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22 }}>Загрузка объектов…</td></tr> : visible.length === 0 ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22, color: "#536575" }}>{error ? "Нет данных для отображения" : view === "drafts" ? "Черновиков по выбранным условиям нет" : "Объектов по выбранным условиям нет"}</td></tr> : visible.map((item) => {
-              const draft = inlineSaleIsDraft(item);
-              const type = item.property_type_label || inlineSaleTypeLabels[item.property_type || ""] || item.property_type || "—";
-              const address = inlineSaleAddress(item);
+            {loading ? <tr><td colSpan={10} style={{ ...inlineRentStyles.cell, textAlign: "center", padding: 22 }}>Загрузка объектов…</td></tr> : visible.length === 0 ? <tr><td colSpan={10} style={{ ...inlineRentStyles.cell, textAlign: "center", padding: 22, color: "#536575" }}>{error ? "Нет данных для отображения" : view === "drafts" ? "Черновиков по выбранным условиям нет" : "Объектов по выбранным условиям нет"}</td></tr> : visible.map((item) => {
+              const draft = inlineRentIsDraft(item);
+              const type = item.property_type_label || inlineRentTypeLabels[item.property_type || ""] || item.property_type || "—";
+              const address = inlineRentAddress(item);
               return <tr key={item.id} className="doma-sale-inline-row">
-                <td style={{ ...inlineSaleStyles.cell, color: "#536575" }}>#{item.id}</td>
-                <td style={{ ...inlineSaleStyles.cell }}>
+                <td style={{ ...inlineRentStyles.cell, color: "#536575" }}>#{item.id}</td>
+                <td style={{ ...inlineRentStyles.cell }}>
                   <button
                     type="button"
                     disabled={isOpening}
@@ -2627,23 +2668,47 @@ function SalePropertiesList({ refreshKey, onCreateClick, onOpenProperty, isOpeni
                     {item.image_url ? <img src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`} alt={item.title || "Фото объекта"} loading="lazy" style={{ display: "block", width: 54, height: 39, objectFit: "cover", border: "1px solid #bdc7cf" }} /> : <span style={{ display: "grid", placeItems: "center", width: 54, height: 39, border: "1px solid #bdc7cf", background: "#e8edf2", color: "#80909e", fontSize: 9 }}>Нет фото</span>}
                   </button>
                 </td>
-                <td style={{ ...inlineSaleStyles.cell, minWidth: 150 }}><div style={{ fontWeight: 700, color: "#163e5d" }}>{item.title?.trim() || "Без названия"}</div><div style={{ color: "#667887", marginTop: 2, fontSize: 9 }}>{item.property_subtype_label || item.property_subtype || ""}</div></td>
-                <td style={inlineSaleStyles.cell}>{type}</td>
-                <td style={{ ...inlineSaleStyles.cell, maxWidth: 235, color: "#455866" }}>{address}</td>
-                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap" }}>{Number(item.area || 0) ? `${inlineSaleNumberFormat.format(Number(item.area))} м²` : "—"}</td>
-                <td style={{ ...inlineSaleStyles.cell, textAlign: "center" }}>{["land", "commercial", "garage"].includes(item.property_type || "") ? "—" : Number(item.rooms || 0) || "—"}</td>
-                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap", fontWeight: 700, color: "#163e5d" }}>{inlineSaleMoney(item.price)}</td>
-                <td style={inlineSaleStyles.cell}><span style={{ display: "inline-block", padding: "3px 5px", border: `1px solid ${draft ? "#d9ad5d" : "#7cc49a"}`, background: draft ? "#fff2d6" : "#e0f2e8", color: draft ? "#8a5700" : "#166534", whiteSpace: "nowrap" }}>{draft ? "Черновик" : item.status || "Активен"}</span></td>
-                <td style={inlineSaleStyles.cell}><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}><button type="button" disabled={isOpening} onClick={() => onOpenProperty(item.id)} style={{ ...inlineSaleStyles.btn, opacity: isOpening ? 0.55 : 1 }}>{isOpening ? "Загрузка…" : "Открыть"}</button>{draft && <button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "publish")} style={{ ...inlineSaleStyles.blueBtn, opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Опубликовать"}</button>}<button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "delete", item.title)} style={{ ...inlineSaleStyles.btn, color: "#ae2922", borderColor: "#d9a6a3", opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Удалить"}</button></div></td>
+                <td style={{ ...inlineRentStyles.cell, minWidth: 150 }}><div style={{ fontWeight: 700, color: "#163e5d" }}>{item.title?.trim() || "Без названия"}</div><div style={{ color: "#667887", marginTop: 2, fontSize: 9 }}>{item.property_subtype_label || item.property_subtype || ""}</div></td>
+                <td style={inlineRentStyles.cell}>{type}</td>
+                <td style={{ ...inlineRentStyles.cell, maxWidth: 235, color: "#455866" }}>{address}</td>
+                <td style={{ ...inlineRentStyles.cell, whiteSpace: "nowrap" }}>{Number(item.area || 0) ? `${inlineRentNumberFormat.format(Number(item.area))} м²` : "—"}</td>
+                <td style={{ ...inlineRentStyles.cell, textAlign: "center" }}>{["land", "commercial", "garage"].includes(item.property_type || "") ? "—" : Number(item.rooms || 0) || "—"}</td>
+                <td style={{ ...inlineRentStyles.cell, whiteSpace: "nowrap", fontWeight: 700, color: "#163e5d" }}>{inlineRentMoney(item.price)}</td>
+                <td style={inlineRentStyles.cell}><span style={{ display: "inline-block", padding: "3px 5px", border: `1px solid ${draft ? "#d9ad5d" : "#7cc49a"}`, background: draft ? "#fff2d6" : "#e0f2e8", color: draft ? "#8a5700" : "#166534", whiteSpace: "nowrap" }}>{draft ? "Черновик" : item.status || "Активен"}</span></td>
+                <td style={inlineRentStyles.cell}><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}><button type="button" disabled={isOpening} onClick={() => onOpenProperty(item.id)} style={{ ...inlineRentStyles.btn, opacity: isOpening ? 0.55 : 1 }}>{isOpening ? "Загрузка…" : "Открыть"}</button>{draft && <button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "publish")} style={{ ...inlineRentStyles.blueBtn, opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Опубликовать"}</button>}<button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "delete", item.title)} style={{ ...inlineRentStyles.btn, color: "#ae2922", borderColor: "#d9a6a3", opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Удалить"}</button></div></td>
               </tr>;
             })}
           </tbody>
         </table>
       </div>
       <footer style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 7, padding: 8, background: "#eef1f4", borderTop: "1px solid #c4cdd4" }}>
-        <span style={{ color: "#536575", fontSize: 10 }}>Страница {page} из {maxPage} · по {INLINE_SALE_PAGE_SIZE} объектов</span>
-        <div style={{ display: "flex", gap: 4 }}><button type="button" disabled={page <= 1 || loading} onClick={() => setPage(1)} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>« Первая</button><button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>‹ Назад</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage((value) => Math.min(maxPage, value + 1))} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Вперёд ›</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage(maxPage)} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Последняя »</button></div>
+        <span style={{ color: "#536575", fontSize: 10 }}>Страница {page} из {maxPage} · по {INLINE_RENT_PAGE_SIZE} объектов</span>
+        <div style={{ display: "flex", gap: 4 }}><button type="button" disabled={page <= 1 || loading} onClick={() => setPage(1)} style={{ ...inlineRentStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>« Первая</button><button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ ...inlineRentStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>‹ Назад</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage((value) => Math.min(maxPage, value + 1))} style={{ ...inlineRentStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Вперёд ›</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage(maxPage)} style={{ ...inlineRentStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Последняя »</button></div>
       </footer>
     </section>
   );
 }
+
+
+
+// Styles required by the rental status indicator in the property form.
+const rentBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 10px",
+  borderRadius: 2,
+  background: "#e7f1fb",
+  border: "1px solid #8ab6de",
+  color: "#155b93",
+  fontWeight: 700,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+};
+
+const rentDotStyle: React.CSSProperties = {
+  width: 7,
+  height: 7,
+  borderRadius: "50%",
+  background: "#1976c9",
+};
