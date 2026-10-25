@@ -294,6 +294,10 @@ const buyCategories: Category[] = [
     title: "Дома",
     items: [
       {
+        title: "Дома",
+        slug: "houses",
+      },
+      {
         title: "Дачи",
         slug: "dachas",
       },
