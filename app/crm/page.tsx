@@ -1,7 +1,2739 @@
+"use client";
+
+import Link from "next/link";
+import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "react";
+
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://doma-nq4u.onrender.com").replace(/\/+$/, "");
+
+interface PhotoPreview {
+  id: string;
+  file?: File;
+  name: string;
+  url: string;
+  existing?: boolean;
+  serverId?: number;
+}
+
+const subtypeOptions: Record<string, { value: string; label: string }[]> = {
+  apartment: [
+    { value: "secondary", label: "Вторичка" },
+    { value: "new_building", label: "Новостройка" },
+    { value: "1_room", label: "1-комнатная" },
+    { value: "2_room", label: "2-комнатная" },
+    { value: "3_room", label: "3-комнатная" },
+    { value: "4_room", label: "4-комнатная" },
+    { value: "5_room", label: "5-комнатная" },
+  ],
+  house: [
+    { value: "house", label: "Дом" },
+    { value: "part_of_house", label: "Часть дома" },
+    { value: "townhouse", label: "Таунхаус" },
+    { value: "duplex", label: "Дуплекс" },
+    { value: "cottage", label: "Коттедж" },
+    { value: "dacha", label: "Дача" },
+  ],
+  land: [
+    { value: "izhs", label: "ИЖС" },
+    { value: "gardening", label: "Садоводство" },
+    { value: "commercial_land", label: "Коммерческое" },
+    { value: "lph", label: "ЛПХ" },
+    { value: "dnp", label: "ДНП" },
+  ],
+  commercial: [
+    { value: "office", label: "Офис" },
+    { value: "business", label: "Бизнес" },
+    { value: "separate_building", label: "Отдельное здание" },
+    { value: "production", label: "Производство" },
+    { value: "warehouse", label: "Склад" },
+    { value: "retail", label: "Торговое помещение" },
+    { value: "sto", label: "СТО" },
+    { value: "hotel", label: "Гостиница" },
+    { value: "car_wash", label: "Автомойка" },
+    { value: "cafe", label: "Кафе" },
+    { value: "shop", label: "Магазин" },
+  ],
+  garage: [
+    { value: "garage_box", label: "Гараж-бокс" },
+    { value: "residential_complex", label: "Паркинг ЖК" },
+    { value: "covered_parking", label: "Крытый паркинг" },
+    { value: "separate_garage", label: "Отдельный гараж" },
+    { value: "parking", label: "Машино-место" },
+  ],
+};
+
+const propertyTypeLabels: Record<string, string> = {
+  apartment: "Квартира",
+  house: "Дом",
+  land: "Участок",
+  commercial: "Коммерция",
+  garage: "Гараж",
+};
+
 export default function CRMPage() {
+  const [title, setTitle] = useState("");
+  const [dealType, setDealType] = useState<"sale" | "rent">("sale");
+
+  // Поддерживаем старые ссылки /crm/sale и /crm/rent через параметр ?deal=.
+  useEffect(() => {
+    const requestedDeal = new URLSearchParams(window.location.search).get("deal");
+    if (requestedDeal === "sale" || requestedDeal === "rent") {
+      setDealType(requestedDeal);
+    }
+  }, []);
+  const [propertyType, setPropertyType] = useState("apartment");
+  const [propertySubtype, setPropertySubtype] = useState("secondary");
+  const [city, setCity] = useState("Краснодар");
+  const [district, setDistrict] = useState("");
+  const [realAddress, setRealAddress] = useState("");
+  const [publicAddress, setPublicAddress] = useState("");
+  const [price, setPrice] = useState("");
+  const [area, setArea] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [floor, setFloor] = useState("");
+  const [totalFloors, setTotalFloors] = useState("");
+  const [bathroom, setBathroom] = useState("");
+  const [balcony, setBalcony] = useState("");
+  const [renovation, setRenovation] = useState("");
+  const [buildingMaterial, setBuildingMaterial] = useState("");
+  const [yearBuilt, setYearBuilt] = useState("");
+  const [status, setStatus] = useState("Свободен");
+  const [description, setDescription] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [agentComment, setAgentComment] = useState("");
+  const [source, setSource] = useState("Рекомендация");
+  const [hasMaternalCapital, setHasMaternalCapital] = useState(false);
+  const [showPricePerSqm, setShowPricePerSqm] = useState(false);
+  const [dealDate, setDealDate] = useState("");
+  const [monthlyPayment, setMonthlyPayment] = useState("");
+  const [residentialComplex, setResidentialComplex] = useState("");
+  const [cadastralNumber, setCadastralNumber] = useState("");
+  const [landCadastralNumber, setLandCadastralNumber] = useState("");
+  const [metro, setMetro] = useState("");
+  const [condition, setCondition] = useState("");
+  const [ceilingHeight, setCeilingHeight] = useState("");
+  const [furniture, setFurniture] = useState("");
+  const [roomLayout, setRoomLayout] = useState("");
+  const [livingArea, setLivingArea] = useState("");
+  const [kitchenArea, setKitchenArea] = useState("");
+  const [plotArea, setPlotArea] = useState("");
+  const [plotLength, setPlotLength] = useState("");
+  const [plotWidth, setPlotWidth] = useState("");
+  const [frontage, setFrontage] = useState("");
+  const [landPurpose, setLandPurpose] = useState("");
+  const [heating, setHeating] = useState("");
+  const [gas, setGas] = useState(false);
+  const [water, setWater] = useState(false);
+  const [electricity, setElectricity] = useState(false);
+  const [sewerage, setSewerage] = useState(false);
+  const [fenced, setFenced] = useState("");
+  const [terrace, setTerrace] = useState(false);
+  const [bathhouse, setBathhouse] = useState(false);
+  const [sauna, setSauna] = useState(false);
+  const [pool, setPool] = useState(false);
+  const [garage, setGarage] = useState(false);
+  const [photos, setPhotos] = useState<PhotoPreview[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<number | null>(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [showCharacteristics, setShowCharacteristics] = useState(false);
+  const [showReferenceSummary, setShowReferenceSummary] = useState(false);
+
+  const currentSubtypes = useMemo(
+    () => subtypeOptions[propertyType] ?? subtypeOptions.apartment,
+    [propertyType]
+  );
+
+  const photosRef = useRef<PhotoPreview[]>([]);
+  const gallerySyncReadyRef = useRef(true);
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((photo) => { if (!photo.existing && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url); });
+    };
+  }, []);
+
+  function addPhotos(files: FileList | File[]) {
+    const validFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    const newPhotos = validFiles.map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      file,
+      name: file.name,
+      url: URL.createObjectURL(file),
+    }));
+
+    setPhotos((current) => [...current, ...newPhotos]);
+  }
+
+  function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    if (event.target.files) {
+      addPhotos(event.target.files);
+      event.target.value = "";
+    }
+  }
+
+  function removePhoto(id: string) {
+    setPhotos((current) => {
+      const photo = current.find((item) => item.id === id);
+      if (photo && !photo.existing && photo.url.startsWith("blob:")) URL.revokeObjectURL(photo.url);
+      return current.filter((item) => item.id !== id);
+    });
+  }
+
+  function setMainPhoto(id: string) {
+    setPhotos((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index <= 0) return current;
+      const copy = [...current];
+      const [main] = copy.splice(index, 1);
+      copy.unshift(main);
+      return copy;
+    });
+  }
+
+  function handlePropertyTypeChange(value: string) {
+    setPropertyType(value);
+    const firstSubtype = subtypeOptions[value]?.[0]?.value ?? "secondary";
+    setPropertySubtype(firstSubtype);
+  }
+
+  function asFormString(value: unknown): string {
+    return value === null || value === undefined ? "" : String(value);
+  }
+
+  function normalizeImageUrl(value: unknown): string {
+    const path = asFormString(value).trim();
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  }
+
+  function toStoredImageUrl(value: string): string | null {
+    const url = value.trim();
+    if (!url) return null;
+    // Persist the local API path instead of an absolute URL when possible.
+    if (url.startsWith(`${API_URL}/`)) return url.slice(API_URL.length);
+    return url;
+  }
+
+  function isDefaultPlaceholderImage(value: unknown): boolean {
+    const url = asFormString(value).split("?", 1)[0].split("#", 1)[0].toLowerCase();
+    return url.endsWith("/images/test-flat.jpg") || url === "test-flat.jpg";
+  }
+
+  async function loadPropertyIntoForm(propertyId: number) {
+    setIsLoadingExisting(true);
+    try {
+      // /login возвращает access_token. Пробуем его первым, а старый ключ
+      // "token" оставляем как совместимость с прежними версиями CRM.
+      // Также убираем префикс Bearer, если он по ошибке был сохранён вместе с токеном.
+      const tokenCandidates = Array.from(new Set(
+        [localStorage.getItem("access_token"), localStorage.getItem("token")]
+          .map((value) => (value || "").trim().replace(/^Bearer\s+/i, ""))
+          .filter(Boolean)
+      ));
+
+      if (!tokenCandidates.length) {
+        throw new Error("Не найдена авторизация CRM. Войдите в систему заново.");
+      }
+
+      let raw: any = null;
+      let acceptedToken = "";
+      let authError = "";
+
+      for (const token of tokenCandidates) {
+        const response = await fetch(`${API_URL}/crm/properties/${propertyId}`, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload: any = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          raw = payload;
+          acceptedToken = token;
+          break;
+        }
+
+        if (response.status === 401) {
+          authError = typeof payload?.detail === "string" ? payload.detail : "Недействительный токен.";
+          continue;
+        }
+
+        throw new Error(payload?.detail || `Не удалось загрузить объект №${propertyId}`);
+      }
+
+      if (!acceptedToken) {
+        throw new Error(
+          `${authError || "Недействительный токен."} Сессия CRM устарела или токен получен от другого backend. Войдите в CRM заново и убедитесь, что авторизация и CRM используют один и тот же NEXT_PUBLIC_API_URL.`
+        );
+      }
+
+      // Синхронизируем старый и новый ключи, чтобы другие части CRM
+      // не продолжали отправлять устаревший token.
+      localStorage.setItem("access_token", acceptedToken);
+      localStorage.setItem("token", acceptedToken);
+
+      const p = (raw.property && typeof raw.property === "object" ? raw.property : raw) as Record<string, unknown>;
+
+      setTitle(asFormString(p.title));
+      setPropertyType(asFormString(p.property_type));
+      setPropertySubtype(asFormString(p.property_subtype));
+      setCity(asFormString(p.city) || "Краснодар");
+      setDistrict(asFormString(p.district));
+      setRealAddress(asFormString(p.real_address));
+      setPublicAddress(asFormString(p.public_address || p.address));
+      setPrice(asFormString(p.price));
+      setArea(asFormString(p.area));
+      setRooms(asFormString(p.rooms));
+      setFloor(asFormString(p.floor));
+      setTotalFloors(asFormString(p.total_floors));
+      setBathroom(asFormString(p.bathroom));
+      setBalcony(asFormString(p.balcony));
+      setRenovation(asFormString(p.renovation));
+      setBuildingMaterial(asFormString(p.building_material));
+      setYearBuilt(asFormString(p.year_built));
+      setStatus(asFormString(p.status));
+      setDealType(["rent", "lease"].includes(asFormString(p.deal_type).toLowerCase()) ? "rent" : "sale");
+      setDealDate(asFormString(p.deal_date));
+      setMonthlyPayment(asFormString(p.monthly_payment));
+      setDescription(asFormString(p.description));
+      setOwnerName(asFormString(p.owner_name));
+      setOwnerPhone(asFormString(p.owner_phone));
+      setAgentComment(asFormString(p.agent_comment));
+      setSource(asFormString(p.source));
+      setResidentialComplex(asFormString(p.residential_complex));
+      setCadastralNumber(asFormString(p.cadastral_number));
+      setLandCadastralNumber(asFormString(p.land_cadastral_number));
+      setMetro(asFormString(p.metro));
+      setCondition(asFormString(p.condition));
+      setCeilingHeight(asFormString(p.ceiling_height));
+      setFurniture(asFormString(p.furniture));
+      setRoomLayout(asFormString(p.room_layout));
+      setLivingArea(asFormString(p.living_area));
+      setKitchenArea(asFormString(p.kitchen_area));
+      setPlotArea(asFormString(p.plot_area));
+      setPlotLength(asFormString(p.plot_length));
+      setPlotWidth(asFormString(p.plot_width));
+      setFrontage(asFormString(p.frontage));
+      setLandPurpose(asFormString(p.land_purpose));
+      setHeating(asFormString(p.heating));
+      setFenced(asFormString(p.fenced));
+      setHasMaternalCapital(Boolean(p.has_maternal_capital));
+      setShowPricePerSqm(Boolean(p.show_price_per_sqm));
+      setGas(Boolean(p.gas));
+      setWater(Boolean(p.water));
+      setElectricity(Boolean(p.electricity));
+      setSewerage(Boolean(p.sewerage));
+      setTerrace(Boolean(p.terrace));
+      setBathhouse(Boolean(p.bathhouse));
+      setSauna(Boolean(p.sauna));
+      setPool(Boolean(p.pool));
+      setGarage(Boolean(p.garage));
+      setEditingPropertyId(propertyId);
+      setSavedId(null);
+      setShowCharacteristics(false);
+
+      // Photo deletion must be synchronized with the database on save. Do not mark
+      // the gallery ready unless the API returned a valid list; otherwise a save
+      // could mistakenly delete gallery rows that were never loaded.
+      gallerySyncReadyRef.current = false;
+      const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { cache: "no-store" }).catch(() => null);
+      if (!galleryResponse?.ok) {
+        throw new Error("Не удалось загрузить галерею фотографий объекта. Проверьте API и повторите открытие объекта.");
+      }
+      const galleryRaw = await galleryResponse.json().catch(() => null);
+      if (!Array.isArray(galleryRaw)) {
+        throw new Error("Сервер вернул некорректный список фотографий.");
+      }
+      const images: Array<{ id?: number | string; image_url?: string }> = galleryRaw;
+      const coverUrl = asFormString(p.image_url);
+      const photoSources: Array<{ id?: number | string; image_url?: string }> = [
+        ...(!isDefaultPlaceholderImage(coverUrl) && coverUrl ? [{ id: `cover-${propertyId}`, image_url: coverUrl }] : []),
+        ...images,
+      ];
+      const photoUrls = photoSources
+        .filter((photo) => Boolean(photo.image_url))
+        .map((photo, index) => ({
+          id: String(photo.id ?? `existing-${propertyId}-${index}`),
+          serverId: typeof photo.id === "number" ? photo.id : undefined,
+          name: index === 0 ? "Главное фото" : `Фото ${index + 1}`,
+          url: normalizeImageUrl(photo.image_url),
+          existing: true as const,
+        }))
+        .filter((photo, index, list) => list.findIndex((entry) => entry.url === photo.url) === index);
+      setPhotos(photoUrls);
+      gallerySyncReadyRef.current = true;      document.getElementById("doma-property-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Не удалось загрузить данные объекта.");
+    } finally {
+      setIsLoadingExisting(false);
+    }
+  }
+
+  function resetFormForNewObject() {
+    if (editingPropertyId === null && !title.trim()) {
+      document.getElementById("doma-property-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!window.confirm("Начать создание нового объекта? Несохранённые изменения будут потеряны.")) return;
+    setTitle("");
+    setPropertyType("");
+    setPropertySubtype("");
+    setCity("Краснодар");
+    setDistrict("");
+    setRealAddress("");
+    setPublicAddress("");
+    setPrice("");
+    setArea("");
+    setRooms("");
+    setFloor("");
+    setTotalFloors("");
+    setBathroom("");
+    setBalcony("");
+    setRenovation("");
+    setBuildingMaterial("");
+    setYearBuilt("");
+    setStatus("Свободен");
+    setDealDate("");
+    setMonthlyPayment("");
+    setDescription("");
+    setOwnerName("");
+    setOwnerPhone("");
+    setAgentComment("");
+    setSource("Рекомендация");
+    setResidentialComplex("");
+    setCadastralNumber("");
+    setLandCadastralNumber("");
+    setMetro("");
+    setCondition("");
+    setCeilingHeight("");
+    setFurniture("");
+    setRoomLayout("");
+    setLivingArea("");
+    setKitchenArea("");
+    setPlotArea("");
+    setPlotLength("");
+    setPlotWidth("");
+    setFrontage("");
+    setLandPurpose("");
+    setHeating("");
+    setFenced("");
+    setHasMaternalCapital(false);
+    setShowPricePerSqm(false);
+    setGas(false);
+    setWater(false);
+    setElectricity(false);
+    setSewerage(false);
+    setTerrace(false);
+    setBathhouse(false);
+    setSauna(false);
+    setPool(false);
+    setGarage(false);
+    setPropertyType("apartment");
+    setPropertySubtype("secondary");
+    setPhotos([]);
+    gallerySyncReadyRef.current = true;
+    setEditingPropertyId(null);
+    setShowCharacteristics(false);
+    setShowReferenceSummary(false);
+    setSavedId(null);
+    document.getElementById("doma-property-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function saveDraft() {
+    const draft = {
+      title,
+      dealType,
+      propertyType,
+      propertySubtype,
+      district,
+      realAddress,
+      publicAddress,
+      price,
+      area,
+      rooms,
+      floor,
+      totalFloors,
+      bathroom,
+      balcony,
+      renovation,
+      buildingMaterial,
+      yearBuilt,
+      status,
+      description,
+      ownerName,
+      ownerPhone,
+      agentComment,
+      source,
+      dealDate,
+      monthlyPayment,
+      hasMaternalCapital,
+      showPricePerSqm,
+      residentialComplex,
+      cadastralNumber,
+      landCadastralNumber,
+      metro,
+      condition,
+      ceilingHeight,
+      furniture,
+      roomLayout,
+      livingArea,
+      kitchenArea,
+      plotArea,
+      plotLength,
+      plotWidth,
+      frontage,
+      landPurpose,
+      heating,
+      gas,
+      water,
+      electricity,
+      sewerage,
+      fenced,
+      terrace,
+      bathhouse,
+      sauna,
+      pool,
+      garage,
+    };
+
+    localStorage.setItem(dealType === "rent" ? "doma-rent-draft" : "doma-sale-draft", JSON.stringify(draft));
+    alert("Черновик сохранён на этом устройстве.");
+  }
+
+  async function saveProperty() {
+    if (!title.trim()) {
+      alert("Введите название объекта.");
+      return;
+    }
+
+    if (!city.trim()) {
+      alert("Введите город или населённый пункт.");
+      return;
+    }
+
+    if (!realAddress.trim()) {
+      alert("Введите реальный адрес объекта.");
+      return;
+    }
+
+    if (editingPropertyId !== null && !gallerySyncReadyRef.current) {
+      alert("Галерея объекта не загрузилась. Откройте объект заново перед сохранением, чтобы фотографии не потерялись.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSavedId(null);
+
+    try {
+      const targetUrl = editingPropertyId !== null
+        ? `${API_URL}/properties/${editingPropertyId}`
+        : `${API_URL}/properties`;
+      const res = await fetch(targetUrl, {
+        method: editingPropertyId !== null ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+          price: Number(price) || 0,
+          area: Number(area) || 0,
+          rooms: Number(rooms) || 0,
+          floor: Number(floor) || 0,
+          total_floors: Number(totalFloors) || 0,
+          bathroom,
+          balcony,
+          renovation,
+          building_material: buildingMaterial,
+          year_built: Number(yearBuilt) || 0,
+          city: city.trim() || "Краснодар",
+          district,
+          address: publicAddress,
+          real_address: realAddress,
+          public_address: publicAddress,
+          // Keep an existing selected photo as cover, or clear the cover before uploading a new one.
+          image_url: editingPropertyId !== null
+            ? (!photos[0] ? null : (!photos[0].file ? toStoredImageUrl(photos[0].url) : undefined))
+            : null,
+          owner_name: ownerName,
+          owner_phone: ownerPhone,
+          agent_comment: agentComment,
+          source,
+          deal_date: dealType === "rent" ? dealDate || null : null,
+          monthly_payment: dealType === "rent" ? Number(monthlyPayment) || 0 : 0,
+          has_maternal_capital: hasMaternalCapital,
+          show_price_per_sqm: showPricePerSqm,
+          residential_complex: residentialComplex,
+          cadastral_number: cadastralNumber,
+          land_cadastral_number: landCadastralNumber,
+          metro,
+          condition,
+          ceiling_height: Number(ceilingHeight) || 0,
+          furniture,
+          property_type: propertyType,
+          property_subtype: propertySubtype,
+          deal_type: dealType,
+          status,
+          room_layout: roomLayout,
+          living_area: Number(livingArea) || 0,
+          kitchen_area: Number(kitchenArea) || 0,
+          plot_area: Number(plotArea) || 0,
+          plot_length: Number(plotLength) || 0,
+          plot_width: Number(plotWidth) || 0,
+          frontage: Number(frontage) || 0,
+          land_purpose: landPurpose,
+          heating,
+          gas,
+          water,
+          electricity,
+          sewerage,
+          fenced,
+          terrace,
+          bathhouse,
+          sauna,
+          pool,
+          garage,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.detail || "Не удалось сохранить объект.");
+        return;
+      }
+
+      const propertyId = Number(data.id ?? data.property?.id ?? editingPropertyId);
+      if (!propertyId) {
+        throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
+      }
+
+      // The cover photo is stored in Property.image_url. Additional photos are stored
+      // in PropertyImage. Keep existing gallery IDs, upload new files, then sync the
+      // gallery so removed photos cannot reappear when the object is reopened.
+      const primaryPhoto = photos[0];
+      const keepGalleryIds = photos
+        .filter((photo) => photo.existing && typeof photo.serverId === "number")
+        .map((photo) => photo.serverId as number);
+
+      if (primaryPhoto?.file) {
+        const coverForm = new FormData();
+        coverForm.append("file", primaryPhoto.file, primaryPhoto.file.name);
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, { method: "POST", body: coverForm });
+        if (!coverResponse.ok) {
+          const detail = await coverResponse.text();
+          throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
+        }
+      }
+
+      // Only newly added photos other than the selected cover belong in the gallery.
+      const newGalleryPhotos = photos.filter((photo) => Boolean(photo.file) && photo !== primaryPhoto);
+      for (const photo of newGalleryPhotos) {
+        if (!photo.file) continue;
+        const imageForm = new FormData();
+        imageForm.append("file", photo.file, photo.file.name);
+        const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { method: "POST", body: imageForm });
+        const imageData = await imageResponse.json().catch(() => ({}));
+        if (!imageResponse.ok) {
+          const detail = imageData.detail || "Неизвестная ошибка";
+          throw new Error(`Объект №${propertyId} сохранён, но фотография «${photo.name}» не загрузилась: ${detail}`);
+        }
+        const newGalleryId = Number(imageData.id);
+        if (Number.isInteger(newGalleryId) && newGalleryId > 0) keepGalleryIds.push(newGalleryId);
+      }
+
+      const syncResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keep_ids: keepGalleryIds }),
+      });
+      const syncData = await syncResponse.json().catch(() => ({}));
+      if (!syncResponse.ok) {
+        throw new Error(syncData.detail || "Объект сохранён, но не удалось синхронизировать галерею фотографий.");
+      }
+
+      setSavedId(propertyId);
+      const wasEditing = editingPropertyId !== null;
+      setEditingPropertyId(null);
+      alert(`${wasEditing ? "Изменения сохранены" : "Объект сохранён"}. ID: ${propertyId}. Фотографий в форме: ${photos.length}`);
+    } catch (error) {
+      console.error(error);
+      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
-    <div>
-      CRM
+    <main style={pageStyle}>
+      <style>{`@media (max-width: 980px) { .doma-crm-layout { grid-template-columns: minmax(0, 1fr) !important; } .doma-crm-reference { position: static !important; grid-column: 1 !important; grid-row: auto !important; max-height: none !important; } } @media (max-width: 620px) { .doma-crm-fields { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }`}</style>
+      <div style={shellStyle}>
+        <header style={headerStyle}>
+          <div>
+            <div style={eyebrowStyle}>CRM DOMA · ОБЪЕКТ</div>
+            <h1 style={titleStyle}>{editingPropertyId !== null ? `Редактирование объекта №${editingPropertyId}` : "Создание объекта"}</h1>
+            <p style={subtitleStyle}>
+              {dealType === "sale" ? "Заполните данные для продажи недвижимости" : "Заполните данные для сдачи недвижимости в аренду"}
+            </p>
+          </div>
+
+          <div style={saleBadgeStyle}>
+            <span style={saleDotStyle} />
+            {dealType === "sale" ? "Продажа" : "Аренда"}
+          </div>
+        </header>
+
+        {/* Список объектов переключается вместе с типом сделки. */}
+        <SalePropertiesList dealType={dealType} refreshKey={savedId ?? 0} onOpenProperty={loadPropertyIntoForm} isOpening={isLoadingExisting} />
+
+        <section id="doma-property-create-form" className="doma-crm-layout" style={layoutStyle}>
+          <div style={columnStyle}>
+            <section style={cardStyle}>
+              <SectionHeading
+                number="01"
+                title="Основная информация"
+                description="Базовые сведения об объекте"
+              />
+
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Тип сделки">
+                  <SearchableSelect
+                    value={dealType}
+                    onChange={(e) => {
+                      const nextDeal = e.target.value as "sale" | "rent";
+                      setDealType(nextDeal);
+                      const nextUrl = new URL(window.location.href);
+                      nextUrl.searchParams.set("deal", nextDeal);
+                      window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+                    }}
+                    style={{ ...inputStyle, background: "#fff", color: "#253b4d", fontWeight: 700 }}
+                  >
+                    <option value="sale">Продажа</option>
+                    <option value="rent">Аренда</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Название объекта" required>
+
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Например: Светлая квартира в центре"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Тип недвижимости" required>
+                  <SearchableSelect
+                    value={propertyType}
+                    onChange={(e) => handlePropertyTypeChange(e.target.value)}
+                    style={inputStyle}
+                  >
+                    {Object.entries(propertyTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </SearchableSelect>
+                </Field>
+
+                <Field label="Подтип недвижимости">
+                  <SearchableSelect
+                    value={propertySubtype}
+                    onChange={(e) => setPropertySubtype(e.target.value)}
+                    style={inputStyle}
+                  >
+                    {currentSubtypes.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </SearchableSelect>
+                </Field>
+
+                <Field label="Город / населённый пункт" required>
+                  <CityPicker
+                    value={city}
+                    onChange={(nextCity) => { setCity(nextCity); setDistrict(""); }}
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Район / микрорайон">
+                  <DistrictPicker value={district} onChange={setDistrict} city={city} />
+                </Field>
+
+                <Field label="Жилой комплекс (ЖК)">
+                  <input value={residentialComplex} onChange={(e) => setResidentialComplex(e.target.value)} placeholder="Название ЖК" style={inputStyle} />
+                </Field>
+                <Field label="Метро / остановка">
+                  <input value={metro} onChange={(e) => setMetro(e.target.value)} placeholder="Ближайшая станция" style={inputStyle} />
+                </Field>
+
+                <Field label={dealType === "rent" ? "Цена аренды, ₽/мес." : "Цена продажи, ₽"} required>
+                  <div style={inputWithSuffixStyle}>
+                    <input
+                      type="number"
+                      min="0"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0"
+                      style={inputBareStyle}
+                    />
+                    <span style={suffixStyle}>₽</span>
+                  </div>
+                </Field>
+
+                <Field label="Площадь" required>
+                  <div style={inputWithSuffixStyle}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={area}
+                      onChange={(e) => setArea(e.target.value)}
+                      placeholder="0"
+                      style={inputBareStyle}
+                    />
+                    <span style={suffixStyle}>м²</span>
+                  </div>
+                </Field>
+
+                {dealType === "rent" && (
+                  <>
+                    <Field label="Дата сделки / заселения">
+                      <input type="date" value={dealDate} onChange={(e) => setDealDate(e.target.value)} style={inputStyle} />
+                    </Field>
+                    <Field label="Платёж в месяц, ₽">
+                      <input type="number" min="0" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0" style={inputStyle} />
+                    </Field>
+                  </>
+                )}
+                <Field label="Источник обращения">
+                  <SearchableSelect value={source} onChange={(e) => setSource(e.target.value)} style={inputStyle}>
+                    <option>Рекомендация</option><option>Сайт</option><option>Звонок</option><option>Социальные сети</option><option>Реклама</option><option>Партнёр</option><option>Повторный клиент</option><option>Другое</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Кадастровый номер объекта">
+                  <input value={cadastralNumber} onChange={(e) => setCadastralNumber(e.target.value)} placeholder="XX:XX:XXXXXXX:XXX" style={inputStyle} />
+                </Field>
+                <Field label="Кадастровый номер участка">
+                  <input value={landCadastralNumber} onChange={(e) => setLandCadastralNumber(e.target.value)} placeholder="При наличии" style={inputStyle} />
+                </Field>
+                <Field label="Показывать цену за м²">
+                  <span style={inlineCheckboxStyle}>
+                    <input type="checkbox" checked={showPricePerSqm} onChange={(e) => setShowPricePerSqm(e.target.checked)} />
+                    <span>Да, показывать клиенту</span>
+                  </span>
+                </Field>
+                <Field label="Материнский капитал">
+                  <span style={inlineCheckboxStyle}>
+                    <input type="checkbox" checked={hasMaternalCapital} onChange={(e) => setHasMaternalCapital(e.target.checked)} />
+                    <span>Возможна сделка с маткапиталом</span>
+                  </span>
+                </Field>
+</div>
+            </section>
+
+            <section style={cardStyle}>
+              <button
+                type="button"
+                aria-expanded={showCharacteristics}
+                onClick={() => setShowCharacteristics((value) => !value)}
+                style={{ ...sectionHeadingStyle, width: "calc(100% + 16px)", border: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit", color: "#fff" }}
+              >
+                <span style={sectionTitleStyle}>Характеристики</span>
+                <span style={{ marginLeft: "auto", color: "#fff", fontSize: 10, whiteSpace: "nowrap" }}>
+                  {showCharacteristics ? "Скрыть ▲" : "Открыть характеристики ▼"}
+                </span>
+              </button>
+
+              {!showCharacteristics && (
+                <div role="note" style={{ margin: "0 0 7px", padding: "6px 8px", border: "1px solid #cbd5e1", background: "#f4f7fa", color: "#586674", fontSize: 10, lineHeight: 1.4 }}>
+                  ℹ️ Дополнительные характеристики скрыты. Нажмите на заголовок «Характеристики», чтобы открыть поля.
+                </div>
+              )}
+
+              {showCharacteristics && (
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Состояние объекта">
+                  <SearchableSelect value={condition} onChange={(e) => setCondition(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option><option value="Новое">Новое</option><option value="Отличное">Отличное</option><option value="Хорошее">Хорошее</option><option value="Удовлетворительное">Удовлетворительное</option><option value="Требует ремонта">Требует ремонта</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Высота потолков, м">
+                  <input type="number" min="0" step="0.1" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} placeholder="2.7" style={inputStyle} />
+                </Field>
+                <Field label="Мебель">
+                  <SearchableSelect value={furniture} onChange={(e) => setFurniture(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option><option value="С мебелью">С мебелью</option><option value="Частично меблирована">Частично меблирована</option><option value="Без мебели">Без мебели</option>
+                  </SearchableSelect>
+                </Field>
+                {propertyType === "apartment" && (
+                  <>
+                    <Field label="Комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Жилая площадь, м²">
+                      <input type="number" min="0" step="0.1" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} placeholder="0" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь кухни, м²">
+                      <input type="number" min="0" step="0.1" value={kitchenArea} onChange={(e) => setKitchenArea(e.target.value)} placeholder="0" style={inputStyle} />
+                    </Field>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 5" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность дома">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 9" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                    <Field label="Планировка комнат">
+                      <SearchableSelect value={roomLayout} onChange={(e) => setRoomLayout(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Изолированная">Изолированная</option>
+                        <option value="Смежно-изолированная">Смежно-изолированная</option>
+                        <option value="Смежная">Смежная</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Санузел">
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Балкон / лоджия">
+                      <SearchableSelect value={balcony} onChange={(e) => setBalcony(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Балкон">Балкон</option>
+                        <option value="Лоджия">Лоджия</option>
+                        <option value="2 балкона">2 балкона</option>
+                        <option value="2 лоджии">2 лоджии</option>
+                        <option value="Французский балкон">Французский балкон</option>
+                        <option value="Терраса">Терраса</option>
+                        <option value="Застекленная лоджия">Застекленная лоджия</option>
+                        <option value="Застекленный балкон">Застекленный балкон</option>
+                        <option value="Эркер">Эркер</option>
+                        <option value="Несколько">Несколько</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Ремонт">
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Материал дома">
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </SearchableSelect>
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "house" && (
+                  <>
+                    <Field label="Количество комнат">
+                      <input type="number" min="0" value={rooms} onChange={(e) => setRooms(e.target.value)} placeholder="Например: 4" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь жилая, м²">
+                      <input type="number" min="0" step="0.1" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} placeholder="Например: 90" style={inputStyle} />
+                    </Field>
+                    <Field label="Площадь кухни, м²">
+                      <input type="number" min="0" step="0.1" value={kitchenArea} onChange={(e) => setKitchenArea(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 2" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2022" style={inputStyle} />
+                    </Field>
+                    <Field label="Ремонт">
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Материал дома">
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Отопление">
+                      <SearchableSelect value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="gas">Газовое</option><option value="electric">Электрическое</option><option value="solid_fuel">Твердотопливное</option><option value="central">Центральное</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Санузел">
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                    <Field label="Дополнительно" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Бассейн", pool, setPool],
+                          ["Гараж", garage, setGarage],
+                          ["Терраса", terrace, setTerrace],
+                          ["Баня", bathhouse, setBathhouse],
+                          ["Сауна", sauna, setSauna],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "land" && (
+                  <>
+                    <Field label="Площадь участка, соток">
+                      <input type="number" min="0" step="0.1" value={plotArea} onChange={(e) => setPlotArea(e.target.value)} placeholder="Например: 6" style={inputStyle} />
+                    </Field>
+                    <Field label="Назначение земли">
+                      <SearchableSelect value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
+                        <option value="izhs">ИЖС</option><option value="lph">ЛПХ</option><option value="gardening">Садоводство</option><option value="dnp">ДНП</option><option value="commercial_land">Коммерческое</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Длина, м">
+                      <input type="number" min="0" step="0.1" value={plotLength} onChange={(e) => setPlotLength(e.target.value)} placeholder="Например: 30" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина, м">
+                      <input type="number" min="0" step="0.1" value={plotWidth} onChange={(e) => setPlotWidth(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ширина фасада, м">
+                      <input type="number" min="0" step="0.1" value={frontage} onChange={(e) => setFrontage(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Ограждение">
+                      <SearchableSelect value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option><option value="yes">Есть</option><option value="no">Нет</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Коммуникации" full>
+                      <div style={checklistStyle}>
+                        {[
+                          ["Газ", gas, setGas],
+                          ["Вода", water, setWater],
+                          ["Электричество", electricity, setElectricity],
+                          ["Канализация", sewerage, setSewerage],
+                        ].map(([label, checked, setter]) => (
+                          <label key={label as string} style={checkItemStyle}>
+                            <input type="checkbox" checked={checked as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+                            {label as string}
+                          </label>
+                        ))}
+                      </div>
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "commercial" && (
+                  <>
+                    <Field label="Этаж">
+                      <input type="number" min="0" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="Например: 1" style={inputStyle} />
+                    </Field>
+                    <Field label="Этажность здания">
+                      <input type="number" min="0" value={totalFloors} onChange={(e) => setTotalFloors(e.target.value)} placeholder="Например: 3" style={inputStyle} />
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2015" style={inputStyle} />
+                    </Field>
+                    <Field label="Ремонт">
+                      <SearchableSelect value={renovation} onChange={(e) => setRenovation(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Евроремонт">Евроремонт</option>
+                        <option value="Косметический">Косметический</option>
+                        <option value="Дизайнерский">Дизайнерский</option>
+                        <option value="Требует ремонта">Требует ремонта</option>
+                        <option value="Современный">Современный</option>
+                        <option value="Частичный">Частичный</option>
+                        <option value="На стадии ремонта">На стадии ремонта</option>
+                        <option value="Предчистовая отделка">Предчистовая отделка</option>
+                        <option value="Без отделки">Без отделки</option>
+                        <option value="Черновая отделка">Черновая отделка</option>
+                        <option value="Подготовка под чистовую отделку">Подготовка под чистовую отделку</option>
+                        <option value="Чистовая отделка">Чистовая отделка</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Материал здания">
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Санузел">
+                      <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="Раздельный">Раздельный</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                      </SearchableSelect>
+                    </Field>
+                  </>
+                )}
+
+                {propertyType === "garage" && (
+                  <>
+                    <Field label="Тип гаража">
+                      <SearchableSelect value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
+                        {currentSubtypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Электричество">
+                      <SearchableSelect value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
+                        <option value="no">Нет / не указано</option><option value="yes">Есть</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Материал">
+                      <SearchableSelect value={buildingMaterial} onChange={(e) => setBuildingMaterial(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Деревянный">Деревянный</option>
+                        <option value="Бревно, сруб, лафет, брус">Бревно, сруб, лафет, брус</option>
+                        <option value="Кирпичный">Кирпичный</option>
+                        <option value="Монолитный">Монолитный</option>
+                        <option value="Панельный">Панельный</option>
+                        <option value="Сэндвич-панель">Сэндвич-панель</option>
+                        <option value="Строительный кирпич">Строительный кирпич</option>
+                        <option value="Силикатный кирпич">Силикатный кирпич</option>
+                        <option value="Пористый кирпич">Пористый кирпич</option>
+                        <option value="Съемная опалубка">Съемная опалубка</option>
+                        <option value="Несъемная опалубка">Несъемная опалубка</option>
+                        <option value="Монолитно-кирпичный">Монолитно-кирпичный</option>
+                        <option value="Металлический">Металлический</option>
+                        <option value="Блочный">Блочный</option>
+                        <option value="Бетон">Бетон</option>
+                        <option value="Пеноблок/пенобетон">Пеноблок/пенобетон</option>
+                        <option value="Газоблок/газобетон/газосиликатный">Газоблок/газобетон/газосиликатный</option>
+                        <option value="Керамзитобетон">Керамзитобетон</option>
+                        <option value="Каркасный">Каркасный</option>
+                        <option value="Каркасно-щитовой">Каркасно-щитовой</option>
+                        <option value="Каркасно-панельный">Каркасно-панельный</option>
+                      </SearchableSelect>
+                    </Field>
+                    <Field label="Год постройки">
+                      <input type="number" min="0" value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} placeholder="Например: 2018" style={inputStyle} />
+                    </Field>
+                  </>
+                )}
+              </div>
+              )}
+            </section>
+            <section style={cardStyle}>
+              <SectionHeading
+                number="03"
+                title="Описание"
+                description="Текст для карточки объекта"
+              />
+
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={11}
+                placeholder="Опишите объект: состояние, планировку, преимущества, инфраструктуру и важные детали..."
+                style={textareaStyle}
+              />
+              <div style={counterStyle}>{description.length} символов</div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="04"
+                title="Фотографии"
+                description="Добавьте фотографии объекта для будущей публикации"
+              />
+
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files.length) {
+                    addPhotos(e.dataTransfer.files);
+                  }
+                }}
+                style={dropzoneStyle(dragActive)}
+              >
+                <div style={uploadIconStyle}>↥</div>
+                <div style={uploadTitleStyle}>Перетащите фотографии сюда</div>
+                <div style={uploadTextStyle}>или выберите файлы с компьютера</div>
+                <label style={uploadButtonStyle}>
+                  Выбрать фотографии
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFiles}
+                    hidden
+                  />
+                </label>
+                <div style={hintStyle}>PNG, JPG, WEBP · можно выбрать несколько</div>
+              </div>
+
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} style={photoCardStyle}>
+                      <img
+                        src={photo.url}
+                        alt={photo.name}
+                        style={photoImageStyle}
+                      />
+                      <div style={photoOverlayStyle}>
+                        <span style={photoIndexStyle}>{index === 0 ? "Главное" : index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMainPhoto(photo.id)}
+                          style={photoActionStyle}
+                          title="Сделать главным"
+                        >
+                          ★
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(photo.id)}
+                          style={photoActionDangerStyle}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="05"
+                title="Собственник"
+                description="Контактная информация доступна только сотрудникам"
+              />
+
+              <div style={privateNoticeStyle}>
+                <span style={{ fontSize: 18 }}>🔒</span>
+                <div>
+                  <div style={privateNoticeTitleStyle}>Внутренние данные CRM</div>
+                  <div style={privateNoticeTextStyle}>
+                    Эти данные не используются в публичной карточке объекта.
+                  </div>
+                </div>
+              </div>
+
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="ФИО собственника">
+                  <input
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="Иванов Иван Иванович"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Телефон">
+                  <input
+                    type="tel"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    placeholder="+7 (999) 999-99-99"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field label="Комментарий агента" full>
+                  <textarea
+                    value={agentComment}
+                    onChange={(e) => setAgentComment(e.target.value)}
+                    rows={7}
+                    placeholder="История общения, договорённости, условия собственника..."
+                    style={textareaSmallStyle}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="06"
+                title="Статус объекта"
+                description="Текущий этап работы объекта"
+              />
+
+              <div style={statusListStyle}>
+                {[
+                  ["Свободен", "Объект доступен для продажи"],
+                  ["Бронь", "Есть временная договорённость"],
+                  ["Задаток", "Получен задаток"],
+                  ["Продан", "Сделка завершена"],
+                ].map(([value, descriptionText]) => {
+                  const active = status === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setStatus(value)}
+                      style={statusButtonStyle(active)}
+                    >
+                      <span style={statusRadioStyle(active)} />
+                      <span style={{ textAlign: "left" }}>
+                        <strong style={{ display: "block", fontSize: 14 }}>{value}</strong>
+                        <span style={{ display: "block", fontSize: 12, color: "#64748b", marginTop: 3 }}>
+                          {descriptionText}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+
+            <section style={cardStyle}>
+              <SectionHeading
+                number="07"
+                title="Карта адресов"
+                description="Одна карта с двумя метками: реальный и рекламный адрес"
+              />
+              <div className="doma-crm-fields" style={formGridStyle}>
+                <Field label="Реальный адрес" required full>
+                  <div style={privateFieldWrapStyle}>
+                    <input
+                      value={realAddress}
+                      onChange={(e) => setRealAddress(e.target.value)}
+                      placeholder="Полный фактический адрес"
+                      style={{ ...inputStyle, borderColor: "#fecaca", paddingRight: 125 }}
+                    />
+                    <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
+                  </div>
+                </Field>
+                <Field label="Рекламный адрес" full>
+                  <div style={publicFieldWrapStyle}>
+                    <input
+                      value={publicAddress}
+                      onChange={(e) => setPublicAddress(e.target.value)}
+                      placeholder="Адрес для публикации на сайте"
+                      style={{ ...inputStyle, borderColor: "#bbf7d0", paddingRight: 145 }}
+                    />
+                    <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
+                  </div>
+                </Field>
+              </div>
+              <AddressMap
+                city={city}
+                realAddress={realAddress}
+                publicAddress={publicAddress}
+                onRealAddressChange={setRealAddress}
+                onPublicAddressChange={setPublicAddress}
+              />
+            </section>
+          </div>
+
+          <aside className="doma-crm-reference" style={referencePanelStyle}>
+            <button
+              type="button"
+              aria-expanded={showReferenceSummary}
+              onClick={() => setShowReferenceSummary((value) => !value)}
+              style={{ ...referencePanelHeaderStyle, display: "block", width: "calc(100% + 12px)", border: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Сводка объекта {showReferenceSummary ? "−" : "+"}
+            </button>
+            {showReferenceSummary && (
+            <>
+            <table style={referenceTableStyle}>
+              <tbody>
+                {[
+                  ["Тип объекта", `${propertyTypeLabels[propertyType] ?? "Недвижимость"} — ${currentSubtypes.find((item) => item.value === propertySubtype)?.label ?? propertySubtype}`],
+                  ["Цена", price ? `${Number(price).toLocaleString("ru-RU")} ₽` : "—"],
+                  ["Цена за м²", price && area && Number(area) > 0 ? `${Math.round(Number(price) / Number(area)).toLocaleString("ru-RU")} ₽` : "—"],
+                  ["Общая площадь", area ? `${area} м²` : "—"],
+                  ["Жилая площадь", livingArea ? `${livingArea} м²` : "—"],
+                  ["Площадь кухни", kitchenArea ? `${kitchenArea} м²` : "—"],
+                  ["Комнат", rooms || "—"],
+                  ["Этаж", floor || "—"],
+                  ["Этажность дома", totalFloors || "—"],
+                  ["Год постройки", yearBuilt || "—"],
+                  ["Материал дома", buildingMaterial || "—"],
+                  ["Санузел", bathroom || "—"],
+                  ["Балкон / лоджия", balcony || "—"],
+                  ["Ремонт", renovation || "—"],
+                  ["Планировка", roomLayout || "—"],
+                  ["Состояние", condition || "—"],
+                  ["Высота потолков", ceilingHeight ? `${ceilingHeight} м` : "—"],
+                  ["Мебель", furniture || "—"],
+                  ["Отопление", heating || "—"],
+                  ["Площадь участка", plotArea ? `${plotArea} сот.` : "—"],
+                  ["Длина участка", plotLength ? `${plotLength} м` : "—"],
+                  ["Ширина участка", plotWidth ? `${plotWidth} м` : "—"],
+                  ["Фасад участка", frontage ? `${frontage} м` : "—"],
+                  ["Назначение земли", landPurpose || "—"],
+                  ["Ограждение", fenced || "—"],
+                  ["Терраса", terrace ? "Есть" : "Нет / не указано"],
+                  ["Баня", bathhouse ? "Есть" : "Нет / не указано"],
+                  ["Сауна", sauna ? "Есть" : "Нет / не указано"],
+                  ["Бассейн", pool ? "Есть" : "Нет / не указано"],
+                  ["Гараж", garage ? "Есть" : "Нет / не указано"],
+                  ["Газ", gas ? "Есть" : "Нет / не указано"],
+                  ["Вода", water ? "Есть" : "Нет / не указано"],
+                  ["Электричество", electricity ? "Есть" : "Нет / не указано"],
+                  ["Канализация", sewerage ? "Есть" : "Нет / не указано"],
+                  ["Жилой комплекс", residentialComplex || "—"],
+                  ["Микрорайон", district || "—"],
+                  ["Метро / остановка", metro || "—"],
+                  ["Источник обращения", source || "—"],
+                  ["Материнский капитал", hasMaternalCapital ? "Возможен" : "Нет / не указано"],
+                  ["Цена за м² на сайте", showPricePerSqm ? "Показывать" : "Не показывать"],
+                  ["Кадастровый номер объекта", cadastralNumber || "—"],
+                  ["Кадастровый номер участка", landCadastralNumber || "—"],
+                ].map(([label, value]) => (
+                  <tr key={label}>
+                    <td style={referenceLabelCellStyle}>{label}</td>
+                    <td style={referenceValueCellStyle}>{String(value || "—")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={referencePanelFooterStyle}>Значения обновляются при заполнении формы.</div>
+            </>
+            )}
+          </aside>
+        </section>
+
+        <footer style={footerStyle}>
+          <div>
+            {savedId ? (
+              <div style={savedMessageStyle}>✓ Объект №{savedId} сохранён</div>
+            ) : (
+              <div style={footerHintStyle}>Перед сохранением проверьте реальный и рекламный адрес.</div>
+            )}
+          </div>
+
+          <div style={footerActionsStyle}>
+            <button type="button" onClick={saveDraft} style={secondaryButtonStyle}>
+              Сохранить черновик
+            </button>
+            <button
+              type="button"
+              onClick={saveProperty}
+              disabled={isSaving}
+              style={{ ...primaryButtonStyle, opacity: isSaving ? 0.7 : 1 }}
+            >
+              {isSaving ? "Сохранение..." : editingPropertyId !== null ? "Сохранить изменения" : "Сохранить объект"}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+
+type DistrictNode = { label: string; children?: DistrictNode[]; description?: string; type?: string };
+
+// Справочник по видимым районам и микрорайонам с предоставленных скриншотов.
+const krasnodarDistricts: DistrictNode[] = [
+  { label: "Центральный", children: [
+    { label: "мкр Центральный" },
+    { label: "микрорайон Центр Аврора" },
+    { label: "микрорайон Центр Исторический" },
+    { label: "мкр Кожзавод" },
+    { label: "мкр Город Городов" },
+    { label: "СНТ Урожай" },
+  ]},
+  { label: "Фестивальный", children: [
+    { label: "Фестивальный мкр" },
+    { label: "мкр 9-й километр" },
+    { label: "мкр Авиагородок" },
+  ]},
+  { label: "мкр Юбилейный", children: [
+    { label: "мкр Сельскохозяйственный Институт" },
+    { label: "мкр Юбилейный" },
+    { label: "жилой городок Аграрного Университета" },
+    { label: "ЖК Виктория" },
+    { label: "ЖК Новый Город" },
+  ]},
+  { label: "Западный" },
+  { label: "Прикубанский" },
+  { label: "Карасунский" },
+  { label: "Славянский" },
+  { label: "Немецкая деревня" },
+  { label: "ЭНКА" },
+  { label: "Северный" },
+  { label: "Витаминкомбинат" },
+  { label: "Ростовское шоссе дачи" },
+  { label: "п. Российский" },
+  { label: "п. Индустриальный" },
+  { label: "п. Победитель" },
+  { label: "п. Дружелюбный" },
+  { label: "РИП" },
+  { label: "ЗИП" },
+  { label: "40 лет Победы" },
+  { label: "Восточно-Кругликовский" },
+  { label: "Черёмушки" },
+  { label: "Комсомольский" },
+  { label: "Гидростроителей" },
+  { label: "Пашковский" },
+  { label: "п. Знаменский" },
+  { label: "х. Ленина" },
+  { label: "ст. Елизаветинская" },
+  { label: "СТ Аргон" },
+  { label: "СТ Янтарь" },
+  { label: "РМЗ" },
+  { label: "Музыкальный микрорайон" },
+  { label: "Другой район" },
+];
+
+function flattenDistrictOptions(nodes: DistrictNode[]): Array<{ label: string; description?: string; type?: string }> {
+  return nodes.flatMap((node) => [
+    { label: node.label },
+    ...(node.children ? flattenDistrictOptions(node.children) : []),
+  ]);
+}
+
+function DistrictPicker({ value, onChange, city }: { value: string; onChange: (value: string) => void; city: string }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [remoteDistricts, setRemoteDistricts] = useState<Array<{ label: string; description?: string; type?: string }>>([]);
+  const [districtLoading, setDistrictLoading] = useState(false);
+  const [districtError, setDistrictError] = useState("");
+  const [districtRetry, setDistrictRetry] = useState(0);
+  const isKrasnodar = city.trim().toLocaleLowerCase("ru-RU").includes("краснодар");
+  const query = search.trim().toLocaleLowerCase("ru-RU");
+
+  useEffect(() => {
+    setSearch("");
+    setOpen(false);
+  }, [city]);
+
+  useEffect(() => {
+    if (!city.trim() || !open) {
+      setDistrictLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDistrictLoading(true);
+    setDistrictError("");
+    fetch(`${API_URL}/geo/city-districts?city=${encodeURIComponent(city)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Не удалось загрузить районы.");
+        setRemoteDistricts(Array.isArray(payload.items) ? payload.items : []);
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setRemoteDistricts([]);
+        setDistrictError(error instanceof Error ? error.message : "Не удалось загрузить районы.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDistrictLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [city, open, districtRetry]);
+
+  const localOptions = isKrasnodar ? flattenDistrictOptions(krasnodarDistricts) : [];
+  const allOptions = [...localOptions, ...remoteDistricts];
+  const seen = new Set<string>();
+  const uniqueOptions = allOptions.filter((item) => {
+    const key = item.label.trim().toLocaleLowerCase("ru-RU");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const filteredOptions = uniqueOptions.filter((item) =>
+    !query || item.label.toLocaleLowerCase("ru-RU").includes(query) ||
+    (item.description || "").toLocaleLowerCase("ru-RU").includes(query) ||
+    (item.type || "").toLocaleLowerCase("ru-RU").includes(query)
+  );
+
+  function chooseDistrict(label: string) {
+    onChange(label);
+    setOpen(false);
+    setSearch("");
+  }
+
+  if (!city.trim()) {
+    return <div style={{ color: "#64748b", padding: "8px 0", fontSize: 12 }}>Сначала выберите населённый пункт.</div>;
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        aria-expanded={open}
+        style={{ ...inputStyle, display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", textAlign: "left", cursor: "pointer", gap: 12, background: "#fff" }}
+      >
+        <span style={{ color: value ? "#0f172a" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {value || "Выберите район / микрорайон"}
+        </span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+
+      {open && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 2 }}>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Поиск района или микрорайона..."
+              style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }}
+              autoFocus
+            />
+          </div>
+
+          {districtLoading && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Загружаем районы...</div>}
+
+          {!districtLoading && districtError && uniqueOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>
+              Не удалось загрузить список районов.
+              <button type="button" onClick={() => setDistrictRetry((current) => current + 1)} style={{ display: "block", marginTop: 8, border: 0, background: "transparent", color: "#2563eb", padding: 0, cursor: "pointer" }}>
+                Повторить загрузку
+              </button>
+            </div>
+          )}
+
+          {!districtLoading && !districtError && uniqueOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Для этого населённого пункта список районов не найден.</div>
+          )}
+
+          {!districtLoading && uniqueOptions.length > 0 && filteredOptions.length === 0 && (
+            <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Ничего не найдено.</div>
+          )}
+
+          {!districtLoading && filteredOptions.map((item, index) => (
+            <button
+              key={`${item.label}-${index}`}
+              type="button"
+              onClick={() => chooseDistrict(item.label)}
+              style={{
+                ...districtTreeRowStyle,
+                width: "100%",
+                padding: "8px 10px",
+                background: item.label === value ? "#fff1f2" : "#fff",
+                border: 0,
+                borderBottom: "1px solid #f1f5f9",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", color: "#1e293b", fontSize: 13 }}>{item.label}</span>
+                {item.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{item.description}</span>}
+              </span>
+              {item.label === value && <span style={{ color: "#dc2626", fontWeight: 700 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {value && <button type="button" onClick={() => onChange("")} style={districtClearStyle}>Сбросить выбор</button>}
     </div>
+  );
+}
+
+
+type SettlementSuggestion = {
+  name: string;
+  subtitle: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+/** Searchable nationwide locality picker. Results are fetched from the backend's
+ * Yandex Geocoder endpoint, which searches cities, towns, villages and settlements.
+ */
+function CityPicker({ value, onChange, style }: {
+  value: string;
+  onChange: (city: string) => void;
+  style?: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [items, setItems] = useState<SettlementSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const query = search.trim();
+    if (!open || query.length < 2) {
+      setItems([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await fetch(`${API_URL}/geo/settlements?q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || "Не удалось найти населённые пункты.");
+        setItems(Array.isArray(payload.items) ? payload.items : []);
+      } catch (requestError) {
+        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        setItems([]);
+        setError(requestError instanceof Error ? requestError.message : "Ошибка поиска населённых пунктов.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, search]);
+
+  function choose(item: SettlementSuggestion) {
+    onChange(item.name);
+    setOpen(false);
+    setSearch("");
+    setItems([]);
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        style={{ ...style, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, textAlign: "left", cursor: "pointer", background: "#fff", color: value ? "#0f172a" : "#64748b" }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "Выберите город или населённый пункт"}</span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Начните вводить город, село или деревню..."
+              style={{ ...inputStyle, width: "100%", minHeight: 40, boxSizing: "border-box" }}
+              autoFocus
+            />
+            <div style={{ marginTop: 7, fontSize: 11, color: "#64748b" }}>
+              Поиск по населённым пунктам России. Введите минимум 2 символа.
+            </div>
+          </div>
+          {loading ? (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Поиск населённых пунктов...</div>
+          ) : error ? (
+            <div style={{ padding: 14, color: "#b91c1c", fontSize: 13 }}>{error}</div>
+          ) : search.trim().length < 2 ? (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Введите название, чтобы найти город, посёлок, село или деревню.</div>
+          ) : items.length ? (
+            <div>
+              {items.map((item, index) => (
+                <button
+                  key={`${item.name}-${item.subtitle}-${index}`}
+                  type="button"
+                  onClick={() => choose(item)}
+                  style={{ ...districtTreeRowStyle, width: "100%", padding: "8px 10px", minHeight: 44, textAlign: "left", cursor: "pointer", background: item.name === value ? "#fff1f2" : "#fff", border: 0, borderBottom: "1px solid #f1f5f9", display: "block" }}
+                >
+                  <span style={{ display: "block", color: "#1e293b", fontSize: 13, fontWeight: 700 }}>{item.name}</span>
+                  {item.subtitle && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11, lineHeight: 1.35 }}>{item.subtitle}</span>}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Ничего не найдено. Попробуйте ввести название вместе с областью или краем.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function plainPickerText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainPickerText).join("");
+  if (isValidElement(node)) return plainPickerText((node.props as { children?: React.ReactNode }).children);
+  return "";
+}
+
+/** Custom searchable replacement for native selects. Keeps the existing option
+ * JSX and onChange(event.target.value) handlers, but matches the DistrictPicker UI.
+ */
+function SearchableSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { value, onChange, children, style, disabled } = props;
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const options = Children.toArray(children).flatMap((child, index) => {
+    if (!isValidElement(child) || child.type !== "option") return [];
+    const option = child as React.ReactElement<{ value?: string | number; children?: React.ReactNode; disabled?: boolean }>;
+    const label = plainPickerText(option.props.children);
+    const optionValue = option.props.value === undefined ? label : String(option.props.value);
+    return [{ key: String(option.key ?? `${optionValue}-${index}`), value: optionValue, label, disabled: Boolean(option.props.disabled) }];
+  });
+  const currentValue = value === undefined || value === null ? "" : String(value);
+  const selected = options.find((option) => option.value === currentValue);
+  const query = search.trim().toLocaleLowerCase("ru-RU");
+  const filtered = options.filter((option) => !query || option.label.toLocaleLowerCase("ru-RU").includes(query) || option.value.toLocaleLowerCase("ru-RU").includes(query));
+
+  function choose(option: typeof options[number]) {
+    if (option.disabled) return;
+    onChange?.({ target: { value: option.value } } as React.ChangeEvent<HTMLSelectElement>);
+    setOpen(false);
+    setSearch("");
+  }
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        onClick={() => { setOpen((current) => !current); setSearch(""); }}
+        style={{ ...style, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", background: (style as React.CSSProperties | undefined)?.background || "#fff", color: disabled ? "#64748b" : "#0f172a", opacity: disabled ? 0.8 : 1 }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{selected?.label || currentValue || "Выберите значение"}</span>
+        <span style={{ color: "#64748b", flex: "0 0 auto" }}>{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && !disabled && (
+        <div style={districtDropdownStyle}>
+          <div style={{ padding: 10, borderBottom: "1px solid #e2e8f0", background: "#fff", position: "sticky", top: 0, zIndex: 1 }}>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск в списке..." style={{ ...inputStyle, width: "100%", minHeight: 38, boxSizing: "border-box" }} autoFocus />
+          </div>
+          <div>
+            {filtered.length ? filtered.map((option) => (
+              <div key={option.key} style={{ ...districtTreeRowStyle, background: option.value === currentValue ? "#fff1f2" : "#fff", opacity: option.disabled ? 0.5 : 1 }}>
+                <span style={{ width: 16, flex: "0 0 16px", color: "#dc2626", fontWeight: 700, textAlign: "center" }}>{option.value === currentValue ? "✓" : ""}</span>
+                <button type="button" disabled={option.disabled} onClick={() => choose(option)} style={districtNodeLabelStyle}>{option.label}</button>
+              </div>
+            )) : <div style={{ padding: 14, color: "#64748b", fontSize: 13 }}>Нет совпадений.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+type DomaAddressKind = "real" | "public";
+type DomaLngLat = [number, number];
+
+declare global {
+  interface Window {
+    ymaps3?: any;
+  }
+}
+
+let domaCrmYmapsPromise: Promise<any> | null = null;
+
+async function loadDomaCrmYmaps(): Promise<any> {
+  if (typeof window === "undefined") throw new Error("Яндекс.Карты доступны только в браузере.");
+  if (window.ymaps3) {
+    await window.ymaps3.ready;
+    return window.ymaps3;
+  }
+  if (domaCrmYmapsPromise) return domaCrmYmapsPromise;
+
+  const apiKey = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY;
+  if (!apiKey) throw new Error("Не найден NEXT_PUBLIC_YANDEX_MAPS_API_KEY.");
+
+  domaCrmYmapsPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector('script[data-yandex-maps="true"]') as HTMLScriptElement | null;
+    const script = existingScript ?? document.createElement("script");
+    const handleLoad = async () => {
+      try {
+        if (!window.ymaps3) throw new Error("Яндекс.Карты не инициализировались после загрузки API.");
+        await window.ymaps3.ready;
+        resolve(window.ymaps3);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    const handleError = () => reject(new Error("Не удалось загрузить API Яндекс.Карт. Проверьте ключ и ограничения домена."));
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    if (!existingScript) {
+      script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+      script.async = true;
+      script.dataset.yandexMaps = "true";
+      document.head.appendChild(script);
+    } else if (window.ymaps3) {
+      void handleLoad();
+    }
+  });
+
+  return domaCrmYmapsPromise;
+}
+
+function isDomaLngLat(value: unknown): value is DomaLngLat {
+  return Array.isArray(value) && value.length === 2 && Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1]));
+}
+
+function AddressMap({
+  city,
+  realAddress,
+  publicAddress,
+  onRealAddressChange,
+  onPublicAddressChange,
+}: {
+  city: string;
+  realAddress: string;
+  publicAddress: string;
+  onRealAddressChange: (value: string) => void;
+  onPublicAddressChange: (value: string) => void;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<Record<DomaAddressKind, any>>({ real: null, public: null });
+  const coordinatesRef = useRef<Record<DomaAddressKind, DomaLngLat>>({
+    real: [38.9769, 45.0355],
+    public: [38.9822, 45.0380],
+  });
+  const latestPropsRef = useRef({ onRealAddressChange, onPublicAddressChange });
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [mapError, setMapError] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [mapNotice, setMapNotice] = useState("Перетаскивайте красную и синюю точки. После перемещения соответствующий адрес заполнится автоматически.");
+
+  useEffect(() => {
+    latestPropsRef.current = { onRealAddressChange, onPublicAddressChange };
+  }, [onRealAddressChange, onPublicAddressChange]);
+
+  const reverseGeocodeMarker = async (kind: DomaAddressKind, coordinates: DomaLngLat) => {
+    const [longitude, latitude] = coordinates;
+    setMapNotice(`Определяем адрес для ${kind === "real" ? "реальной" : "рекламной"} метки…`);
+    try {
+      const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+      const response = await fetch(`${API_URL}/reverse-geocode?${query.toString()}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      const formatted = typeof data?.formatted === "string" ? data.formatted.trim() : "";
+      if (!response.ok || data?.found !== true || !formatted) {
+        throw new Error(data?.detail || "Не удалось получить адрес по координатам.");
+      }
+      const setter = kind === "real"
+        ? latestPropsRef.current.onRealAddressChange
+        : latestPropsRef.current.onPublicAddressChange;
+      setter(formatted);
+      setMapNotice(`${kind === "real" ? "Реальный" : "Рекламный"} адрес обновлён по положению метки.`);
+    } catch (error) {
+      console.error("Ошибка обратного геокодирования DOMA:", error);
+      setMapNotice("Метка перемещена, но адрес не определился. Проверьте доступность обратного геокодирования на сервере.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let map: any = null;
+
+    async function initMap() {
+      try {
+        setMapStatus("loading");
+        const ymaps = await loadDomaCrmYmaps();
+        if (cancelled || !mapContainerRef.current) return;
+        map = new ymaps.YMap(mapContainerRef.current, {
+          location: { center: [38.9769, 45.0355], zoom: 12 },
+          mode: "vector",
+        });
+        map.addChild(new ymaps.YMapDefaultSchemeLayer({}));
+        map.addChild(new ymaps.YMapDefaultFeaturesLayer({}));
+        mapRef.current = map;
+        setMapStatus("ready");
+      } catch (error) {
+        console.error("Ошибка инициализации карты CRM:", error);
+        if (!cancelled) {
+          setMapError(error instanceof Error ? error.message : "Не удалось загрузить карту.");
+          setMapStatus("error");
+        }
+      }
+    }
+
+    void initMap();
+    return () => {
+      cancelled = true;
+      const currentMap = mapRef.current ?? map;
+      if (currentMap) {
+        (Object.keys(markersRef.current) as DomaAddressKind[]).forEach((kind) => {
+          const marker = markersRef.current[kind];
+          if (marker) {
+            try { currentMap.removeChild(marker); } catch { /* метка уже удалена */ }
+          }
+          markersRef.current[kind] = null;
+        });
+        try { currentMap.destroy(); } catch { /* карта уже уничтожена */ }
+      }
+      if (mapRef.current === currentMap) mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current) return;
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      const entries: Array<{ kind: DomaAddressKind; address: string; coordinates: DomaLngLat; resolved: boolean }> = [];
+      const inputs: Array<{ kind: DomaAddressKind; address: string }> = [
+        { kind: "real", address: realAddress.trim() },
+        { kind: "public", address: publicAddress.trim() },
+      ];
+
+      await Promise.all(inputs.map(async ({ kind, address }) => {
+        let coordinates = coordinatesRef.current[kind];
+        let resolved = false;
+        const cityName = city.trim() || "Краснодар";
+        // Resolve full address when available; otherwise center the map on the chosen city.
+        const geocodeText = address ? `${address}, ${cityName}` : cityName;
+        if (geocodeText) {
+          try {
+            const query = new URLSearchParams({ address: geocodeText });
+            const response = await fetch(`${API_URL}/geocode?${query.toString()}`, { cache: "no-store" });
+            const data = await response.json().catch(() => ({}));
+            const longitude = Number(data?.longitude);
+            const latitude = Number(data?.latitude);
+            if (response.ok && data?.found === true && Number.isFinite(longitude) && Number.isFinite(latitude)) {
+              // Keep the two initial points visible rather than exactly on top of each other.
+              coordinates = address
+                ? [longitude, latitude]
+                : kind === "public"
+                  ? [longitude + 0.002, latitude + 0.001]
+                  : [longitude, latitude];
+              resolved = true;
+            }
+          } catch (error) {
+            console.warn(`Не удалось определить координаты адреса (${kind}):`, error);
+          }
+        }
+        if (cancelled) return;
+        coordinatesRef.current[kind] = coordinates;
+        const marker = markersRef.current[kind];
+        const ymaps = window.ymaps3;
+        const onDragMove = (value: unknown) => {
+          if (!isDomaLngLat(value)) return;
+          const point: DomaLngLat = [Number(value[0]), Number(value[1])];
+          coordinatesRef.current[kind] = point;
+          markersRef.current[kind]?.update({ coordinates: point });
+        };
+        const onDragEnd = (value: unknown) => {
+          if (!isDomaLngLat(value)) return;
+          const point: DomaLngLat = [Number(value[0]), Number(value[1])];
+          coordinatesRef.current[kind] = point;
+          void reverseGeocodeMarker(kind, point);
+        };
+
+        if (marker) {
+          marker.update({ coordinates, draggable: true, mapFollowsOnDrag: true, onDragMove, onDragEnd });
+        } else if (ymaps && mapRef.current) {
+          const element = document.createElement("div");
+          element.textContent = "";
+          element.title = `Перетащите точку, чтобы изменить ${kind === "real" ? "реальный" : "рекламный"} адрес`;
+          element.setAttribute("role", "img");
+          element.setAttribute("aria-label", element.title);
+          element.style.cssText = [
+            "position:relative",
+            "transform:translate(-50%,-50%)",
+            "width:12px",
+            "height:12px",
+            "box-sizing:border-box",
+            `background:${kind === "real" ? "#e53935" : "#2878f0"}`,
+            "border:2px solid #fff",
+            "border-radius:50%",
+            "padding:0",
+            "box-shadow:0 1px 5px rgba(15,23,42,.55)",
+            "cursor:grab",
+            "user-select:none",
+          ].join(";");
+          const newMarker = new ymaps.YMapMarker({
+            coordinates,
+            draggable: true,
+            mapFollowsOnDrag: true,
+            onDragMove,
+            onDragEnd,
+          }, element);
+          mapRef.current.addChild(newMarker);
+          markersRef.current[kind] = newMarker;
+        }
+        entries.push({ kind, address, coordinates, resolved });
+      }));
+
+      if (cancelled) return;
+      setIsSearching(false);
+
+      const resolvedEntries = entries.filter((entry) => entry.address && entry.resolved);
+      const centerEntries = resolvedEntries.length
+        ? resolvedEntries
+        : entries.filter((entry) => entry.address).length
+          ? entries.filter((entry) => entry.address)
+          : entries;
+      const center: DomaLngLat = centerEntries.length
+        ? [
+            centerEntries.reduce((sum, entry) => sum + entry.coordinates[0], 0) / centerEntries.length,
+            centerEntries.reduce((sum, entry) => sum + entry.coordinates[1], 0) / centerEntries.length,
+          ]
+        : [38.9769, 45.0355];
+      const zoom = resolvedEntries.length > 1 ? 12 : resolvedEntries.length === 1 ? 16 : 12;
+      mapRef.current?.update({ location: { center, zoom, duration: 300 } });
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [realAddress, publicAddress, mapStatus, city]);
+
+  useEffect(() => {
+    if (mapStatus !== "ready") return;
+    const timer = window.setTimeout(() => {
+      // Yandex Maps v3 observes its container size; this event also refreshes layouts
+      // in browsers that defer size updates after a React inline-height transition.
+      window.dispatchEvent(new Event("resize"));
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [isExpanded, mapStatus]);
+
+  return (
+    <div style={addressMapWrapStyle}>
+      <div
+        ref={mapContainerRef}
+        role="application"
+        aria-label="Карта адресов DOMA с двумя перетаскиваемыми метками"
+        style={{ display: "block", width: "100%", height: isExpanded ? 560 : 300, minHeight: isExpanded ? 460 : 260, overflow: "hidden", borderRadius: 12, background: "#e9eef5", transition: "height 180ms ease" }}
+      />
+      {mapStatus === "loading" && <div style={{ ...addressMapCaptionStyle, marginTop: 0 }}>Загружаем карту Яндекса…</div>}
+      {mapStatus === "error" && <div style={{ ...addressMapCaptionStyle, color: "#b91c1c" }}>Не удалось загрузить карту: {mapError}</div>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+        <div style={addressMapCaptionStyle}>
+          {isSearching ? "Определяем координаты адресов… " : ""}
+          <span style={{ color: "#dc2626", fontWeight: 700 }}>Красная метка</span> — только агенту;{" "}
+          <span style={{ color: "#2563eb", fontWeight: 700 }}>синяя метка</span> — рекламный адрес. {mapNotice}
+        </div>
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+          style={{ color: "#dc2626", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", border: "1px solid #fecaca", background: "#fff", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}
+        >
+          {isExpanded ? "Свернуть карту ↑" : "Развернуть карту ↓"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <div style={sectionHeadingStyle}>
+      <div style={sectionNumberStyle}>{number}</div>
+      <div>
+        <h2 style={sectionTitleStyle}>{title}</h2>
+        <p style={sectionDescriptionStyle}>{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  full,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  full?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label style={{ ...(full ? fullFieldStyle : fieldStyle) }}>
+      <span style={labelStyle}>
+        {label}
+        {required && <span style={requiredStyle}> *</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh", background: "#d7dadd", padding: "4px 5px 10px", color: "#20262d", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 12,
+};
+
+const shellStyle: React.CSSProperties = { width: "100%", maxWidth: "none", margin: "0 auto" };
+
+const headerStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 5, padding: "5px 9px", minHeight: 28, background: "#0878d1", border: "1px solid #075ba8", color: "#fff" };
+
+const eyebrowStyle: React.CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: "0.02em", color: "#e5f2ff", marginBottom: 1 };
+
+const titleStyle: React.CSSProperties = { margin: 0, fontSize: 15, lineHeight: 1.15, letterSpacing: "0", fontWeight: 700, color: "#fff" };
+
+const subtitleStyle: React.CSSProperties = { margin: "2px 0 0", color: "#e5f2ff", fontSize: 10 };
+
+const saleBadgeStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 7px", borderRadius: 2, background: "#eaf4fd", border: "1px solid #b7d8f3", color: "#075ba8", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap" };
+
+const saleDotStyle: React.CSSProperties = { width: 6, height: 6, borderRadius: "50%", background: "#0878d1" };
+
+const progressCardStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "7px 10px",
+  marginBottom: 8,
+  borderRadius: 0,
+  border: "1px solid #075ba8",
+  background: "#0878d1",
+  color: "#ffffff",
+};
+
+const progressTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, color: "#ffffff" };
+const progressTextStyle: React.CSSProperties = { marginTop: 2, color: "#e2f1ff", fontSize: 11 };
+const progressNumberStyle: React.CSSProperties = { fontWeight: 700, color: "#ffffff", fontSize: 11 };
+
+const layoutStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 286px", gap: 6, alignItems: "start" };
+
+const columnStyle: React.CSSProperties = { display: "contents" };
+
+const cardStyle: React.CSSProperties = { gridColumn: "1", background: "#e9ebed", border: "1px solid #aeb5bc", borderRadius: 0, padding: "6px 8px", boxShadow: "none", minWidth: 0, marginBottom: 0 };
+
+const sectionHeadingStyle: React.CSSProperties = { display: "flex", gap: 5, alignItems: "center", margin: "-6px -8px 6px", padding: "4px 7px", minHeight: 22, background: "#0878d1", borderBottom: "1px solid #075ba8" };
+
+const sectionNumberStyle: React.CSSProperties = { display: "none" };
+
+const sectionTitleStyle: React.CSSProperties = { margin: 0, fontSize: 12, fontWeight: 700, color: "#fff" };
+
+const sectionDescriptionStyle: React.CSSProperties = { display: "none" };
+
+const formGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "5px 8px", alignItems: "start" };
+
+const fieldStyle: React.CSSProperties = { display: "grid", gap: 2, minWidth: 0 };
+
+const fullFieldStyle: React.CSSProperties = { ...fieldStyle, gridColumn: "1 / -1" };
+
+const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 600, color: "#303b46", lineHeight: 1.15 };
+
+const requiredStyle: React.CSSProperties = { color: "#dc2626" };
+
+const inputStyle: React.CSSProperties = { width: "100%", minHeight: 24, padding: "2px 5px", borderRadius: 1, border: "1px solid #a5adb5", background: "#fff", color: "#202a35", fontSize: 11, outline: "none", boxSizing: "border-box" };
+
+const inputBareStyle: React.CSSProperties = { border: 0, outline: 0, flex: 1, width: "100%", background: "transparent", color: "#202a35", fontSize: 11, minHeight: 22 };
+
+const inputWithSuffixStyle: React.CSSProperties = { display: "flex", alignItems: "center", minHeight: 24, padding: "0 5px", borderRadius: 1, border: "1px solid #a5adb5", background: "#fff" };
+
+const suffixStyle: React.CSSProperties = { color: "#586674", fontSize: 10, fontWeight: 600 };
+
+const districtDropdownStyle: React.CSSProperties = { position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50, maxHeight: 420, overflowY: "auto", background: "#fff", border: "1px solid #9da8b2", borderRadius: 4, boxShadow: "0 6px 18px rgba(15,23,42,.18)" };
+
+const districtTreeRowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, minHeight: 34, paddingRight: 10, borderBottom: "1px solid #f1f5f9" };
+const districtNodeLabelStyle: React.CSSProperties = { border: 0, background: "transparent", color: "#1e293b", textAlign: "left", padding: "6px 0", fontSize: 13, cursor: "pointer", flex: 1 };
+const districtClearStyle: React.CSSProperties = { marginTop: 6, border: 0, background: "transparent", color: "#dc2626", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 };
+
+const addressMapWrapStyle: React.CSSProperties = {
+  position: "relative",
+  gridColumn: "1 / -1",
+  zIndex: 1,
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
+  marginTop: 8,
+  padding: 12,
+  border: "1px solid #e2e8f0",
+  borderRadius: 2,
+  background: "#fff",
+  boxShadow: "0 4px 12px rgba(22,42,60,.12)",
+};
+const addressMapCaptionStyle: React.CSSProperties = { marginTop: 7, fontSize: 11, color: "#64748b" };
+
+const privateFieldWrapStyle: React.CSSProperties = { position: "relative" };
+const publicFieldWrapStyle: React.CSSProperties = { position: "relative" };
+
+const privateTagStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 10,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: 10,
+  fontWeight: 800,
+  color: "#b91c1c",
+  background: "#fff1f2",
+  padding: "5px 7px",
+  borderRadius: 7,
+};
+
+const publicTagStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 10,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: 10,
+  fontWeight: 800,
+  color: "#15803d",
+  background: "#f0fdf4",
+  padding: "5px 7px",
+  borderRadius: 7,
+};
+
+const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 82, resize: "vertical", padding: 6, borderRadius: 1, border: "1px solid #a5adb5", background: "#fff", color: "#202a35", fontSize: 11, lineHeight: 1.35, outline: "none", boxSizing: "border-box" };
+
+const textareaSmallStyle: React.CSSProperties = { ...textareaStyle, minHeight: 58 };
+
+const counterStyle: React.CSSProperties = {
+  marginTop: 4,
+  textAlign: "right",
+  fontSize: 10,
+  color: "#66727e",
+};
+
+const dropzoneStyle = (active: boolean): React.CSSProperties => ({ minHeight: 78, borderRadius: 1, border: `1px dashed ${active ? "#0878d1" : "#aeb5bc"}`, background: active ? "#eef7ff" : "#f4f5f6", display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-start", gap: 6, padding: 8, textAlign: "left", transition: ".15s ease" });
+
+const uploadIconStyle: React.CSSProperties = { width: 25, height: 25, display: "grid", placeItems: "center", borderRadius: 1, background: "#eaf4fd", border: "1px solid #b9d8f1", fontSize: 16, color: "#0878d1", marginBottom: 0 };
+
+const uploadTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 11 };
+
+const uploadTextStyle: React.CSSProperties = { color: "#64707b", marginTop: 0, fontSize: 10 };
+
+const uploadButtonStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 0, padding: "4px 8px", borderRadius: 1, background: "#0878d1", border: "1px solid #075ba8", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" };
+
+const hintStyle: React.CSSProperties = { marginTop: 0, fontSize: 9, color: "#6c7781" };
+
+const photoGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6, marginTop: 7 };
+
+const photoCardStyle: React.CSSProperties = { position: "relative", aspectRatio: "4 / 3", overflow: "hidden", borderRadius: 1, border: "1px solid #aeb5bc", background: "#e2e5e8" };
+
+const photoImageStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
+
+const photoOverlayStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: "8px 8px auto 8px",
+  display: "flex",
+  gap: 5,
+  alignItems: "center",
+};
+
+const photoIndexStyle: React.CSSProperties = { marginRight: "auto", padding: "3px 5px", borderRadius: 1, background: "rgba(15,23,42,.78)", color: "#fff", fontSize: 9, fontWeight: 700 };
+
+const photoActionStyle: React.CSSProperties = { width: 22, height: 22, border: 0, borderRadius: 1, background: "rgba(255,255,255,.92)", cursor: "pointer", fontWeight: 800 };
+
+const photoActionDangerStyle: React.CSSProperties = {
+  ...photoActionStyle,
+  color: "#b91c1c",
+};
+
+const privateNoticeStyle: React.CSSProperties = { display: "flex", gap: 6, alignItems: "flex-start", padding: 6, borderRadius: 1, background: "#eef3f7", border: "1px solid #cbd5df", marginBottom: 6 };
+
+const privateNoticeTitleStyle: React.CSSProperties = { fontWeight: 700, fontSize: 10 };
+
+const privateNoticeTextStyle: React.CSSProperties = { marginTop: 2, color: "#586674", fontSize: 9 };
+
+const statusListStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 4 };
+
+const statusButtonStyle = (active: boolean): React.CSSProperties => ({
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  width: "100%",
+  padding: "7px 8px",
+  borderRadius: 2,
+  border: `1px solid ${active ? "#4d91ca" : "#bfc6cc"}`,
+  background: active ? "#e7f2fc" : "#ffffff",
+  cursor: "pointer",
+});
+
+const statusRadioStyle = (active: boolean): React.CSSProperties => ({
+  width: 12,
+  height: 12,
+  borderRadius: "50%",
+  border: `3px solid ${active ? "#1674bb" : "#9da8b2"}`,
+  background: "#ffffff",
+  boxSizing: "border-box",
+  flex: "0 0 auto",
+});
+
+
+const checklistStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: "6px 10px", padding: "6px 7px", border: "1px solid #bfc6cc", borderRadius: 1, background: "#f4f5f6" };
+
+const checkItemStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, color: "#303b46", fontSize: 10, fontWeight: 500, cursor: "pointer" };
+
+const inlineCheckboxStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 5, minHeight: 24, padding: "2px 5px", border: "1px solid #a5adb5", background: "#fff", boxSizing: "border-box", fontSize: 10, fontWeight: 400, cursor: "pointer" };
+const referencePanelStyle: React.CSSProperties = { gridColumn: "2", gridRow: "1", minWidth: 0, background: "#e9ebed", border: "1px solid #aeb5bc", padding: "0 6px 6px", alignSelf: "start", position: "sticky", top: 6, maxHeight: "calc(100vh - 12px)", overflowY: "auto", boxSizing: "border-box" };
+const referencePanelHeaderStyle: React.CSSProperties = { margin: "0 -6px 5px", padding: "5px 7px", background: "#0878d1", borderBottom: "1px solid #075ba8", color: "#fff", fontSize: 12, fontWeight: 700 };
+const referenceTableStyle: React.CSSProperties = { width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 10, color: "#26323d" };
+const referenceLabelCellStyle: React.CSSProperties = { width: "48%", padding: "3px 4px", border: "1px solid #aeb5bc", background: "#f2f3f4", verticalAlign: "top", overflowWrap: "anywhere" };
+const referenceValueCellStyle: React.CSSProperties = { padding: "3px 4px", border: "1px solid #aeb5bc", background: "#fff", verticalAlign: "top", overflowWrap: "anywhere", fontWeight: 600 };
+const referencePanelFooterStyle: React.CSSProperties = { marginTop: 5, fontSize: 9, color: "#65717b" };
+
+const footerStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 5, padding: "5px 7px", borderRadius: 0, background: "#e3e6e9", border: "1px solid #aeb5bc" };
+
+const footerActionsStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 5 };
+
+const footerHintStyle: React.CSSProperties = { fontSize: 10, color: "#586674" };
+
+const savedMessageStyle: React.CSSProperties = { fontSize: 10, color: "#18733d", fontWeight: 700 };
+
+const secondaryButtonStyle: React.CSSProperties = { padding: "5px 8px", borderRadius: 1, border: "1px solid #9da8b2", background: "#f8f9fa", color: "#26323d", fontSize: 10, fontWeight: 600, cursor: "pointer" };
+
+const primaryButtonStyle: React.CSSProperties = { padding: "5px 9px", borderRadius: 1, border: "1px solid #0864ae", background: "#0878d1", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", boxShadow: "none" };
+
+type InlineSaleProperty = {
+  id: number;
+  title?: string;
+  city?: string;
+  district?: string;
+  address?: string;
+  public_address?: string;
+  real_address?: string;
+  price?: number | string;
+  status?: string;
+  image_url?: string | null;
+  deal_type?: string;
+  deal_type_label?: string;
+  property_type?: string;
+  property_type_label?: string;
+  property_subtype?: string;
+  property_subtype_label?: string;
+  is_draft?: boolean | string | number;
+  area?: number | string;
+  rooms?: number | string;
+  floor?: number | string | null;
+  total_floors?: number | string | null;
+};
+
+type InlineSaleListResponse = {
+  items: InlineSaleProperty[];
+  total: number;
+};
+
+const INLINE_SALE_PAGE_SIZE = 25;
+const inlineSaleTypeLabels: Record<string, string> = {
+  apartment: "Квартира",
+  house: "Дом",
+  land: "Участок",
+  commercial: "Коммерческая",
+  garage: "Гараж / парковка",
+};
+const inlineSaleNumberFormat = new Intl.NumberFormat("ru-RU");
+const inlineSaleStyles: Record<string, React.CSSProperties> = {
+  panel: { marginTop: 8, marginBottom: 10, border: "1px solid #aeb7bf", background: "#f7f8f9", color: "#20262d", fontSize: 12 },
+  panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "8px 10px", background: "#e8edf2", borderBottom: "1px solid #b7c1c9" },
+  title: { margin: 0, color: "#273746", fontSize: 13, fontWeight: 700 },
+  subtitle: { margin: "3px 0 0", color: "#60717f", fontSize: 10 },
+  btn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 26, padding: "4px 8px", border: "1px solid #9eacb7", borderRadius: 2, background: "#fff", color: "#263746", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
+  blueBtn: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 26, padding: "4px 8px", border: "1px solid #075ba8", borderRadius: 2, background: "#0878d1", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" },
+  input: { boxSizing: "border-box", width: "100%", height: 29, minWidth: 0, padding: "5px 7px", border: "1px solid #9daab5", borderRadius: 2, background: "#fff", color: "#20262d", fontSize: 11, outlineColor: "#0878d1" },
+  label: { display: "block", marginBottom: 4, color: "#34495a", fontSize: 10, fontWeight: 700 },
+  cell: { padding: "6px 7px", borderBottom: "1px solid #d3d9de", verticalAlign: "middle", fontSize: 10 },
+};
+
+function inlineSaleIsDraft(item: InlineSaleProperty) {
+  return item.is_draft === true || String(item.is_draft).toLowerCase() === "true" || String(item.is_draft) === "1";
+}
+
+function inlineSaleAddress(item: InlineSaleProperty) {
+  return [item.city, item.district, item.public_address || item.address || item.real_address]
+    .filter((part) => Boolean(part && String(part).trim())).join(", ") || "Адрес не указан";
+}
+
+function inlineSaleMoney(value: InlineSaleProperty["price"]) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) && amount > 0 ? `${inlineSaleNumberFormat.format(amount)} ₽` : "—";
+}
+
+function SalePropertiesList({ dealType, refreshKey, onOpenProperty, isOpening }: { dealType: "sale" | "rent"; refreshKey: number; onOpenProperty: (id: number) => void; isOpening: boolean }) {
+  const [items, setItems] = useState<InlineSaleProperty[]>([]);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [propertyType, setPropertyType] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [view, setView] = useState<"published" | "drafts">("published");
+  const [page, setPage] = useState(1);
+  const [totalFromServer, setTotalFromServer] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, propertyType, status, view]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      const params = new URLSearchParams({
+        deal_type: dealType,
+        offset: String((page - 1) * INLINE_SALE_PAGE_SIZE),
+        limit: String(INLINE_SALE_PAGE_SIZE),
+        is_draft: view === "drafts" ? "true" : "false",
+      });
+      if (propertyType !== "all") params.set("property_type", propertyType);
+      if (status !== "all") params.set("status", status);
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      try {
+        const response = await fetch(`${API_URL}/properties?${params.toString()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Сервер вернул код ${response.status}`);
+        const payload: unknown = await response.json();
+        if (cancelled) return;
+        if (Array.isArray(payload)) {
+          setItems(payload as InlineSaleProperty[]);
+          setTotalFromServer(null);
+        } else if (payload && typeof payload === "object" && Array.isArray((payload as InlineSaleListResponse).items)) {
+          const result = payload as InlineSaleListResponse;
+          setItems(result.items);
+          setTotalFromServer(Number(result.total ?? result.items.length));
+        } else {
+          throw new Error("Сервер вернул неожиданный формат списка объектов");
+        }
+      } catch (caught) {
+        if (cancelled) return;
+        setError(caught instanceof Error ? caught.message : "Не удалось загрузить объекты");
+        setItems([]);
+        setTotalFromServer(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [dealType, page, debouncedSearch, propertyType, status, view, refreshCounter, refreshKey]);
+
+  const localFiltered = useMemo(() => items.filter((item) => {
+    if ((item.deal_type || "sale") !== "sale") return false;
+    if (view === "drafts" ? !inlineSaleIsDraft(item) : inlineSaleIsDraft(item)) return false;
+    if (propertyType !== "all" && item.property_type !== propertyType) return false;
+    if (status !== "all" && (item.status || "") !== status) return false;
+    if (debouncedSearch) {
+      const haystack = [item.id, item.title, item.city, item.district, item.address, item.public_address, item.real_address, item.property_type_label]
+        .filter(Boolean).join(" ").toLocaleLowerCase("ru-RU");
+      if (!haystack.includes(debouncedSearch.toLocaleLowerCase("ru-RU"))) return false;
+    }
+    return true;
+  }), [items, view, propertyType, status, debouncedSearch]);
+
+  const total = totalFromServer ?? localFiltered.length;
+  const maxPage = Math.max(1, Math.ceil(total / INLINE_SALE_PAGE_SIZE));
+  const visible = totalFromServer === null ? localFiltered.slice((page - 1) * INLINE_SALE_PAGE_SIZE, page * INLINE_SALE_PAGE_SIZE) : localFiltered;
+
+  async function updateListing(id: number, action: "publish" | "delete", itemTitle?: string) {
+    if (busyId !== null) return;
+    if (action === "delete" && !window.confirm(`Удалить объект №${id}${itemTitle ? ` «${itemTitle}»` : ""}? Это действие нельзя отменить.`)) return;
+    setBusyId(id);
+    try {
+      const response = await fetch(action === "publish" ? `${API_URL}/properties/${id}/publish` : `${API_URL}/properties/${id}`, { method: action === "publish" ? "PUT" : "DELETE" });
+      if (!response.ok) throw new Error((await response.text()) || `Сервер вернул код ${response.status}`);
+      setRefreshCounter((value) => value + 1);
+    } catch (caught) {
+      window.alert(`Не удалось ${action === "publish" ? "опубликовать" : "удалить"} объект №${id}: ${caught instanceof Error ? caught.message : "ошибка запроса"}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <section style={inlineSaleStyles.panel} aria-label={dealType === "sale" ? "Список объектов на продаже" : "Список объектов в аренде"}>
+      <style>{`.doma-sale-inline-table { width:100%; border-collapse:collapse; min-width:920px; } .doma-sale-inline-table th { padding:7px; border-bottom:1px solid #b7c1c9; } .doma-sale-inline-row:hover { background:#eef6fc; } .doma-sale-inline-scroll { overflow-x:auto; width:100%; } @media(max-width:760px){.doma-sale-inline-filters{grid-template-columns:1fr 1fr!important}.doma-sale-inline-heading{align-items:flex-start!important;flex-direction:column!important}} @media(max-width:480px){.doma-sale-inline-filters{grid-template-columns:1fr!important}}`}</style>
+      <div className="doma-sale-inline-heading" style={inlineSaleStyles.panelHeader}>
+        <div>
+          <h2 style={inlineSaleStyles.title}>{dealType === "sale" ? "Объекты на продаже" : "Объекты в аренде"}</h2>
+          <p style={inlineSaleStyles.subtitle}>{dealType === "sale" ? "Список объектов продажи" : "Список объектов аренды"} — на одной общей CRM-странице</p>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => setRefreshCounter((value) => value + 1)} disabled={hasMounted && loading} style={{ ...inlineSaleStyles.btn, opacity: hasMounted && loading ? 0.6 : 1 }}>↻ Обновить</button>
+
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, padding: 7, borderBottom: "1px solid #d0d7dd" }}>
+        <button type="button" onClick={() => setView("published")} style={{ ...inlineSaleStyles.btn, background: view === "published" ? "#e0f2e8" : "#fff", borderColor: view === "published" ? "#7cc49a" : "#9eacb7", color: view === "published" ? "#166534" : "#263746" }}>Объявления</button>
+        <button type="button" onClick={() => setView("drafts")} style={{ ...inlineSaleStyles.btn, background: view === "drafts" ? "#fff2d6" : "#fff", borderColor: view === "drafts" ? "#d9ad5d" : "#9eacb7", color: view === "drafts" ? "#8a5700" : "#263746" }}>Черновики</button>
+        <span style={{ marginLeft: "auto", color: "#536575", fontSize: 10 }}>Найдено: <b>{total.toLocaleString("ru-RU")}</b></span>
+      </div>
+      <div className="doma-sale-inline-filters" style={{ display: "grid", gridTemplateColumns: "minmax(200px,2fr) minmax(140px,1fr) minmax(130px,1fr)", gap: 7, padding: 8, borderBottom: "1px solid #d0d7dd" }}>
+        <label><span style={inlineSaleStyles.label}>Поиск по ID, названию, адресу или району</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, ЖК, улица, район…" style={inlineSaleStyles.input} /></label>
+        <label><span style={inlineSaleStyles.label}>Тип недвижимости</span><SearchableSelect value={propertyType} onChange={(event) => setPropertyType(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все типы</option>{Object.entries(inlineSaleTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SearchableSelect></label>
+        <label><span style={inlineSaleStyles.label}>Статус</span><SearchableSelect value={status} onChange={(event) => setStatus(event.target.value)} style={inlineSaleStyles.input}><option value="all">Все статусы</option>{["Свободен", "Активен", "Опубликован", "Забронирован", "Продан", "Сдан", "Арендован", "Неактивен"].map((value) => <option key={value} value={value}>{value}</option>)}</SearchableSelect></label>
+      </div>
+      {error && <div role="alert" style={{ padding: 9, color: "#a61b16", background: "#fff1f0", borderBottom: "1px solid #e8b4b1" }}>Не удалось загрузить список: {error}. Проверь доступность API.</div>}
+      <div className="doma-sale-inline-scroll">
+        <table className="doma-sale-inline-table">
+          <thead><tr style={{ background: "#e6ebef", color: "#34495a", textAlign: "left", fontSize: 10, whiteSpace: "nowrap" }}><th>ID</th><th>Фото</th><th>Объект</th><th>Тип</th><th>Адрес</th><th>Площадь</th><th>Комнат</th><th>Цена</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22 }}>Загрузка объектов…</td></tr> : visible.length === 0 ? <tr><td colSpan={10} style={{ ...inlineSaleStyles.cell, textAlign: "center", padding: 22, color: "#536575" }}>{error ? "Нет данных для отображения" : view === "drafts" ? "Черновиков по выбранным условиям нет" : "Объектов по выбранным условиям нет"}</td></tr> : visible.map((item) => {
+              const draft = inlineSaleIsDraft(item);
+              const type = item.property_type_label || inlineSaleTypeLabels[item.property_type || ""] || item.property_type || "—";
+              const address = inlineSaleAddress(item);
+              return <tr key={item.id} className="doma-sale-inline-row">
+                <td style={{ ...inlineSaleStyles.cell, color: "#536575" }}>#{item.id}</td>
+                <td style={{ ...inlineSaleStyles.cell }}>
+                  <button
+                    type="button"
+                    disabled={isOpening}
+                    onClick={() => onOpenProperty(item.id)}
+                    aria-label={`Открыть данные объекта №${item.id}`}
+                    title="Открыть данные объекта"
+                    style={{ display: "block", border: 0, background: "transparent", padding: 0, cursor: isOpening ? "wait" : "pointer", opacity: isOpening ? 0.6 : 1 }}
+                  >
+                    {item.image_url ? <img src={item.image_url.startsWith("http") ? item.image_url : `${API_URL}${item.image_url}`} alt={item.title || "Фото объекта"} loading="lazy" style={{ display: "block", width: 54, height: 39, objectFit: "cover", border: "1px solid #bdc7cf" }} /> : <span style={{ display: "grid", placeItems: "center", width: 54, height: 39, border: "1px solid #bdc7cf", background: "#e8edf2", color: "#80909e", fontSize: 9 }}>Нет фото</span>}
+                  </button>
+                </td>
+                <td style={{ ...inlineSaleStyles.cell, minWidth: 150 }}><div style={{ fontWeight: 700, color: "#163e5d" }}>{item.title?.trim() || "Без названия"}</div><div style={{ color: "#667887", marginTop: 2, fontSize: 9 }}>{item.property_subtype_label || item.property_subtype || ""}</div></td>
+                <td style={inlineSaleStyles.cell}>{type}</td>
+                <td style={{ ...inlineSaleStyles.cell, maxWidth: 235, color: "#455866" }}>{address}</td>
+                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap" }}>{Number(item.area || 0) ? `${inlineSaleNumberFormat.format(Number(item.area))} м²` : "—"}</td>
+                <td style={{ ...inlineSaleStyles.cell, textAlign: "center" }}>{["land", "commercial", "garage"].includes(item.property_type || "") ? "—" : Number(item.rooms || 0) || "—"}</td>
+                <td style={{ ...inlineSaleStyles.cell, whiteSpace: "nowrap", fontWeight: 700, color: "#163e5d" }}>{inlineSaleMoney(item.price)}</td>
+                <td style={inlineSaleStyles.cell}><span style={{ display: "inline-block", padding: "3px 5px", border: `1px solid ${draft ? "#d9ad5d" : "#7cc49a"}`, background: draft ? "#fff2d6" : "#e0f2e8", color: draft ? "#8a5700" : "#166534", whiteSpace: "nowrap" }}>{draft ? "Черновик" : item.status || "Активен"}</span></td>
+                <td style={inlineSaleStyles.cell}><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}><button type="button" disabled={isOpening} onClick={() => onOpenProperty(item.id)} style={{ ...inlineSaleStyles.btn, opacity: isOpening ? 0.55 : 1 }}>{isOpening ? "Загрузка…" : "Открыть"}</button>{draft && <button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "publish")} style={{ ...inlineSaleStyles.blueBtn, opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Опубликовать"}</button>}<button type="button" disabled={busyId !== null} onClick={() => void updateListing(item.id, "delete", item.title)} style={{ ...inlineSaleStyles.btn, color: "#ae2922", borderColor: "#d9a6a3", opacity: busyId !== null ? 0.6 : 1 }}>{busyId === item.id ? "…" : "Удалить"}</button></div></td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+      <footer style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 7, padding: 8, background: "#eef1f4", borderTop: "1px solid #c4cdd4" }}>
+        <span style={{ color: "#536575", fontSize: 10 }}>Страница {page} из {maxPage} · по {INLINE_SALE_PAGE_SIZE} объектов</span>
+        <div style={{ display: "flex", gap: 4 }}><button type="button" disabled={page <= 1 || loading} onClick={() => setPage(1)} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>« Первая</button><button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} style={{ ...inlineSaleStyles.btn, opacity: page <= 1 || loading ? 0.45 : 1 }}>‹ Назад</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage((value) => Math.min(maxPage, value + 1))} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Вперёд ›</button><button type="button" disabled={page >= maxPage || loading} onClick={() => setPage(maxPage)} style={{ ...inlineSaleStyles.btn, opacity: page >= maxPage || loading ? 0.45 : 1 }}>Последняя »</button></div>
+      </footer>
+    </section>
   );
 }
