@@ -5,22 +5,43 @@ const categories = [
     title: "Квартиры",
     subtitle: "Новостройки и вторичное жильё",
     image:
-      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-    href: "/catalog",
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=apartment",
   },
   {
     title: "Дома",
     subtitle: "Коттеджи и частные дома",
     image:
-      "https://images.unsplash.com/photo-1568605114967-8130f3a36994",
-    href: "/catalog",
+      "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=house",
   },
   {
     title: "Коммерческая",
     subtitle: "Офисы и помещения",
     image:
-      "https://images.unsplash.com/photo-1497366754035-f200968a6e72",
-    href: "/catalog",
+      "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=commercial",
+  },
+  {
+    title: "Участки",
+    subtitle: "Земля под строительство и инвестиции",
+    image:
+      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=land",
+  },
+  {
+    title: "Парковки",
+    subtitle: "Парковочные места и машино-места",
+    image:
+      "https://images.unsplash.com/photo-1705566549260-687bb6912941?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=garage&property_subtype=parking",
+  },
+  {
+    title: "Гаражи",
+    subtitle: "Гаражи и гаражные боксы",
+    image:
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85",
+    href: "/catalog?property_type=garage",
   },
 ];
 
@@ -62,8 +83,7 @@ export default function PropertyCategories() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(350px,1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
           gap: "24px",
         }}
       >
@@ -88,6 +108,7 @@ export default function PropertyCategories() {
               <img
                 src={item.image}
                 alt={item.title}
+                loading="lazy"
                 style={{
                   width: "100%",
                   height: "100%",

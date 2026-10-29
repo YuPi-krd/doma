@@ -86,6 +86,7 @@ export default function CRMPage() {
   const [district, setDistrict] = useState("");
   const [realAddress, setRealAddress] = useState("");
   const [publicAddress, setPublicAddress] = useState("");
+  const [addressInput, setAddressInput] = useState("");
   const [price, setPrice] = useState("");
   const [area, setArea] = useState("");
   const [rooms, setRooms] = useState("");
@@ -289,8 +290,11 @@ export default function CRMPage() {
       setPropertySubtype(asFormString(p.property_subtype));
       setCity(asFormString(p.city) || "Краснодар");
       setDistrict(asFormString(p.district));
-      setRealAddress(asFormString(p.real_address));
-      setPublicAddress(asFormString(p.public_address || p.address));
+      const loadedRealAddress = asFormString(p.real_address);
+      const loadedPublicAddress = asFormString(p.public_address || p.address);
+      setRealAddress(loadedRealAddress);
+      setPublicAddress(loadedPublicAddress);
+      setAddressInput(loadedRealAddress || loadedPublicAddress);
       setPrice(asFormString(p.price));
       setArea(asFormString(p.area));
       setRooms(asFormString(p.rooms));
@@ -393,6 +397,7 @@ export default function CRMPage() {
     setDistrict("");
     setRealAddress("");
     setPublicAddress("");
+    setAddressInput("");
     setPrice("");
     setArea("");
     setRooms("");
@@ -1427,35 +1432,33 @@ export default function CRMPage() {
                 description="Одна карта с двумя метками: реальный и рекламный адрес"
               />
               <div className="doma-crm-fields" style={formGridStyle}>
-                <Field label="Реальный адрес" required full>
-                  <div style={privateFieldWrapStyle}>
-                    <input
-                      value={realAddress}
-                      onChange={(e) => setRealAddress(e.target.value)}
-                      placeholder="Полный фактический адрес"
-                      style={{ ...inputStyle, borderColor: "#fecaca", paddingRight: 125 }}
-                    />
-                    <span style={privateTagStyle}>ТОЛЬКО АГЕНТУ</span>
-                  </div>
+                <Field label="Адрес объекта" required full>
+                  <input
+                    value={addressInput}
+                    onChange={(e) => {
+                      const nextAddress = e.target.value;
+                      setAddressInput(nextAddress);
+                      // Пока пользователь вводит начальный адрес, обе метки получают одну точку.
+                      // После этого их можно независимо переместить на карте.
+                      setRealAddress(nextAddress);
+                      setPublicAddress(nextAddress);
+                    }}
+                    placeholder="Введите полный адрес объекта"
+                    autoComplete="street-address"
+                    style={{ ...inputStyle, minHeight: 34, padding: "6px 10px", borderColor: "#cbd5e1", borderRadius: 6, fontSize: 12 }}
+                  />
                 </Field>
-                <Field label="Рекламный адрес" full>
-                  <div style={publicFieldWrapStyle}>
-                    <input
-                      value={publicAddress}
-                      onChange={(e) => setPublicAddress(e.target.value)}
-                      placeholder="Адрес для публикации на сайте"
-                      style={{ ...inputStyle, borderColor: "#bbf7d0", paddingRight: 145 }}
-                    />
-                    <span style={publicTagStyle}>ВИДЕН КЛИЕНТУ</span>
-                  </div>
-                </Field>
+                <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: "6px 16px", alignItems: "center", padding: "2px 0 4px", color: "#586674", fontSize: 11 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><i style={{ width: 10, height: 10, display: "inline-block", borderRadius: "50%", background: "#e53935", boxShadow: "0 0 0 2px #fee2e2" }} />Красная метка — реальный адрес, только агенту</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><i style={{ width: 10, height: 10, display: "inline-block", borderRadius: "50%", background: "#2878f0", boxShadow: "0 0 0 2px #dbeafe" }} />Синяя метка — адрес для публикации</span>
+                </div>
               </div>
               <AddressMap
                 city={city}
                 realAddress={realAddress}
                 publicAddress={publicAddress}
-                onRealAddressChange={setRealAddress}
-                onPublicAddressChange={setPublicAddress}
+                onRealAddressChange={(nextAddress) => { setRealAddress(nextAddress); setAddressInput(nextAddress); }}
+                onPublicAddressChange={(nextAddress) => { setPublicAddress(nextAddress); setAddressInput(nextAddress); }}
               />
             </section>
           </div>
@@ -2130,8 +2133,12 @@ function AddressMap({
             const latitude = Number(data?.latitude);
             if (response.ok && data?.found === true && Number.isFinite(longitude) && Number.isFinite(latitude)) {
               // Keep the two initial points visible rather than exactly on top of each other.
+              const sameEnteredAddress = Boolean(realAddress.trim()) &&
+                realAddress.trim().toLocaleLowerCase("ru-RU") === publicAddress.trim().toLocaleLowerCase("ru-RU");
               coordinates = address
-                ? [longitude, latitude]
+                ? (kind === "public" && sameEnteredAddress
+                    ? [longitude + 0.002, latitude + 0.001]
+                    : [longitude, latitude])
                 : kind === "public"
                   ? [longitude + 0.002, latitude + 0.001]
                   : [longitude, latitude];
@@ -2144,6 +2151,16 @@ function AddressMap({
         if (cancelled) return;
         coordinatesRef.current[kind] = coordinates;
         const marker = markersRef.current[kind];
+        // Do not show a pin before the user has entered an address.
+        if (!address) {
+          if (marker && mapRef.current) {
+            try { mapRef.current.removeChild(marker); } catch { /* already removed */ }
+          }
+          markersRef.current[kind] = null;
+          entries.push({ kind, address, coordinates, resolved });
+          return;
+        }
+
         const ymaps = window.ymaps3;
         const onDragMove = (value: unknown) => {
           if (!isDomaLngLat(value)) return;
@@ -2163,23 +2180,29 @@ function AddressMap({
         } else if (ymaps && mapRef.current) {
           const element = document.createElement("div");
           element.textContent = "";
-          element.title = `Перетащите точку, чтобы изменить ${kind === "real" ? "реальный" : "рекламный"} адрес`;
+          element.title = `Перетащите ${kind === "real" ? "красную метку реального адреса (только агенту)" : "синюю метку рекламного адреса"}`;
           element.setAttribute("role", "img");
           element.setAttribute("aria-label", element.title);
           element.style.cssText = [
             "position:relative",
-            "transform:translate(-50%,-50%)",
-            "width:12px",
-            "height:12px",
+            "transform:translate(-50%,-100%) rotate(-45deg)",
+            "width:28px",
+            "height:28px",
             "box-sizing:border-box",
             `background:${kind === "real" ? "#e53935" : "#2878f0"}`,
             "border:2px solid #fff",
-            "border-radius:50%",
+            "border-radius:50% 50% 50% 0",
             "padding:0",
-            "box-shadow:0 1px 5px rgba(15,23,42,.55)",
+            "box-shadow:0 2px 7px rgba(15,23,42,.35)",
             "cursor:grab",
             "user-select:none",
+            "display:grid",
+            "place-items:center",
           ].join(";");
+          const markerLabel = document.createElement("span");
+          markerLabel.textContent = kind === "real" ? "А" : "К";
+          markerLabel.style.cssText = "display:grid;place-items:center;width:100%;height:100%;transform:rotate(45deg);color:#fff;font:700 11px Arial,sans-serif;line-height:1";
+          element.appendChild(markerLabel);
           const newMarker = new ymaps.YMapMarker({
             coordinates,
             draggable: true,
@@ -2327,7 +2350,7 @@ const progressNumberStyle: React.CSSProperties = { fontWeight: 700, color: "#fff
 
 const layoutStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 286px", gap: 6, alignItems: "start" };
 
-const columnStyle: React.CSSProperties = { display: "contents" };
+const columnStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 };
 
 const cardStyle: React.CSSProperties = { gridColumn: "1", background: "#e9ebed", border: "1px solid #aeb5bc", borderRadius: 0, padding: "6px 8px", boxShadow: "none", minWidth: 0, marginBottom: 0 };
 

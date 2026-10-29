@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://doma-nq4u.onrender.com";
+  "https://doma-nq4u.onrender.com"
+).replace(/\/+$/, "");
 
 type MenuCard = { title: string; description: string; image: string; href: string };
 type TeamMember = { name: string; position: string; phone: string; email: string; photo: string; visible: boolean };
@@ -121,8 +122,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   team_members: [
   {
     "name": "Имя Фамилия",
-    "position": "Руководитель отдела",
-    "phone": "+7 (900) 000-00-00",
+    "position": "Руководитель агентства",
+    "phone": "+7 (900) 111-11-11",
     "email": "info@doma.ru",
     "photo": "",
     "visible": true
@@ -170,6 +171,30 @@ const DEFAULT_SETTINGS: SiteSettings = {
 ],
 };
 
+function normalizeSettings(data: Partial<SiteSettings> | null | undefined): SiteSettings {
+  const input = data ?? {};
+  const textOrDefault = (value: unknown, fallback: string) =>
+    typeof value === "string" && value.trim() ? value : fallback;
+
+  return {
+    hero_eyebrow: textOrDefault(input.hero_eyebrow, DEFAULT_SETTINGS.hero_eyebrow),
+    hero_title_line1: textOrDefault(input.hero_title_line1, DEFAULT_SETTINGS.hero_title_line1),
+    hero_title_line2: textOrDefault(input.hero_title_line2, DEFAULT_SETTINGS.hero_title_line2),
+    hero_title_line3: textOrDefault(input.hero_title_line3, DEFAULT_SETTINGS.hero_title_line3),
+    hero_description: textOrDefault(input.hero_description, DEFAULT_SETTINGS.hero_description),
+    hero_image: typeof input.hero_image === "string" && input.hero_image.trim() ? input.hero_image : null,
+    stat1_value: textOrDefault(input.stat1_value, DEFAULT_SETTINGS.stat1_value),
+    stat1_label: textOrDefault(input.stat1_label, DEFAULT_SETTINGS.stat1_label),
+    stat2_value: textOrDefault(input.stat2_value, DEFAULT_SETTINGS.stat2_value),
+    stat2_label: textOrDefault(input.stat2_label, DEFAULT_SETTINGS.stat2_label),
+    stat3_value: textOrDefault(input.stat3_value, DEFAULT_SETTINGS.stat3_value),
+    stat3_label: textOrDefault(input.stat3_label, DEFAULT_SETTINGS.stat3_label),
+    menu_services: Array.isArray(input.menu_services) ? input.menu_services : DEFAULT_SETTINGS.menu_services,
+    menu_about: Array.isArray(input.menu_about) ? input.menu_about : DEFAULT_SETTINGS.menu_about,
+    team_members: Array.isArray(input.team_members) ? input.team_members : DEFAULT_SETTINGS.team_members,
+  };
+}
+
 async function imageToDataUrl(file: File): Promise<string> {
   const reader = new FileReader();
 
@@ -214,7 +239,13 @@ async function imageToDataUrl(file: File): Promise<string> {
 
 function getToken() {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem("token") ?? "";
+
+  const storedToken =
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    "";
+
+  return storedToken.replace(/^Bearer\s+/i, "").trim();
 }
 
 function InputField({
@@ -247,6 +278,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -267,13 +304,7 @@ export default function SettingsPage() {
         const data = await response.json();
 
         if (!cancelled) {
-          setSettings({
-            ...DEFAULT_SETTINGS,
-            ...data,
-            menu_services: Array.isArray(data.menu_services) ? data.menu_services : DEFAULT_SETTINGS.menu_services,
-            menu_about: Array.isArray(data.menu_about) ? data.menu_about : DEFAULT_SETTINGS.menu_about,
-            team_members: Array.isArray(data.team_members) ? data.team_members : DEFAULT_SETTINGS.team_members,
-          });
+          setSettings(normalizeSettings(data));
         }
       } catch (requestError) {
         if (!cancelled) {
@@ -397,10 +428,7 @@ export default function SettingsPage() {
       }
 
       if (data?.settings) {
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          ...data.settings,
-        });
+        setSettings(normalizeSettings(data.settings));
       }
 
       setMessage("Изменения сохранены. Обновите главную страницу, чтобы увидеть результат.");
@@ -412,6 +440,74 @@ export default function SettingsPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function changePassword() {
+    try {
+      setChangingPassword(true);
+      setPasswordError("");
+      setPasswordMessage("");
+
+      if (!currentPassword) {
+        throw new Error("Введите текущий пароль.");
+      }
+      if (newPassword.length < 8) {
+        throw new Error("Новый пароль должен содержать не менее 8 символов.");
+      }
+      if (newPassword !== confirmPassword) {
+        throw new Error("Новый пароль и подтверждение не совпадают.");
+      }
+      if (new TextEncoder().encode(newPassword).length > 72) {
+        throw new Error("Новый пароль превышает ограничение bcrypt в 72 байта UTF-8. Сократите пароль.");
+      }
+
+      const token = getToken();
+      if (!token) {
+        throw new Error("Сессия администратора не найдена. Войдите в админ-панель заново.");
+      }
+
+      const response = await fetch(`${API_URL}/admin/change-password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        }),
+        cache: "no-store",
+      });
+
+      const rawResponse = await response.text();
+      let data: { detail?: string; message?: string } = {};
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse);
+        } catch {
+          data = { detail: rawResponse };
+        }
+      }
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || `Не удалось изменить пароль (HTTP ${response.status}).`,
+        );
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage(data?.message || "Пароль успешно изменён.");
+    } catch (passwordChangeError) {
+      setPasswordError(
+        passwordChangeError instanceof Error
+          ? passwordChangeError.message
+          : "Ошибка при смене пароля.",
+      );
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -427,6 +523,7 @@ export default function SettingsPage() {
 
   return (
     <main style={pageStyle}>
+      <style>{`@media (max-width: 980px) { .doma-settings-grid { grid-template-columns: minmax(0, 1fr) !important; } .doma-settings-fields { grid-template-columns: minmax(0, 1fr) !important; } .doma-settings-stats { grid-template-columns: minmax(0, 1fr) !important; } .doma-settings-image-grid { grid-template-columns: minmax(0, 1fr) !important; } .doma-settings-info { grid-template-columns: minmax(0, 1fr) !important; } }`}</style>
       <div style={containerStyle}>
         <div style={topbarStyle}>
           <div>
@@ -461,7 +558,7 @@ export default function SettingsPage() {
         {loading ? (
           <div style={loadingCardStyle}>Загрузка настроек…</div>
         ) : (
-          <div style={gridStyle}>
+          <div className="doma-settings-grid" style={gridStyle}>
             <section style={cardStyle}>
               <div style={sectionHeaderStyle}>
                 <div>
@@ -471,7 +568,7 @@ export default function SettingsPage() {
                 <div style={sectionHintStyle}>Видно на главной странице</div>
               </div>
 
-              <div style={fieldsGridStyle}>
+              <div className="doma-settings-fields" style={fieldsGridStyle}>
                 <InputField
                   label="Надпись над заголовком"
                   value={settings.hero_eyebrow}
@@ -515,7 +612,7 @@ export default function SettingsPage() {
                 <div style={sectionHintStyle}>Три показателя под текстом</div>
               </div>
 
-              <div style={statsGridStyle}>
+              <div className="doma-settings-stats" style={statsGridStyle}>
                 <div style={statEditorStyle}>
                   <InputField
                     label="Значение"
@@ -566,7 +663,7 @@ export default function SettingsPage() {
                 <div style={sectionHintStyle}>Один фон на весь Hero</div>
               </div>
 
-              <div style={imageEditorGridStyle}>
+              <div className="doma-settings-image-grid" style={imageEditorGridStyle}>
                 <div>
                   <label style={uploadZoneStyle}>
                     <input
@@ -631,7 +728,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={sectionHintStyle}>Карточки всплывающего окна</div>
               </div>
-              <div style={fieldsGridStyle}>
+              <div className="doma-settings-fields" style={fieldsGridStyle}>
                 {settings.menu_services.map((item, index) => (
                   <div key={`service-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
                     <strong>Карточка {index + 1}</strong>
@@ -652,7 +749,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={sectionHintStyle}>Карточки всплывающего окна</div>
               </div>
-              <div style={fieldsGridStyle}>
+              <div className="doma-settings-fields" style={fieldsGridStyle}>
                 {settings.menu_about.map((item, index) => (
                   <div key={`about-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
                     <strong>Карточка {index + 1}</strong>
@@ -673,7 +770,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={sectionHintStyle}>Шесть редактируемых карточек</div>
               </div>
-              <div style={fieldsGridStyle}>
+              <div className="doma-settings-fields" style={fieldsGridStyle}>
                 {settings.team_members.map((person, index) => (
                   <div key={`person-${index}`} style={{ ...statEditorStyle, padding: 16, border: "1px solid #e5e7eb", borderRadius: 14 }}>
                     <strong>Сотрудник {index + 1}</strong>
@@ -701,11 +798,84 @@ export default function SettingsPage() {
               <div style={sectionHeaderStyle}>
                 <div>
                   <div style={sectionNumberStyle}>07</div>
+                  <h2 style={sectionTitleStyle}>Смена пароля администратора</h2>
+                </div>
+                <div style={sectionHintStyle}>Защита доступа к админ-панели</div>
+              </div>
+
+              <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6, margin: "-4px 0 18px" }}>
+                Для смены пароля укажите текущий пароль и подтвердите новый. Новый пароль должен содержать не менее 8 символов; для bcrypt действует ограничение 72 байта UTF-8.
+              </p>
+
+              {passwordError && <div style={errorStyle}>{passwordError}</div>}
+              {passwordMessage && <div style={successStyle}>{passwordMessage}</div>}
+
+              <div
+                className="doma-password-fields"
+                style={{
+                  ...fieldsGridStyle,
+                  width: "100%",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+                }}
+              >
+                <label style={fieldWrapStyle}>
+                  <span style={labelStyle}>Текущий пароль</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    style={inputStyle}
+                    maxLength={128}
+                  />
+                </label>
+                <label style={fieldWrapStyle}>
+                  <span style={labelStyle}>Новый пароль</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    style={inputStyle}
+                    minLength={8}
+                    maxLength={72}
+                  />
+                </label>
+                <label style={fieldWrapStyle}>
+                  <span style={labelStyle}>Повторите новый пароль</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    style={inputStyle}
+                    minLength={8}
+                    maxLength={72}
+                  />
+                </label>
+              </div>
+
+              <div style={{ ...actionsStyle, marginTop: 18 }}>
+                <button
+                  type="button"
+                  onClick={changePassword}
+                  disabled={changingPassword}
+                  style={{ ...primaryButtonStyle, opacity: changingPassword ? 0.65 : 1 }}
+                >
+                  {changingPassword ? "Изменение пароля…" : "Изменить пароль"}
+                </button>
+              </div>
+            </section>
+
+            <section style={{ ...cardStyle, gridColumn: "1 / -1" }}>
+              <div style={sectionHeaderStyle}>
+                <div>
+                  <div style={sectionNumberStyle}>08</div>
                   <h2 style={sectionTitleStyle}>Как это работает</h2>
                 </div>
               </div>
 
-              <div style={infoRowStyle}>
+              <div className="doma-settings-info" style={infoRowStyle}>
                 <div style={infoItemStyle}>
                   <strong>1. Меняете данные здесь</strong>
                   <span>Фото и текст сохраняются в базе сайта.</span>
@@ -729,13 +899,20 @@ export default function SettingsPage() {
 
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
   background: "#f1f5f9",
-  padding: "36px",
+  padding: "clamp(16px, 2.4vw, 36px)",
   color: "#111827",
 };
 
 const containerStyle: CSSProperties = {
-  maxWidth: "1500px",
+  display: "block",
+  width: "100%",
+  maxWidth: "none",
+  minWidth: 0,
+  boxSizing: "border-box",
   margin: "0 auto",
 };
 
@@ -810,6 +987,9 @@ const cardStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: "grid",
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   gap: 20,
 };
@@ -846,13 +1026,13 @@ const sectionHintStyle: CSSProperties = {
 
 const fieldsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
   gap: 16,
 };
 
 const statsGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
   gap: 14,
 };
 
@@ -1010,7 +1190,7 @@ const previewStatLabelStyle: CSSProperties = {
 
 const infoRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
   gap: 12,
 };
 

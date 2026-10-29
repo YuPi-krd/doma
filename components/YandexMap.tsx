@@ -935,30 +935,228 @@ export default function YandexMap({
           if (activePopup === popup) activePopup = null;
         });
 
-        const cardLink = document.createElement("a");
+        const propertyHref = `/property/${item.id}`;
+        const cardLink = document.createElement("div");
         cardLink.className = "doma-map-marker__link";
-        cardLink.href = `/property/${item.id}`;
-        cardLink.setAttribute("aria-label", `Открыть объявление ${item.title || "Объект недвижимости"}`);
+        cardLink.setAttribute("role", "group");
+        cardLink.setAttribute("aria-label", `Объявление: ${item.title || "Объект недвижимости"}`);
 
+        // Галерея в карточке на карте: главное фото сразу, остальные загружаются
+        // лениво из того же endpoint, который используется в CRM.
         const photoBox = document.createElement("div");
         photoBox.className = "doma-map-marker__photo";
-        const imageUrl = normalizeMapImageUrl(item.image_url);
-        if (imageUrl) {
-          const image = document.createElement("img");
-          image.src = imageUrl;
-          image.alt = item.title || "Фотография объекта";
-          image.loading = "lazy";
-          image.onerror = () => {
-            image.remove();
-            photoBox.classList.add("doma-map-marker__photo--empty");
-            photoBox.textContent = "Фото объекта";
-          };
-          photoBox.appendChild(image);
-        } else {
+        photoBox.setAttribute("role", "group");
+        photoBox.setAttribute("aria-label", "Фотографии объекта. Проведите мышью влево или вправо для перелистывания.");
+
+        const photoUrls: string[] = [];
+        const mainImageUrl = normalizeMapImageUrl(item.image_url);
+        if (mainImageUrl) photoUrls.push(mainImageUrl);
+        let photoIndex = 0;
+        let galleryLoaded = false;
+        let galleryLoading = false;
+
+        const image = document.createElement("img");
+        image.alt = item.title || "Фотография объекта";
+        image.draggable = false;
+        image.decoding = "async";
+        image.hidden = true;
+        image.onerror = () => {
+          image.hidden = true;
+          photoPlaceholder.hidden = false;
           photoBox.classList.add("doma-map-marker__photo--empty");
-          photoBox.textContent = "Фото объекта";
+        };
+        image.onload = () => {
+          image.hidden = false;
+          photoPlaceholder.hidden = true;
+          photoBox.classList.remove("doma-map-marker__photo--empty");
+        };
+
+        const photoPlaceholder = document.createElement("span");
+        photoPlaceholder.className = "doma-map-marker__photo-placeholder";
+        photoPlaceholder.textContent = "Фото объекта";
+        photoPlaceholder.hidden = true;
+
+        const photoCounter = document.createElement("span");
+        photoCounter.className = "doma-map-marker__photo-counter";
+        photoCounter.setAttribute("aria-live", "polite");
+        photoCounter.hidden = true;
+
+        const photoDots = document.createElement("div");
+        photoDots.className = "doma-map-marker__photo-dots";
+        photoDots.hidden = true;
+        photoDots.addEventListener("click", (event) => event.stopPropagation());
+
+        const previousPhotoButton = document.createElement("button");
+        previousPhotoButton.type = "button";
+        previousPhotoButton.className = "doma-map-marker__photo-arrow doma-map-marker__photo-arrow--prev";
+        previousPhotoButton.textContent = "‹";
+        previousPhotoButton.setAttribute("aria-label", "Предыдущее фото");
+        previousPhotoButton.hidden = true;
+
+        const nextPhotoButton = document.createElement("button");
+        nextPhotoButton.type = "button";
+        nextPhotoButton.className = "doma-map-marker__photo-arrow doma-map-marker__photo-arrow--next";
+        nextPhotoButton.textContent = "›";
+        nextPhotoButton.setAttribute("aria-label", "Следующее фото");
+        nextPhotoButton.hidden = true;
+
+        function renderMapPhoto(nextIndex = photoIndex) {
+          if (photoUrls.length === 0) {
+            photoIndex = 0;
+            image.removeAttribute("src");
+            image.hidden = true;
+            photoPlaceholder.hidden = false;
+            photoBox.classList.add("doma-map-marker__photo--empty");
+            photoCounter.hidden = true;
+            previousPhotoButton.hidden = true;
+            nextPhotoButton.hidden = true;
+            photoDots.hidden = true;
+            photoDots.replaceChildren();
+            return;
+          }
+
+          photoIndex = (nextIndex + photoUrls.length) % photoUrls.length;
+          photoPlaceholder.hidden = true;
+          image.hidden = false;
+          image.alt = `${item.title || "Фотография объекта"} — фото ${photoIndex + 1}`;
+          if (image.src !== photoUrls[photoIndex]) image.src = photoUrls[photoIndex];
+          photoCounter.textContent = `${photoIndex + 1} / ${photoUrls.length}`;
+          const hasMultiplePhotos = photoUrls.length > 1;
+          photoCounter.hidden = !hasMultiplePhotos;
+          previousPhotoButton.hidden = !hasMultiplePhotos;
+          nextPhotoButton.hidden = !hasMultiplePhotos;
+          photoDots.hidden = !hasMultiplePhotos;
+          photoDots.replaceChildren();
+
+          if (hasMultiplePhotos) {
+            photoUrls.forEach((_, dotIndex) => {
+              const dot = document.createElement("button");
+              dot.type = "button";
+              dot.className = dotIndex === photoIndex
+                ? "doma-map-marker__photo-dot is-active"
+                : "doma-map-marker__photo-dot";
+              dot.setAttribute("aria-label", `Показать фото ${dotIndex + 1}`);
+              dot.setAttribute("aria-current", dotIndex === photoIndex ? "true" : "false");
+              dot.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                renderMapPhoto(dotIndex);
+              });
+              photoDots.appendChild(dot);
+            });
+          }
         }
 
+        function stepMapPhoto(direction: number) {
+          if (photoUrls.length > 1) renderMapPhoto(photoIndex + direction);
+        }
+
+        previousPhotoButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          stepMapPhoto(-1);
+        });
+        nextPhotoButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          stepMapPhoto(1);
+        });
+
+        async function loadMapPhotoGallery() {
+          if (galleryLoaded || galleryLoading) return;
+          galleryLoading = true;
+          try {
+            const response = await fetch(`${API_URL}/properties/${item.id}/images`, { cache: "no-store" });
+            if (response.ok) {
+              const payload: any = await response.json();
+              const galleryRows: any[] = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.images)
+                ? payload.images
+                : Array.isArray(payload?.items)
+                ? payload.items
+                : [];
+
+              for (const entry of galleryRows) {
+                const rawUrl = typeof entry === "string"
+                  ? entry
+                  : entry?.image_url ?? entry?.url ?? entry?.src ?? "";
+                const normalizedUrl = normalizeMapImageUrl(String(rawUrl || ""));
+                if (normalizedUrl && !photoUrls.includes(normalizedUrl)) photoUrls.push(normalizedUrl);
+              }
+            }
+          } catch (error) {
+            console.warn(`Не удалось загрузить фотографии объекта №${item.id}:`, error);
+          } finally {
+            galleryLoading = false;
+            galleryLoaded = true;
+            renderMapPhoto(photoIndex);
+          }
+        }
+
+        // Горизонтальное перетаскивание работает мышью и на сенсорных экранах.
+        // Обычный клик по фото открывает объект, а жест листания не активирует ссылку.
+        let pointerStart: { id: number; x: number; y: number } | null = null;
+        let didSwipe = false;
+        let suppressPhotoClick = false;
+
+        photoBox.addEventListener("pointerdown", (event: PointerEvent) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          if (event.pointerType === "mouse" && event.button !== 0) return;
+          pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+          didSwipe = false;
+          photoBox.classList.add("is-pointer-down");
+          event.stopPropagation();
+          try { photoBox.setPointerCapture(event.pointerId); } catch { /* pointer capture may be unavailable */ }
+        });
+
+        photoBox.addEventListener("pointermove", (event: PointerEvent) => {
+          if (!pointerStart || pointerStart.id !== event.pointerId) return;
+          // Пока указатель захвачен фотографией, не даём карте двигаться под карточкой.
+          event.stopPropagation();
+          const deltaX = event.clientX - pointerStart.x;
+          const deltaY = event.clientY - pointerStart.y;
+          if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            didSwipe = true;
+            event.preventDefault();
+          }
+        });
+
+        const finishPhotoPointer = (event: PointerEvent) => {
+          if (!pointerStart || pointerStart.id !== event.pointerId) return;
+          const deltaX = event.clientX - pointerStart.x;
+          const deltaY = event.clientY - pointerStart.y;
+          const wasSwipe = didSwipe && Math.abs(deltaX) >= 38 && Math.abs(deltaX) > Math.abs(deltaY);
+          if (wasSwipe) stepMapPhoto(deltaX < 0 ? 1 : -1);
+          suppressPhotoClick = didSwipe;
+          pointerStart = null;
+          didSwipe = false;
+          photoBox.classList.remove("is-pointer-down");
+          if (suppressPhotoClick) {
+            window.setTimeout(() => { suppressPhotoClick = false; }, 0);
+          }
+          event.stopPropagation();
+        };
+
+        photoBox.addEventListener("pointerup", finishPhotoPointer);
+        photoBox.addEventListener("pointercancel", (event: PointerEvent) => {
+          pointerStart = null;
+          didSwipe = false;
+          photoBox.classList.remove("is-pointer-down");
+          event.stopPropagation();
+        });
+        photoBox.addEventListener("click", (event: MouseEvent) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (suppressPhotoClick || (event.target as HTMLElement).closest("button")) {
+            suppressPhotoClick = false;
+            return;
+          }
+          window.location.assign(propertyHref);
+        });
+
+        photoBox.append(image, photoPlaceholder, photoCounter, previousPhotoButton, nextPhotoButton, photoDots);
+        renderMapPhoto();
         const details = document.createElement("div");
         details.className = "doma-map-marker__details";
 
@@ -1016,7 +1214,12 @@ export default function YandexMap({
         details.append(typeLine, title, address, price);
         if (facts.childElementCount) details.appendChild(facts);
         details.appendChild(action);
-        cardLink.append(photoBox, details);
+        const detailsLink = document.createElement("a");
+        detailsLink.className = "doma-map-marker__details-link";
+        detailsLink.href = propertyHref;
+        detailsLink.setAttribute("aria-label", `Открыть объявление ${item.title || "Объект недвижимости"}`);
+        detailsLink.appendChild(details);
+        cardLink.append(photoBox, detailsLink);
         popup.append(closeButton, cardLink);
 
         dotButton.addEventListener("click", (event) => {
@@ -1030,6 +1233,7 @@ export default function YandexMap({
           popup.hidden = !shouldOpen;
           dotButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
           activePopup = shouldOpen ? popup : null;
+          if (shouldOpen) void loadMapPhotoGallery();
         });
 
         content.append(dotButton, popup);
@@ -1310,29 +1514,128 @@ export default function YandexMap({
           text-decoration: none;
         }
 
-        .doma-map-marker__link:hover .doma-map-marker__action { color: #d92f3b; }
+        .doma-map-marker__details-link {
+          display: block;
+          color: inherit;
+          text-decoration: none;
+          outline-offset: -3px;
+        }
+
+        .doma-map-marker__details-link:hover .doma-map-marker__action { color: #d92f3b; }
 
         .doma-map-marker__photo {
-          display: grid;
-          place-items: center;
+          position: relative;
+          display: block;
           width: 100%;
           height: 132px;
           overflow: hidden;
           background: #edf1f5;
           color: #7b8795;
           font-size: 12px;
+          cursor: grab;
+          touch-action: pan-y;
+          user-select: none;
+          -webkit-user-select: none;
         }
 
+        .doma-map-marker__photo.is-pointer-down { cursor: grabbing; }
+
         .doma-map-marker__photo img {
+          position: relative;
+          z-index: 1;
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
+          pointer-events: none;
+          -webkit-user-drag: none;
         }
 
-        .doma-map-marker__photo--empty {
+        .doma-map-marker__photo img[hidden],
+        .doma-map-marker__photo-placeholder[hidden],
+        .doma-map-marker__photo-counter[hidden],
+        .doma-map-marker__photo-arrow[hidden],
+        .doma-map-marker__photo-dots[hidden] { display: none !important; }
+
+        .doma-map-marker__photo-placeholder {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          display: grid;
+          place-items: center;
           background: linear-gradient(135deg, #edf1f5, #dce3eb);
+          color: #7b8795;
         }
+
+        .doma-map-marker__photo--empty { background: linear-gradient(135deg, #edf1f5, #dce3eb); }
+
+        .doma-map-marker__photo-counter {
+          position: absolute;
+          z-index: 4;
+          top: 8px;
+          left: 8px;
+          padding: 4px 7px;
+          border-radius: 7px;
+          background: rgba(18, 27, 40, .74);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1.2;
+          pointer-events: none;
+        }
+
+        .doma-map-marker__photo-arrow {
+          position: absolute;
+          z-index: 4;
+          top: 50%;
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          padding: 0 0 2px;
+          transform: translateY(-50%);
+          border: 1px solid rgba(255, 255, 255, .9);
+          border-radius: 50%;
+          background: rgba(255, 255, 255, .93);
+          color: #344052;
+          font: 22px/1 Arial, Helvetica, sans-serif;
+          cursor: pointer;
+          box-shadow: 0 2px 7px rgba(15, 23, 42, .18);
+          opacity: .94;
+        }
+
+        .doma-map-marker__photo-arrow:hover { background: #fff; color: #e33442; }
+        .doma-map-marker__photo-arrow--prev { left: 7px; }
+        .doma-map-marker__photo-arrow--next { right: 7px; }
+
+        .doma-map-marker__photo-dots {
+          position: absolute;
+          z-index: 4;
+          left: 50%;
+          bottom: 7px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          max-width: calc(100% - 64px);
+          transform: translateX(-50%);
+          padding: 4px 7px;
+          border-radius: 999px;
+          background: rgba(20, 29, 42, .45);
+        }
+
+        .doma-map-marker__photo-dot {
+          width: 5px;
+          height: 5px;
+          flex: 0 0 5px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, .56);
+          cursor: pointer;
+        }
+
+        .doma-map-marker__photo-dot.is-active { background: #fff; transform: scale(1.25); }
 
         .doma-map-marker__details { padding: 11px 13px 12px; }
         .doma-map-marker__type { margin-bottom: 4px; color: #ef4444; font-size: 10px; font-weight: 700; line-height: 1.3; }

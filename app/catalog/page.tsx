@@ -445,6 +445,11 @@ export default function CatalogPage() {
     setSearch,
   ] = useState("");
 
+  // Location chosen on the Hero page. Kept separate from the free-text search
+  // so filtering by a city does not accidentally hide listings with short addresses.
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [selectedLocationKind, setSelectedLocationKind] = useState<"city" | "location" | "">("");
+
   const [
     rooms,
     setRooms,
@@ -576,6 +581,18 @@ export default function CatalogPage() {
     const urlDeal =
       params.get("deal_type");
 
+    const urlCity = (params.get("city") || "").trim();
+    const urlArea = (params.get("location") || "").trim();
+    const urlLocation = urlCity || urlArea;
+    const urlLocationKind: "city" | "location" | "" = urlCity
+      ? "city"
+      : urlArea
+      ? "location"
+      : "";
+
+    setSelectedLocation(urlLocation);
+    setSelectedLocationKind(urlLocationKind);
+
     let nextType =
       normalizePropertyType(
         urlType
@@ -602,10 +619,12 @@ export default function CatalogPage() {
     if (
       !urlType &&
       !oldType &&
-      !urlDeal
+      !urlDeal &&
+      !urlLocation
     ) {
-      nextType =
-        "apartment";
+      // Только чистый /catalog без поисковых параметров открывает
+      // стандартную категорию квартир. Поиск по городу оставляет все типы.
+      nextType = "apartment";
     }
 
     const nextDeal =
@@ -641,6 +660,8 @@ export default function CatalogPage() {
         nextSubtype,
       dealType:
         nextDeal,
+      location: urlLocation,
+      locationKind: urlLocationKind,
     });
   }, []);
 
@@ -652,10 +673,14 @@ export default function CatalogPage() {
     propertyType,
     propertySubtype,
     dealType,
+    location,
+    locationKind,
   }: {
     propertyType: PropertyType;
     propertySubtype: string;
     dealType: DealType;
+    location?: string;
+    locationKind?: "city" | "location" | "";
   }) {
     try {
       setLoading(true);
@@ -692,6 +717,13 @@ export default function CatalogPage() {
         );
       }
 
+      const locationToFilter = (location ?? selectedLocation).trim();
+      const locationParameter = locationKind ?? selectedLocationKind;
+      if (locationToFilter) {
+        // City is an exact city-field filter; neighborhood/area values use location.
+        params.set(locationParameter === "city" ? "city" : "location", locationToFilter);
+      }
+
       const query =
         params.toString();
 
@@ -707,7 +739,7 @@ export default function CatalogPage() {
 
       if (!response.ok) {
         throw new Error(
-          "Не удалось загрузить каталог"
+          `Сервер каталога вернул HTTP ${response.status}`
         );
       }
 
@@ -726,7 +758,9 @@ export default function CatalogPage() {
       setProperties([]);
 
       setError(
-        "Не удалось загрузить объявления."
+        err instanceof Error
+          ? `Не удалось загрузить объявления. ${err.message}`
+          : "Не удалось загрузить объявления. Проверьте доступность API."
       );
     } finally {
       setLoading(false);
@@ -774,6 +808,8 @@ export default function CatalogPage() {
         nextSubtype,
       dealType:
         nextDealType,
+      location: selectedLocation,
+      locationKind: selectedLocationKind,
     });
 
     const params =
@@ -804,6 +840,13 @@ export default function CatalogPage() {
       params.set(
         "property_subtype",
         nextSubtype
+      );
+    }
+
+    if (selectedLocation.trim()) {
+      params.set(
+        selectedLocationKind === "city" ? "city" : "location",
+        selectedLocation.trim()
       );
     }
 
@@ -1199,10 +1242,12 @@ export default function CatalogPage() {
         propertySubtype
       : "";
 
+  const displayLocation = selectedLocation || "Краснодар";
+
   const pageTitle =
     propertyType === "all"
-      ? `${currentDealLabel} недвижимости в Краснодаре`
-      : `${currentDealLabel} ${currentTypeLabel.toLowerCase()} в Краснодаре`;
+      ? `${currentDealLabel} недвижимости — ${displayLocation}`
+      : `${currentDealLabel} ${currentTypeLabel.toLowerCase()} — ${displayLocation}`;
 
   /* ==========================================================
      MAP MARKERS
@@ -1253,7 +1298,7 @@ export default function CatalogPage() {
 
           <div className="breadcrumbs">
             <Link href="/">
-              Недвижимость в Краснодаре
+              Недвижимость — {displayLocation}
             </Link>
 
             <span>/</span>
@@ -1523,7 +1568,7 @@ export default function CatalogPage() {
                   </h2>
 
                   <p>
-                    Краснодар ·{" "}
+                    {displayLocation} ·{" "}
                     {
                       filteredProperties.length
                     }{" "}
@@ -3891,6 +3936,367 @@ export default function CatalogPage() {
             justify-content: center;
           }
         }
+
+        /* ========================================================
+           CARD APPEARANCE ONLY — compact vertical listing cards
+           All data, filters, navigation and other page sections
+           remain unchanged.
+        ======================================================== */
+
+        .property-grid,
+        .property-grid.compact-view,
+        .property-grid.large-view {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          align-items: stretch;
+          gap: 10px;
+          width: 100%;
+          max-width: 1240px;
+        }
+
+        .property-grid .property-card-link,
+        .property-grid.compact-view .property-card-link,
+        .property-grid.large-view .property-card-link {
+          display: block;
+          height: auto;
+          min-height: 0;
+          max-height: none;
+          min-width: 0;
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .property-grid .property-card,
+        .property-grid.compact-view .property-card,
+        .property-grid.large-view .property-card {
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          width: 100%;
+          height: 100%;
+          min-width: 0;
+          min-height: 292px;
+          max-height: none;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: auto minmax(0, 1fr);
+          overflow: hidden;
+          border: 1.5px solid #ef403b;
+          border-radius: 14px;
+          background: #ffffff;
+          box-shadow: 0 2px 7px rgba(23, 31, 42, 0.05);
+          transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+
+        .property-grid .property-card:hover,
+        .property-grid.compact-view .property-card:hover,
+        .property-grid.large-view .property-card:hover {
+          border-color: #ef403b;
+          box-shadow: 0 7px 18px rgba(239, 64, 59, 0.12);
+          transform: translateY(-2px);
+        }
+
+        .property-grid .photo-wrap,
+        .property-grid.compact-view .photo-wrap,
+        .property-grid.large-view .photo-wrap {
+          position: relative;
+          display: flex;
+          flex: 0 0 128px;
+          width: 100%;
+          height: 128px;
+          min-height: 128px !important;
+          max-height: 128px;
+          overflow: hidden;
+          align-self: stretch;
+          background: #edf0f3;
+        }
+
+        .property-grid .photo-wrap > *,
+        .property-grid.compact-view .photo-wrap > *,
+        .property-grid.large-view .photo-wrap > * {
+          flex: 1 1 auto;
+          display: block;
+          width: 100% !important;
+          min-width: 0;
+          height: 100% !important;
+          min-height: 0 !important;
+          max-height: 100% !important;
+          overflow: hidden;
+        }
+
+        .property-grid .photo-wrap :global(img),
+        .property-grid.compact-view .photo-wrap :global(img),
+        .property-grid.large-view .photo-wrap :global(img) {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .property-grid .status-badge,
+        .property-grid.compact-view .status-badge,
+        .property-grid.large-view .status-badge {
+          top: 8px;
+          left: 8px;
+          padding: 4px 7px;
+          border-radius: 7px;
+          font-size: 9px;
+          line-height: 1.1;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+        }
+
+        .property-grid .card-content,
+        .property-grid.compact-view .card-content,
+        .property-grid.large-view .card-content {
+          display: block;
+          flex: 1 1 auto;
+          min-width: 0;
+          min-height: 0;
+          padding: 8px 8px 9px;
+          overflow: visible;
+        }
+
+        .property-grid .card-row,
+        .property-grid.compact-view .card-row,
+        .property-grid.large-view .card-row {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+          width: 100%;
+          min-width: 0;
+          height: 100%;
+        }
+
+        .property-grid .card-info,
+        .property-grid.compact-view .card-info,
+        .property-grid.large-view .card-info {
+          flex: 1 1 auto;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .property-grid .card-type,
+        .property-grid.compact-view .card-type,
+        .property-grid.large-view .card-type {
+          margin: 0 0 3px;
+          color: #ef403b;
+          font-size: 9px;
+          line-height: 1.15;
+          font-weight: 700;
+        }
+
+        .property-grid .card-title,
+        .property-grid.compact-view .card-title,
+        .property-grid.large-view .card-title {
+          display: -webkit-box;
+          min-height: 0;
+          overflow: hidden;
+          color: #171b22;
+          font-size: 11px;
+          line-height: 1.28;
+          font-weight: 700;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+        }
+
+        .property-grid .card-address,
+        .property-grid.compact-view .card-address,
+        .property-grid.large-view .card-address {
+          display: -webkit-box;
+          min-height: 25px;
+          max-height: 25px;
+          margin-top: 3px;
+          overflow: hidden;
+          color: #697382;
+          font-size: 9px;
+          line-height: 1.3;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+        }
+
+        .property-grid .price-row,
+        .property-grid.compact-view .price-row,
+        .property-grid.large-view .price-row {
+          display: flex;
+          align-items: baseline;
+          flex-wrap: wrap;
+          gap: 5px 7px;
+          margin-top: 7px;
+          line-height: 1.15;
+        }
+
+        .property-grid .price,
+        .property-grid.compact-view .price,
+        .property-grid.large-view .price {
+          color: #111827;
+          font-size: 16px;
+          line-height: 1.15;
+          font-weight: 800;
+        }
+
+        .property-grid .price-meter,
+        .property-grid.compact-view .price-meter,
+        .property-grid.large-view .price-meter {
+          color: #697382;
+          font-size: 9px;
+          line-height: 1.2;
+        }
+
+        .property-grid .finance-row,
+        .property-grid.compact-view .finance-row,
+        .property-grid.large-view .finance-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: nowrap;
+          gap: 4px;
+          margin-top: 6px;
+          min-width: 0;
+        }
+
+        .property-grid .subtype-chip,
+        .property-grid .status-chip,
+        .property-grid.compact-view .subtype-chip,
+        .property-grid.compact-view .status-chip,
+        .property-grid.large-view .subtype-chip,
+        .property-grid.large-view .status-chip {
+          display: inline-block;
+          max-width: 100%;
+          padding: 3px 5px;
+          border-radius: 5px;
+          font-size: 8px;
+          line-height: 1.15;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .property-grid .subtype-chip,
+        .property-grid.compact-view .subtype-chip,
+        .property-grid.large-view .subtype-chip {
+          background: #f2f4f7;
+          color: #687281;
+        }
+
+        .property-grid .card-meta,
+        .property-grid.compact-view .card-meta,
+        .property-grid.large-view .card-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 5px 8px;
+          margin-top: 6px;
+          color: #535e6c;
+          font-size: 9px;
+          line-height: 1.25;
+        }
+
+        .property-grid .card-bottom,
+        .property-grid.compact-view .card-bottom,
+        .property-grid.large-view .card-bottom {
+          display: flex;
+          flex: 0 0 auto;
+          align-self: stretch;
+          justify-content: stretch;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          border-top: 0;
+        }
+
+        .property-grid .contact-button,
+        .property-grid.compact-view .contact-button,
+        .property-grid.large-view .contact-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
+          padding: 7px 8px;
+          border: 1px solid #e1e5eb;
+          border-radius: 999px;
+          background: #ffffff;
+          color: #4c5867;
+          font-size: 10px;
+          line-height: 1.1;
+          font-weight: 600;
+          text-align: center;
+          white-space: nowrap;
+          transition: border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .property-grid .property-card:hover .contact-button,
+        .property-grid.compact-view .property-card:hover .contact-button,
+        .property-grid.large-view .property-card:hover .contact-button {
+          border-color: #ef403b;
+          background: #fff8f8;
+        }
+
+        @media (max-width: 1100px) {
+          .property-grid,
+          .property-grid.compact-view,
+          .property-grid.large-view {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 760px) {
+          .property-grid,
+          .property-grid.compact-view,
+          .property-grid.large-view {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+          }
+
+          .property-grid .photo-wrap,
+          .property-grid.compact-view .photo-wrap,
+          .property-grid.large-view .photo-wrap {
+            flex-basis: 120px;
+            height: 120px;
+            min-height: 120px !important;
+            max-height: 120px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .property-grid,
+          .property-grid.compact-view,
+          .property-grid.large-view {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 10px;
+          }
+
+          .property-grid .photo-wrap,
+          .property-grid.compact-view .photo-wrap,
+          .property-grid.large-view .photo-wrap {
+            flex-basis: 168px;
+            height: 168px;
+            min-height: 168px !important;
+            max-height: 168px;
+          }
+
+          .property-grid .card-content,
+          .property-grid.compact-view .card-content,
+          .property-grid.large-view .card-content {
+            padding: 10px 11px;
+          }
+
+          .property-grid .card-title,
+          .property-grid.compact-view .card-title,
+          .property-grid.large-view .card-title {
+            font-size: 13px;
+          }
+
+          .property-grid .price,
+          .property-grid.compact-view .price,
+          .property-grid.large-view .price {
+            font-size: 18px;
+          }
+        }
+
       `}</style>
     </>
   );

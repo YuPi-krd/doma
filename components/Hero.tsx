@@ -347,7 +347,7 @@ const buyCategories: Category[] = [
     items: [
       {
         title: "Участки",
-        slug: "izhs",
+        slug: "all",
       },
       {
         title: "Под ИЖС",
@@ -414,7 +414,7 @@ const rentCategories: Category[] = [
       },
       {
         title: "Участки",
-        slug: "izhs",
+        slug: "all",
       },
     ],
   },
@@ -1947,33 +1947,23 @@ export default function Hero() {
         );
       }
 
-      if (subType) {
-        const slug =
-          subtypeSlugMap[
-            subType
-          ];
+      // Подтип и комнатность отправляем только вместе с явно выбранным типом.
+      // Иначе старое значение подтипа не должно сужать поиск по городу.
+      if (type && subType) {
+        const slug = subtypeSlugMap[subType];
 
         if (slug) {
-          params.set(
-            "subtype",
-            slug
-          );
-
-          params.set(
-            "property_subtype",
-            slug
-          );
+          params.set("subtype", slug);
+          params.set("property_subtype", slug);
         }
       }
 
       if (
+        type === "apartment" &&
         rooms &&
         rooms !== "Не важно"
       ) {
-        params.set(
-          "rooms",
-          rooms
-        );
+        params.set("rooms", rooms);
       }
 
       if (priceFrom) params.set("price_from", priceFrom);
@@ -2019,50 +2009,40 @@ export default function Hero() {
         deal
       );
 
-      const categorySlug =
-        type ===
-        "apartment"
+      // ВАЖНО: отсутствие типа означает общий каталог, а не квартиры.
+      // Пути категорий строим только когда пользователь действительно выбрал тип.
+      const categorySlug = type
+        ? type === "apartment"
           ? "apartments"
-          : type ===
-            "house"
+          : type === "house"
           ? "houses"
-          : type ===
-            "land"
+          : type === "land"
           ? "land"
-          : type ===
-            "commercial"
+          : type === "commercial"
           ? "commercial"
-          : type ===
-            "garage"
+          : type === "garage"
           ? "garages"
-          : "apartments";
+          : ""
+        : "";
 
-      const subtypeSlug =
-        subType
-          ? subtypeSlugMap[
-              subType
-            ] || ""
-          : "";
+      const subtypeSlug = type && subType
+        ? subtypeSlugMap[subType] || ""
+        : "";
 
-      let url =
-        `/catalog/${deal}/${categorySlug}`;
+      let url = categorySlug
+        ? `/catalog/${deal}/${categorySlug}`
+        : "/catalog";
 
       if (
+        categorySlug &&
         subtypeSlug &&
-        subtypeSlug !==
-          categorySlug
+        subtypeSlug !== categorySlug
       ) {
-        url +=
-          `/${subtypeSlug}`;
+        url += `/${subtypeSlug}`;
       }
 
-      const query =
-        params.toString();
-
-      window.location.href =
-        query
-          ? `${url}?${query}`
-          : url;
+      const query = params.toString();
+      window.location.href = query ? `${url}?${query}` : url;
     };
 
   return (
@@ -3242,6 +3222,9 @@ function countCatalogProperties(
     const propertyType = normalizeCountValue(property.property_type);
     const propertySubtype = normalizeCountValue(property.property_subtype);
 
+    // «Участки» показывают все земельные объявления; «Под ИЖС» — только subtype izhs.
+    if (itemSlug === "all") return propertyType === "land";
+
     if (!itemSlug) {
       if (categoryTitle === "Коммерция" || categoryTitle === "Коммерческая") {
         return propertyType === "commercial" ||
@@ -3471,12 +3454,12 @@ function CategoryBlock({
               {category.items.map(
                 (item) => (
                   <Link
-                    key={
-                      `${category.title}-${item.slug}`
+                    key={`${dealType}-${category.title}-${item.title}-${item.slug}`}
+                    href={
+                      item.slug === "all"
+                        ? `/catalog/${dealType}/land`
+                        : `/catalog/${dealType}/${categorySlugFromTitle(category.title)}/${item.slug}`
                     }
-                    href={`/catalog/${dealType}/${categorySlugFromTitle(
-                      category.title
-                    )}/${item.slug}`}
                     style={{
                       display:
                         "flex",
