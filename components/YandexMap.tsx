@@ -905,6 +905,10 @@ export default function YandexMap({
           return new ymaps.YMapMarker({ coordinates, source: DOMA_MAP_MARKER_SOURCE }, content);
         }
 
+        // Capture the narrowed object in a stable, non-optional constant.
+        // TypeScript loses narrowing of `item` inside nested callbacks otherwise.
+        const propertyItem: MapMarker = item;
+
         content.setAttribute("title", [item.title, getMapAddress(item)].filter(Boolean).join(" · "));
 
         // Map pin is a simple red dot. Price is shown only inside the listing preview.
@@ -1018,7 +1022,7 @@ export default function YandexMap({
           photoIndex = (nextIndex + photoUrls.length) % photoUrls.length;
           photoPlaceholder.hidden = true;
           image.hidden = false;
-          image.alt = `${item.title || "Фотография объекта"} — фото ${photoIndex + 1}`;
+          image.alt = `${propertyItem.title || "Фотография объекта"} — фото ${photoIndex + 1}`;
           if (image.src !== photoUrls[photoIndex]) image.src = photoUrls[photoIndex];
           photoCounter.textContent = `${photoIndex + 1} / ${photoUrls.length}`;
           const hasMultiplePhotos = photoUrls.length > 1;
@@ -1066,7 +1070,7 @@ export default function YandexMap({
           if (galleryLoaded || galleryLoading) return;
           galleryLoading = true;
           try {
-            const response = await fetch(`${API_URL}/properties/${item.id}/images`, { cache: "no-store" });
+            const response = await fetch(`${API_URL}/properties/${propertyItem.id}/images`, { cache: "no-store" });
             if (response.ok) {
               const payload: any = await response.json();
               const galleryRows: any[] = Array.isArray(payload)
@@ -1086,7 +1090,7 @@ export default function YandexMap({
               }
             }
           } catch (error) {
-            console.warn(`Не удалось загрузить фотографии объекта №${item.id}:`, error);
+            console.warn(`Не удалось загрузить фотографии объекта №${propertyItem.id}:`, error);
           } finally {
             galleryLoading = false;
             galleryLoaded = true;
