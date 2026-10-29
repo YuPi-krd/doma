@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
 from passlib.context import CryptContext
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, or_, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -231,6 +231,29 @@ def ensure_property_coordinates() -> None:
 ensure_property_coordinates()
 
 
+def ensure_site_settings_card_columns() -> None:
+    """Add editable menu/team columns to existing databases without losing data."""
+    try:
+        if "site_settings" not in inspect(engine).get_table_names():
+            return
+
+        existing_columns = {
+            column["name"] for column in inspect(engine).get_columns("site_settings")
+        }
+        with engine.begin() as connection:
+            for column_name in ("menu_services", "menu_about", "team_members"):
+                if column_name not in existing_columns:
+                    connection.execute(
+                        text(f"ALTER TABLE site_settings ADD COLUMN {column_name} TEXT")
+                    )
+    except Exception as exc:
+        # Keep the startup error visible in Render logs instead of silently hiding it.
+        print("Не удалось проверить поля карточек site_settings:", exc)
+
+
+ensure_site_settings_card_columns()
+
+
 def ensure_property_characteristics() -> None:
     """Добавляет новые поля в существующую таблицу без удаления данных."""
     columns = {
@@ -314,6 +337,12 @@ class LoginSchema(
 ):
     username: str
     password: str
+
+
+class ChangePasswordSchema(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
 
 
 class SaleStatusUpdate(
@@ -1524,21 +1553,14 @@ def get_deal_types():
 
 @app.get("/properties")
 def get_properties(
-    property_type: str | None = Query(
-        default=None
-    ),
-
-    property_subtype: str | None = Query(
-        default=None
-    ),
-
-    deal_type: str | None = Query(
-        default=None
-    ),
-
-    type: str | None = Query(
-        default=None
-    ),
+    property_type: str | None = Query(default=None),
+    property_subtype: str | None = Query(default=None),
+    deal_type: str | None = Query(default=None),
+    type: str | None = Query(default=None),
+    # "city" is an explicit city filter; "location" supports existing Hero URLs
+    # and may refer to either a city or a district/area.
+    city: str | None = Query(default=None, max_length=180),
+    location: str | None = Query(default=None, max_length=180),
 ):
 
     db: Session = SessionLocal()
@@ -1590,6 +1612,57 @@ def get_properties(
             query = query.filter(
                 Property.deal_type
                 == normalized_deal
+            )
+
+        # City/location matching is case-insensitive and treats "ё" and "е"
+        # as equivalent, which is important for Russian place names.
+        selected_city = " ".join((city or "").split())
+        selected_location = " ".join((location or "").split())
+
+        def normalize_place(value: str) -> str:
+            return " ".join(value.split()).casefold().replace("ё", "е")
+
+        normalized_city_column = func.replace(
+            func.lower(func.trim(Property.city)), "ё", "е"
+        )
+
+        if selected_city:
+            # The explicit city parameter filters only the city field (not district/address),
+            # returning every listing type in that city regardless of district. Use a
+            # contains match so values like "г. Будённовск" still match "Буденновск".
+            city_key = normalize_place(selected_city)
+            escaped_city = (
+                city_key.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            city_pattern = f"%{escaped_city}%"
+            query = query.filter(
+                normalized_city_column.like(city_pattern, escape="\\")
+            )
+        elif selected_location:
+            # Backwards-compatible Hero query: location can contain a city,
+            # district, or address fragment. It does not force a district-only
+            # filter when the selected value is a city.
+            location_key = normalize_place(selected_location)
+            escaped_key = (
+                location_key.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            pattern = f"%{escaped_key}%"
+            normalized_district_column = func.replace(
+                func.lower(func.trim(Property.district)), "ё", "е"
+            )
+            normalized_address_column = func.replace(
+                func.lower(func.trim(Property.address)), "ё", "е"
+            )
+            query = query.filter(
+                or_(
+                    normalized_city_column.like(pattern, escape="\\"),
+                    normalized_district_column.like(pattern, escape="\\"),
+                    normalized_address_column.like(pattern, escape="\\"),
+                )
             )
 
         properties = (
@@ -4400,6 +4473,46 @@ DEFAULT_SITE_SETTINGS = {
     "stat3_label": "Довольных клиентов",
 }
 
+DEFAULT_MENU_SERVICES = [
+    {"title": "Подбор недвижимости", "description": "Подберём подходящие объекты", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+    {"title": "Ипотека", "description": "Помощь с ипотекой", "image": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+    {"title": "Оценка", "description": "Оценим рыночную стоимость", "image": "https://images.unsplash.com/photo-1560520653-9e0e4c89eb11?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+    {"title": "Продать объект", "description": "Сопровождение продажи", "image": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+    {"title": "Юридические услуги", "description": "Безопасность сделки", "image": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+    {"title": "Дизайн и ремонт недвижимости", "description": "Подготовка пространства", "image": "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=900&q=80", "href": "/services"},
+]
+
+DEFAULT_MENU_ABOUT = [
+    {"title": "История компании", "description": "Знакомство с DOMA", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/about"},
+    {"title": "Специалисты по недвижимости", "description": "Наша команда", "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80", "href": "/about"},
+    {"title": "Блог", "description": "Новости и советы", "image": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80", "href": "/about"},
+    {"title": "Карьера", "description": "Работа в DOMA", "image": "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80", "href": "/about"},
+    {"title": "Региональное партнёрство", "description": "Развиваемся вместе", "image": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80", "href": "/about"},
+    {"title": "Служба заботы", "description": "Помогаем клиентам", "image": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80", "href": "/contacts"},
+]
+
+DEFAULT_TEAM_MEMBERS = [
+    {"name": "Имя Фамилия", "position": "Руководитель агентства", "phone": "+7 (900) 111-11-11", "email": "info@doma.ru", "photo": "", "visible": True},
+    {"name": "Имя Фамилия", "position": "Менеджер по недвижимости", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": True},
+    {"name": "Имя Фамилия", "position": "Специалист по новостройкам", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": True},
+    {"name": "Имя Фамилия", "position": "Юрист по сделкам", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": True},
+    {"name": "Имя Фамилия", "position": "Ипотечный специалист", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": True},
+    {"name": "Имя Фамилия", "position": "Менеджер по работе с клиентами", "phone": "+7 (900) 000-00-00", "email": "info@doma.ru", "photo": "", "visible": True},
+]
+
+
+def _decode_settings_list(value: Any, fallback: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Read JSON stored in TEXT columns, with safe defaults for empty/legacy rows."""
+    if isinstance(value, list):
+        return value
+    if not value:
+        return fallback
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else fallback
+    except (TypeError, ValueError):
+        return fallback
+
 
 class SiteSettingsPayload(BaseModel):
     hero_eyebrow: str
@@ -4414,6 +4527,9 @@ class SiteSettingsPayload(BaseModel):
     stat2_label: str
     stat3_value: str
     stat3_label: str
+    menu_services: list[dict[str, Any]] | None = None
+    menu_about: list[dict[str, Any]] | None = None
+    team_members: list[dict[str, Any]] | None = None
 
 
 def get_or_create_site_settings(db):
@@ -4432,21 +4548,34 @@ def get_or_create_site_settings(db):
     return settings
 
 
+def _site_setting_text(settings, field: str) -> str:
+    """Return non-empty saved text, falling back for older/partially blank rows."""
+    value = getattr(settings, field, None)
+    if isinstance(value, str) and value.strip():
+        return value
+    return DEFAULT_SITE_SETTINGS[field]
+
+
 def site_settings_to_dict(settings):
+    # Older records may exist with blank statistic values. Return usable defaults
+    # without requiring the user to delete or recreate the existing database row.
     return {
         "id": settings.id,
-        "hero_eyebrow": settings.hero_eyebrow,
-        "hero_title_line1": settings.hero_title_line1,
-        "hero_title_line2": settings.hero_title_line2,
-        "hero_title_line3": settings.hero_title_line3,
-        "hero_description": settings.hero_description,
-        "hero_image": settings.hero_image,
-        "stat1_value": settings.stat1_value,
-        "stat1_label": settings.stat1_label,
-        "stat2_value": settings.stat2_value,
-        "stat2_label": settings.stat2_label,
-        "stat3_value": settings.stat3_value,
-        "stat3_label": settings.stat3_label,
+        "hero_eyebrow": _site_setting_text(settings, "hero_eyebrow"),
+        "hero_title_line1": _site_setting_text(settings, "hero_title_line1"),
+        "hero_title_line2": _site_setting_text(settings, "hero_title_line2"),
+        "hero_title_line3": _site_setting_text(settings, "hero_title_line3"),
+        "hero_description": _site_setting_text(settings, "hero_description"),
+        "hero_image": settings.hero_image or None,
+        "stat1_value": _site_setting_text(settings, "stat1_value"),
+        "stat1_label": _site_setting_text(settings, "stat1_label"),
+        "stat2_value": _site_setting_text(settings, "stat2_value"),
+        "stat2_label": _site_setting_text(settings, "stat2_label"),
+        "stat3_value": _site_setting_text(settings, "stat3_value"),
+        "stat3_label": _site_setting_text(settings, "stat3_label"),
+        "menu_services": _decode_settings_list(settings.menu_services, DEFAULT_MENU_SERVICES),
+        "menu_about": _decode_settings_list(settings.menu_about, DEFAULT_MENU_ABOUT),
+        "team_members": _decode_settings_list(settings.team_members, DEFAULT_TEAM_MEMBERS),
     }
 
 
@@ -4488,6 +4617,103 @@ def require_admin(authorization: str | None):
     return payload
 
 
+@app.put("/admin/change-password")
+def change_admin_password(
+    data: ChangePasswordSchema,
+    authorization: str | None = Header(default=None),
+):
+    """Change the signed-in administrator's password after verifying the current one."""
+    token_payload = require_admin(authorization)
+
+    if data.new_password != data.confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Новый пароль и подтверждение не совпадают.",
+        )
+
+    if len(data.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="Новый пароль должен содержать не менее 8 символов.",
+        )
+
+    # bcrypt processes at most 72 bytes; validate UTF-8 byte length before hashing.
+    if len(data.new_password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Новый пароль не должен превышать 72 байта в UTF-8 (ограничение bcrypt).",
+        )
+
+    if data.current_password == data.new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Новый пароль должен отличаться от текущего.",
+        )
+
+    try:
+        user_id = int(token_payload.get("sub"))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=401,
+            detail="Не удалось определить пользователя. Войдите заново.",
+        )
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Пользователь не найден. Войдите заново.",
+            )
+
+        if user.role != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Менять пароль может только администратор.",
+            )
+
+        try:
+            current_password_is_valid = verify_password(
+                data.current_password,
+                user.password_hash,
+            )
+        except Exception as verify_error:
+            # A malformed/legacy password hash should produce a clear server log,
+            # not an unhandled exception from the password-change endpoint.
+            print(f"Не удалось проверить текущий пароль администратора {user_id}: {verify_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Не удалось проверить текущий пароль. Проверьте запись пользователя в базе данных.",
+            ) from verify_error
+
+        if not current_password_is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail="Текущий пароль указан неверно.",
+            )
+
+        user.password_hash = pwd_context.hash(data.new_password)
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "Пароль администратора успешно изменён.",
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        print(f"Не удалось изменить пароль администратора {user_id}: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail="Не удалось изменить пароль. Попробуйте позже.",
+        ) from exc
+    finally:
+        db.close()
+
+
 @app.get("/site-settings")
 def get_site_settings():
     """Публичные настройки Hero. Нужны главной странице сайта."""
@@ -4521,6 +4747,11 @@ def update_site_settings(
         )
 
         for field, value in payload.items():
+            if field in ("menu_services", "menu_about", "team_members"):
+                # Older clients do not send these optional fields; do not erase saved cards.
+                if value is None:
+                    continue
+                value = json.dumps(value, ensure_ascii=False)
             setattr(settings, field, value)
 
         db.commit()
