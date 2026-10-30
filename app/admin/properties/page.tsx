@@ -54,7 +54,7 @@ export default function PropertiesPage() {
           }}
         >
           <Link
-            href="/crm/sale"
+            href="/crm"
             style={{ ...buttonStyle, background: "#dc2626" }}
             aria-label="Перейти в CRM для продажи недвижимости"
           >
@@ -62,7 +62,7 @@ export default function PropertiesPage() {
           </Link>
 
           <Link
-            href="/crm/rent"
+            href="/crm"
             style={{ ...buttonStyle, background: "#1e293b" }}
             aria-label="Перейти в CRM для аренды недвижимости"
           >
