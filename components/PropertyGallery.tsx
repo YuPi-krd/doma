@@ -18,6 +18,8 @@ interface PropertyGalleryProps {
   mainImage?: string;
   title: string;
   variant?: "card" | "detail";
+  /** Enables property-page keyboard controls and full-photo viewer. */
+  detailInteractive?: boolean;
 }
 
 const API_URL =
@@ -66,6 +68,7 @@ export default function PropertyGallery({
   mainImage,
   title,
   variant = "card",
+  detailInteractive = false,
 }: PropertyGalleryProps) {
   const [galleryImages, setGalleryImages] =
     useState<GalleryImage[]>([]);
@@ -74,6 +77,7 @@ export default function PropertyGallery({
     useState(0);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const canOpenFullPhoto = detailInteractive || variant === "detail";
 
   // Индекс предыдущего слайда нужен для анимации смены изображения.
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
@@ -202,7 +206,7 @@ export default function PropertyGallery({
   // Как в каталоге Ajax: позиция курсора над фотографией выбирает сегмент галереи.
   // Изображения при этом именно сменяются слайдом — курсор не захватывает фото.
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
-    if (variant !== "card" || images.length <= 1) return;
+    if (variant !== "card" || detailInteractive || images.length <= 1) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest("button")) return;
 
@@ -263,8 +267,8 @@ export default function PropertyGallery({
     touchEndX.current = null;
   }
 
-  const isDetail =
-    variant === "detail";
+  // The property page currently passes variant="card" with detailInteractive.
+  const isDetail = canOpenFullPhoto;
 
   // На странице объекта можно листать галерею клавишами ← и →.
   // Не перехватываем стрелки, пока пользователь вводит текст.
