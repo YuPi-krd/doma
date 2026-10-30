@@ -82,6 +82,109 @@ function propertyAddress(property: Property): string {
   );
 }
 
+
+interface GalleryImage {
+  id?: number;
+  image_url?: string | null;
+}
+
+function PropertyCardPhoto({ property }: { property: Property }) {
+  const [extraImages, setExtraImages] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadGallery() {
+      try {
+        const response = await fetch(
+          `${API_URL}/properties/${property.id}/images`,
+          { cache: "no-store", signal: controller.signal }
+        );
+        if (!response.ok) return;
+
+        const data: unknown = await response.json();
+        if (!Array.isArray(data) || cancelled) return;
+
+        const urls = (data as GalleryImage[])
+          .map((item) => item?.image_url)
+          .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+          .map((url) => imageSource(url));
+
+        setExtraImages(urls);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error(`DOMA: не удалось загрузить фотографии объекта ${property.id}:`, error);
+        }
+      }
+    }
+
+    setCurrentIndex(0);
+    void loadGallery();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [property.id]);
+
+  const images = useMemo(() => {
+    const result: string[] = [];
+    const seen = new Set<string>();
+
+    [imageSource(property.image_url), ...extraImages].forEach((url) => {
+      const key = url.split(/[?#]/, 1)[0].toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(url);
+      }
+    });
+
+    return result.length ? result : [FALLBACK_IMAGE];
+  }, [property.image_url, extraImages]);
+
+  useEffect(() => {
+    if (currentIndex >= images.length) setCurrentIndex(0);
+  }, [currentIndex, images.length]);
+
+  function handleMouseMove(event: React.MouseEvent<HTMLImageElement>) {
+    if (images.length <= 1) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+
+    const relativeX = Math.max(
+      0,
+      Math.min(0.999999, (event.clientX - bounds.left) / bounds.width)
+    );
+    const nextIndex = Math.min(
+      images.length - 1,
+      Math.floor(relativeX * images.length)
+    );
+
+    if (nextIndex !== currentIndex) setCurrentIndex(nextIndex);
+  }
+
+  return (
+    <img
+      key={images[currentIndex]}
+      className="exclusive-photo"
+      src={images[currentIndex]}
+      alt={property.title || "Объект недвижимости"}
+      loading="lazy"
+      onMouseMove={handleMouseMove}
+      onError={(event) => {
+        const image = event.currentTarget;
+        if (image.dataset.fallbackApplied !== "true") {
+          image.dataset.fallbackApplied = "true";
+          image.src = FALLBACK_IMAGE;
+        }
+      }}
+    />
+  );
+}
+
 export default function ExclusiveProperties() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,19 +403,7 @@ export default function ExclusiveProperties() {
                           className="exclusive-photo-link"
                           aria-label={`Открыть объект: ${property.title || "Недвижимость"}`}
                         >
-                          <img
-                            className="exclusive-photo"
-                            src={imageSource(property.image_url)}
-                            alt={property.title || "Объект недвижимости"}
-                            loading="lazy"
-                            onError={(event) => {
-                              const image = event.currentTarget;
-                              if (image.dataset.fallbackApplied !== "true") {
-                                image.dataset.fallbackApplied = "true";
-                                image.src = FALLBACK_IMAGE;
-                              }
-                            }}
-                          />
+                          <PropertyCardPhoto property={property} />
                         </Link>
                         <span className="exclusive-badge">Эксклюзив</span>
                         <button

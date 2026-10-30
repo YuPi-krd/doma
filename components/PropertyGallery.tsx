@@ -73,6 +73,8 @@ export default function PropertyGallery({
   const [currentIndex, setCurrentIndex] =
     useState(0);
 
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
   // Индекс предыдущего слайда нужен для анимации смены изображения.
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<"next" | "prev">("next");
@@ -267,17 +269,23 @@ export default function PropertyGallery({
   // На странице объекта можно листать галерею клавишами ← и →.
   // Не перехватываем стрелки, пока пользователь вводит текст.
   useEffect(() => {
-    if (!isDetail || images.length <= 1) return;
+    if (!isDetail) return;
 
     function handleGalleryKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && isLightboxOpen) {
+        event.preventDefault();
+        setIsLightboxOpen(false);
+        return;
+      }
+
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const target = event.target as HTMLElement | null;
-      if (target?.isContentEditable || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (!isLightboxOpen && (target?.isContentEditable || target?.closest("input, textarea, select, [contenteditable='true']"))) return;
 
-      if (event.key === "ArrowLeft") {
+      if (images.length > 1 && event.key === "ArrowLeft") {
         event.preventDefault();
         goToImage(currentIndex - 1, "prev");
-      } else if (event.key === "ArrowRight") {
+      } else if (images.length > 1 && event.key === "ArrowRight") {
         event.preventDefault();
         goToImage(currentIndex + 1, "next");
       }
@@ -285,7 +293,7 @@ export default function PropertyGallery({
 
     document.addEventListener("keydown", handleGalleryKeyDown);
     return () => document.removeEventListener("keydown", handleGalleryKeyDown);
-  }, [isDetail, images.length, currentIndex, goToImage]);
+  }, [isDetail, isLightboxOpen, images.length, currentIndex, goToImage]);
 
   return (
     <div
@@ -318,6 +326,18 @@ export default function PropertyGallery({
           alt={title}
           draggable={false}
           className={`gallery-image${previousIndex !== null ? ` is-entering ${slideDirection}` : ""}`}
+          onClick={() => {
+            if (isDetail) setIsLightboxOpen(true);
+          }}
+          role={isDetail ? "button" : undefined}
+          tabIndex={isDetail ? 0 : undefined}
+          aria-label={isDetail ? "Открыть фотографию в полном размере" : undefined}
+          onKeyDown={(e) => {
+            if (isDetail && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              setIsLightboxOpen(true);
+            }
+          }}
           onError={(e) => {
             const fallback = `${API_URL}/images/test-flat.jpg`;
             if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
@@ -382,6 +402,64 @@ export default function PropertyGallery({
           </>
         )}
       </div>
+
+      {isDetail && isLightboxOpen && (
+        <div
+          className="gallery-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Фотография объекта"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            className="lightbox-close"
+            onClick={() => setIsLightboxOpen(false)}
+            aria-label="Закрыть фотографию"
+          >
+            ×
+          </button>
+
+          {images.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-arrow left"
+              onClick={(e) => {
+                e.stopPropagation();
+                previousImage(e);
+              }}
+              aria-label="Предыдущее фото"
+            >
+              ‹
+            </button>
+          )}
+
+          <img
+            src={images[currentIndex]}
+            alt={title}
+            className="lightbox-image"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {images.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-arrow right"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextImage(e);
+              }}
+              aria-label="Следующее фото"
+            >
+              ›
+            </button>
+          )}
+
+          <div className="lightbox-counter">
+            {currentIndex + 1} / {images.length}
+          </div>
+        </div>
+      )}
 
       {isDetail &&
         images.length > 1 && (
@@ -449,6 +527,87 @@ export default function PropertyGallery({
           );
           min-height: 380px;
           border-radius: 28px;
+        }
+
+        .gallery-detail .gallery-image {
+          cursor: zoom-in;
+        }
+
+        .gallery-lightbox {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 56px 76px;
+          background: rgba(10, 12, 16, 0.94);
+          cursor: zoom-out;
+        }
+
+        .lightbox-image {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+          cursor: default;
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+
+        .lightbox-close,
+        .lightbox-arrow {
+          position: absolute;
+          z-index: 2;
+          display: grid;
+          place-items: center;
+          border: 0;
+          border-radius: 50%;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.16);
+          cursor: pointer;
+          transition: background 0.18s ease;
+        }
+
+        .lightbox-close:hover,
+        .lightbox-arrow:hover {
+          background: rgba(255, 255, 255, 0.28);
+        }
+
+        .lightbox-close {
+          top: 22px;
+          right: 24px;
+          width: 44px;
+          height: 44px;
+          font-size: 32px;
+          line-height: 1;
+        }
+
+        .lightbox-arrow {
+          top: 50%;
+          transform: translateY(-50%);
+          width: 48px;
+          height: 48px;
+          font-size: 36px;
+          line-height: 1;
+        }
+
+        .lightbox-arrow.left { left: 20px; }
+        .lightbox-arrow.right { right: 20px; }
+
+        .lightbox-counter {
+          position: absolute;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 7px 12px;
+          border-radius: 20px;
+          color: #fff;
+          background: rgba(255, 255, 255, 0.16);
+          font-size: 13px;
+          font-weight: 600;
         }
 
         .gallery-image {
@@ -665,6 +824,24 @@ export default function PropertyGallery({
         }
 
         @media (max-width: 700px) {
+          .gallery-lightbox {
+            padding: 56px 48px;
+          }
+
+          .lightbox-arrow {
+            width: 38px;
+            height: 38px;
+            font-size: 29px;
+          }
+
+          .lightbox-arrow.left { left: 6px; }
+          .lightbox-arrow.right { right: 6px; }
+
+          .lightbox-close {
+            top: 12px;
+            right: 12px;
+          }
+
           .gallery-card
             .image-stage {
             height: 230px;
