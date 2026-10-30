@@ -695,8 +695,8 @@ export default function PropertyPage() {
           overflow: hidden;
         }
         .gallery-frame :global(.gallery-card .image-stage) {
-          height: clamp(300px, 26vw, 370px) !important;
-          min-height: 300px !important;
+          height: clamp(240px, 15vw, 270px) !important;
+          min-height: 240px !important;
           border-radius: 19px 19px 0 0 !important;
           background: #e7ebf0;
         }
