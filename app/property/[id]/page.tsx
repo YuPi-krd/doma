@@ -493,6 +493,7 @@ export default function PropertyPage() {
                   mainImage={property.image_url || undefined}
                   title={property.title}
                   variant="card"
+                  detailInteractive
                 />
               </div>
 
