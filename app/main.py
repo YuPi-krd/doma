@@ -62,10 +62,15 @@ from .schemas import (
 
 ALGORITHM = "HS256"
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "doma-development-secret-change-in-render",
-)
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+
+
+def secret_key_is_configured() -> bool:
+    """Require a non-default signing key with at least 32 UTF-8 bytes."""
+    return (
+        len(SECRET_KEY.encode("utf-8")) >= 32
+        and SECRET_KEY != "doma-development-secret-change-in-render"
+    )
 
 YANDEX_GEOCODER_API_KEY = os.getenv(
     "YANDEX_GEOCODER_API_KEY",
@@ -181,13 +186,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS is registered at the end of this module so it is the outermost middleware.
 
 
 # ============================================================
@@ -379,6 +378,11 @@ class SaleStatusUpdate(
 def create_access_token(
     data: dict[str, Any],
 ) -> str:
+    if not secret_key_is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="В Render задайте SECRET_KEY длиной не менее 32 символов.",
+        )
 
     payload = data.copy()
 
@@ -4493,21 +4497,24 @@ def get_telegram_config() -> dict[str, str]:
                 "TELEGRAM_ADMIN_USER_ID и TELEGRAM_WEBHOOK_SECRET."
             ),
         )
-    if SECRET_KEY == "doma-development-secret-change-in-render":
+    if not secret_key_is_configured():
         raise HTTPException(
             status_code=503,
-            detail="На сервере не задан безопасный SECRET_KEY. Задайте его в Render.",
+            detail="В Render задайте SECRET_KEY длиной не менее 32 символов.",
         )
     if not config["admin_user_id"].isdigit():
         raise HTTPException(status_code=503, detail="TELEGRAM_ADMIN_USER_ID должен быть числовым Telegram user ID.")
     if not re.fullmatch(r"-?\d+", config["admin_chat_id"]):
         raise HTTPException(status_code=503, detail="TELEGRAM_ADMIN_CHAT_ID должен быть числовым chat ID.")
-    if len(config["webhook_secret"]) < 32:
-        raise HTTPException(status_code=503, detail="TELEGRAM_WEBHOOK_SECRET должен содержать не менее 32 символов.")
+    if not 32 <= len(config["webhook_secret"]) <= 256:
+        raise HTTPException(
+            status_code=503,
+            detail="TELEGRAM_WEBHOOK_SECRET должен содержать от 32 до 256 символов.",
+        )
     return config
 
 
-def telegram_api(method: str, payload: dict[str, Any], bot_token: str | None = None) -> dict[str, Any]:
+def telegram_api(method: str, payload: dict[str, Any], bot_token: str | None = None) -> Any:
     token = bot_token or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         raise RuntimeError("Telegram bot token is not configured.")
@@ -4525,8 +4532,63 @@ def telegram_api(method: str, payload: dict[str, Any], bot_token: str | None = N
         raise RuntimeError(f"Telegram API request failed: {type(exc).__name__}") from exc
     if not isinstance(result, dict) or not result.get("ok"):
         raise RuntimeError("Telegram API returned an unsuccessful result.")
-    value = result.get("result")
-    return value if isinstance(value, dict) else {}
+    # Telegram methods return different result types: sendMessage/getWebhookInfo
+    # return objects, while setWebhook/answerCallbackQuery return booleans.
+    return result.get("result")
+
+
+def register_telegram_webhook() -> None:
+    """Register Telegram callback delivery to this Render service on every startup."""
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    webhook_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+    if not bot_token or not webhook_secret:
+        print(
+            "Telegram webhook setup skipped: TELEGRAM_BOT_TOKEN or "
+            "TELEGRAM_WEBHOOK_SECRET is missing."
+        )
+        return
+
+    try:
+        telegram = get_telegram_config()
+        public_base_url = (
+            os.getenv("RENDER_EXTERNAL_URL", "").strip()
+            or "https://doma-nq4u.onrender.com"
+        ).rstrip("/")
+        parsed_url = urlsplit(public_base_url)
+        if parsed_url.scheme != "https" or not parsed_url.netloc:
+            raise RuntimeError(
+                "RENDER_EXTERNAL_URL must be a valid HTTPS URL."
+            )
+
+        webhook_url = f"{public_base_url}/telegram/webhook"
+        result = telegram_api(
+            "setWebhook",
+            {
+                "url": webhook_url,
+                "secret_token": telegram["webhook_secret"],
+                "allowed_updates": ["callback_query"],
+                "drop_pending_updates": False,
+            },
+            bot_token=telegram["bot_token"],
+        )
+        if result is not True:
+            raise RuntimeError("Telegram setWebhook did not return true.")
+
+        print(f"Telegram webhook configured: {webhook_url}")
+    except Exception as exc:
+        # Do not print bot tokens or webhook secrets into Render logs.
+        safe_detail = getattr(exc, "detail", str(exc))
+        print(
+            "Telegram webhook registration failed: "
+            f"{type(exc).__name__}: {safe_detail}"
+        )
+
+
+@app.on_event("startup")
+async def startup_register_telegram_webhook() -> None:
+    # The Telegram API call is blocking; keep it off the event loop.
+    await asyncio.to_thread(register_telegram_webhook)
+
 
 
 @app.post("/login")
@@ -4631,10 +4693,11 @@ def login_status(request_id: str):
         if getattr(expires_at, "tzinfo", None) is not None:
             expires_at = expires_at.replace(tzinfo=None)
 
-        if status == "pending" and expires_at <= now:
+        if status in {"pending", "issued", "approved"} and expires_at <= now:
             connection.execute(text("""
                 UPDATE doma_login_challenges SET status = 'expired'
-                WHERE request_id = :request_id AND status = 'pending'
+                WHERE request_id = :request_id
+                  AND status IN ('pending', 'issued', 'approved')
             """), {"request_id": request_id})
             return {"status": "expired"}
 
@@ -4708,6 +4771,7 @@ async def telegram_webhook(request: Request):
                 print("Не удалось ответить Telegram callback:", type(exc).__name__)
 
     if sender_id != telegram["admin_user_id"] or chat_id != telegram["admin_chat_id"]:
+        print("Telegram 2FA callback rejected: sender or chat does not match configured admin.")
         answer_callback("Подтверждать вход может только назначенный администратор.", True)
         return {"ok": True}
 
@@ -4740,9 +4804,11 @@ async def telegram_webhook(request: Request):
         })
 
     if result.rowcount != 1:
+        print("Telegram 2FA callback ignored: challenge is missing, expired, or already processed.")
         answer_callback("Запрос уже обработан, не найден или срок его действия истёк.", True)
         return {"ok": True}
 
+    print(f"Telegram 2FA challenge processed: {new_status}.")
     answer_callback("Вход разрешён." if action == "approve" else "Вход отклонён.")
     try:
         telegram_api(
@@ -4762,56 +4828,10 @@ async def telegram_webhook(request: Request):
 
 @app.get("/me")
 def me(
-    authorization: str | None = Header(
-        default=None
-    ),
+    authorization: str | None = Header(default=None),
 ):
-
-    if not authorization:
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Not authenticated"
-            ),
-        )
-
-    scheme, _, token = (
-        authorization.partition(" ")
-    )
-
-    if (
-        scheme.lower()
-        != "bearer"
-        or not token
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Invalid authorization header"
-            ),
-        )
-
-    try:
-
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-        )
-        if payload.get("role") != "admin" or payload.get("telegram_2fa") is not True:
-            raise HTTPException(status_code=401, detail="Требуется подтверждение входа через Telegram.")
-        return payload
-
-    except Exception:
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Invalid token"
-            ),
-        )
+    """Return the authenticated administrator claims after Telegram 2FA."""
+    return require_admin(authorization)
 
 DEFAULT_SITE_SETTINGS = {
     "hero_eyebrow": "НЕДВИЖИМОСТЬ • КРАСНОДАР",
@@ -4938,10 +4958,10 @@ def site_settings_to_dict(settings):
 
 
 def require_admin(authorization: str | None):
-    if SECRET_KEY == "doma-development-secret-change-in-render":
+    if not secret_key_is_configured():
         raise HTTPException(
             status_code=503,
-            detail="На сервере не задан безопасный SECRET_KEY. Задайте его в Render.",
+            detail="В Render задайте SECRET_KEY длиной не менее 32 символов.",
         )
     if not authorization:
         raise HTTPException(status_code=401, detail="Необходима авторизация администратора.")
@@ -5239,3 +5259,14 @@ def debug_properties():
 
     finally:
         db.close()
+
+# Keep CORS outside the auth middleware. Otherwise errors returned early by the
+# auth middleware lack Access-Control-Allow-Origin and appear as opaque CORS errors
+# in the Vercel frontend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
