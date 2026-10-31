@@ -5,6 +5,13 @@ import { Children, isValidElement, useEffect, useMemo, useRef, useState } from "
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://doma-nq4u.onrender.com").replace(/\/+$/, "");
 
+function getStoredAuthToken(): string {
+  if (typeof window === "undefined") return "";
+  return (localStorage.getItem("access_token") || localStorage.getItem("token") || "")
+    .trim()
+    .replace(/^Bearer\s+/i, "");
+}
+
 interface PhotoPreview {
   id: string;
   file?: File;
@@ -350,7 +357,10 @@ export default function CRMPage() {
       // the gallery ready unless the API returned a valid list; otherwise a save
       // could mistakenly delete gallery rows that were never loaded.
       gallerySyncReadyRef.current = false;
-      const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { cache: "no-store" }).catch(() => null);
+      const galleryResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${acceptedToken}` },
+      }).catch(() => null);
       if (!galleryResponse?.ok) {
         throw new Error("Не удалось загрузить галерею фотографий объекта. Проверьте API и повторите открытие объекта.");
       }
@@ -537,6 +547,12 @@ export default function CRMPage() {
       return;
     }
 
+    const authToken = getStoredAuthToken();
+    if (!authToken) {
+      alert("Сессия CRM не найдена. Войдите заново и подтвердите вход через Telegram.");
+      return;
+    }
+
     setIsSaving(true);
     setSavedId(null);
 
@@ -548,6 +564,7 @@ export default function CRMPage() {
         method: editingPropertyId !== null ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           title: title.trim(),
@@ -635,7 +652,11 @@ export default function CRMPage() {
       if (primaryPhoto?.file) {
         const coverForm = new FormData();
         coverForm.append("file", primaryPhoto.file, primaryPhoto.file.name);
-        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, { method: "POST", body: coverForm });
+        const coverResponse = await fetch(`${API_URL}/properties/${propertyId}/image`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: coverForm,
+        });
         if (!coverResponse.ok) {
           const detail = await coverResponse.text();
           throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
@@ -648,7 +669,11 @@ export default function CRMPage() {
         if (!photo.file) continue;
         const imageForm = new FormData();
         imageForm.append("file", photo.file, photo.file.name);
-        const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, { method: "POST", body: imageForm });
+        const imageResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authToken}` },
+          body: imageForm,
+        });
         const imageData = await imageResponse.json().catch(() => ({}));
         if (!imageResponse.ok) {
           const detail = imageData.detail || "Неизвестная ошибка";
@@ -660,7 +685,10 @@ export default function CRMPage() {
 
       const syncResponse = await fetch(`${API_URL}/properties/${propertyId}/images`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ keep_ids: keepGalleryIds }),
       });
       const syncData = await syncResponse.json().catch(() => ({}));
@@ -2635,7 +2663,12 @@ function SalePropertiesList({ dealType, refreshKey, onOpenProperty, isOpening }:
       if (status !== "all") params.set("status", status);
       if (debouncedSearch) params.set("search", debouncedSearch);
       try {
-        const response = await fetch(`${API_URL}/properties?${params.toString()}`, { cache: "no-store" });
+        const authToken = getStoredAuthToken();
+        if (!authToken) throw new Error("Нет авторизации CRM. Войдите заново и подтвердите вход через Telegram.");
+        const response = await fetch(`${API_URL}/crm/properties?${params.toString()}`, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
         if (!response.ok) throw new Error(`Сервер вернул код ${response.status}`);
         const payload: unknown = await response.json();
         if (cancelled) return;
@@ -2684,7 +2717,15 @@ function SalePropertiesList({ dealType, refreshKey, onOpenProperty, isOpening }:
     if (action === "delete" && !window.confirm(`Удалить объект №${id}${itemTitle ? ` «${itemTitle}»` : ""}? Это действие нельзя отменить.`)) return;
     setBusyId(id);
     try {
-      const response = await fetch(action === "publish" ? `${API_URL}/properties/${id}/publish` : `${API_URL}/properties/${id}`, { method: action === "publish" ? "PUT" : "DELETE" });
+      const authToken = getStoredAuthToken();
+      if (!authToken) throw new Error("Сессия CRM не найдена. Войдите заново и подтвердите вход через Telegram.");
+      const response = await fetch(
+        action === "publish" ? `${API_URL}/properties/${id}/publish` : `${API_URL}/properties/${id}`,
+        {
+          method: action === "publish" ? "PUT" : "DELETE",
+          headers: { Authorization: `Bearer ${authToken}` },
+        },
+      );
       if (!response.ok) throw new Error((await response.text()) || `Сервер вернул код ${response.status}`);
       setRefreshCounter((value) => value + 1);
     } catch (caught) {
