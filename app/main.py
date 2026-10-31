@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import asyncio
 import json
 import re
+import secrets
 import hashlib
 import os
 import time
@@ -25,6 +26,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 import cloudinary
 import cloudinary.uploader
 from jose import jwt
@@ -1667,8 +1669,9 @@ def get_properties(
     db: Session = SessionLocal()
 
     try:
-        query = db.query(
-            Property
+        # Public catalogue: drafts are visible only inside the protected CRM.
+        query = db.query(Property).filter(
+            or_(Property.is_draft.is_(False), Property.is_draft.is_(None))
         )
 
         selected_type = (
@@ -1786,6 +1789,20 @@ def get_properties(
         db.close()
 
 
+@app.get("/crm/properties")
+def get_crm_properties(
+    authorization: str | None = Header(default=None),
+):
+    """Return all published and draft properties to a Telegram-verified admin."""
+    require_admin(authorization)
+    db = SessionLocal()
+    try:
+        items = db.query(Property).order_by(Property.id.desc()).all()
+        return [property_to_dict(item) for item in items]
+    finally:
+        db.close()
+
+
 @app.get(
     "/properties/{property_id}"
 )
@@ -1800,8 +1817,8 @@ def get_property(
         property_obj = (
             db.query(Property)
             .filter(
-                Property.id
-                == property_id
+                Property.id == property_id,
+                or_(Property.is_draft.is_(False), Property.is_draft.is_(None)),
             )
             .first()
         )
@@ -4199,6 +4216,7 @@ async def upload_property_image(
 )
 def get_property_images(
     property_id: int,
+    authorization: str | None = Header(default=None),
 ):
 
     db = SessionLocal()
@@ -4215,13 +4233,11 @@ def get_property_images(
         )
 
         if not property_obj:
+            raise HTTPException(status_code=404, detail="Property not found")
 
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    "Property not found"
-                ),
-            )
+        if bool(getattr(property_obj, "is_draft", False)):
+            # Keep drafts private; a verified CRM administrator may still open their gallery.
+            require_admin(authorization)
 
         images = (
             db.query(
@@ -4434,62 +4450,314 @@ async def set_property_image(
 # AUTH
 # ============================================================
 
-@app.post("/login")
-def login(
-    data: LoginSchema,
-):
+# ============================================================
+# TELEGRAM TWO-FACTOR AUTHENTICATION
+# ============================================================
 
-    db = SessionLocal()
+def ensure_login_challenges_table() -> None:
+    """Create/update short-lived login challenges without touching existing app tables."""
+    with engine.begin() as connection:
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS doma_login_challenges (
+                request_id VARCHAR(64) PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                telegram_chat_id VARCHAR(64),
+                telegram_message_id BIGINT
+            )
+        """))
+        connection.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_doma_login_challenges_expires_at
+            ON doma_login_challenges (expires_at)
+        """))
 
+
+ensure_login_challenges_table()
+
+
+def get_telegram_config() -> dict[str, str]:
+    config = {
+        "bot_token": os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
+        "admin_chat_id": os.getenv("TELEGRAM_ADMIN_CHAT_ID", "").strip(),
+        "admin_user_id": os.getenv("TELEGRAM_ADMIN_USER_ID", "").strip(),
+        "webhook_secret": os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip(),
+    }
+    if any(not value for value in config.values()):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Telegram 2FA не настроена. Добавьте в Render переменные "
+                "TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID, "
+                "TELEGRAM_ADMIN_USER_ID и TELEGRAM_WEBHOOK_SECRET."
+            ),
+        )
+    if SECRET_KEY == "doma-development-secret-change-in-render":
+        raise HTTPException(
+            status_code=503,
+            detail="На сервере не задан безопасный SECRET_KEY. Задайте его в Render.",
+        )
+    if not config["admin_user_id"].isdigit():
+        raise HTTPException(status_code=503, detail="TELEGRAM_ADMIN_USER_ID должен быть числовым Telegram user ID.")
+    if not re.fullmatch(r"-?\d+", config["admin_chat_id"]):
+        raise HTTPException(status_code=503, detail="TELEGRAM_ADMIN_CHAT_ID должен быть числовым chat ID.")
+    if len(config["webhook_secret"]) < 32:
+        raise HTTPException(status_code=503, detail="TELEGRAM_WEBHOOK_SECRET должен содержать не менее 32 символов.")
+    return config
+
+
+def telegram_api(method: str, payload: dict[str, Any], bot_token: str | None = None) -> dict[str, Any]:
+    token = bot_token or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("Telegram bot token is not configured.")
+    endpoint = f"https://api.telegram.org/bot{token}/{method}"
+    request = UrlRequest(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
     try:
+        with urlopen(request, timeout=12) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+        raise RuntimeError(f"Telegram API request failed: {type(exc).__name__}") from exc
+    if not isinstance(result, dict) or not result.get("ok"):
+        raise RuntimeError("Telegram API returned an unsuccessful result.")
+    value = result.get("result")
+    return value if isinstance(value, dict) else {}
 
-        user = (
-            db.query(User)
-            .filter(
-                User.username
-                == data.username
+
+@app.post("/login")
+def login(data: LoginSchema):
+    """Check the password, then require an approval from the configured Telegram admin."""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == data.username.strip()).first()
+        if not user or not verify_password(data.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Неверный логин или пароль.")
+        if getattr(user, "role", None) != "admin":
+            raise HTTPException(status_code=403, detail="У этой учётной записи нет доступа к админ-панели.")
+
+        telegram = get_telegram_config()
+        request_id = secrets.token_hex(24)
+        now = datetime.utcnow()
+        expires_at = now + timedelta(seconds=180)
+        with engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM doma_login_challenges WHERE created_at < :cutoff"),
+                {"cutoff": now - timedelta(days=2)},
             )
-            .first()
+            connection.execute(text("""
+                INSERT INTO doma_login_challenges
+                (request_id, user_id, status, created_at, expires_at, telegram_chat_id)
+                VALUES (:request_id, :user_id, 'pending', :created_at, :expires_at, :chat_id)
+            """), {
+                "request_id": request_id,
+                "user_id": int(user.id),
+                "created_at": now,
+                "expires_at": expires_at,
+                "chat_id": telegram["admin_chat_id"],
+            })
+
+        message_text = (
+            "🔐 DOMA — запрос на вход в админ-панель\n\n"
+            f"Пользователь: {user.username}\n"
+            "Подтвердите вход, только если вы прямо сейчас пытаетесь войти."
         )
-
-        if not user:
-
+        keyboard = {"inline_keyboard": [[
+            {"text": "✅ Разрешить вход", "callback_data": f"approve:{request_id}"},
+            {"text": "❌ Отклонить", "callback_data": f"deny:{request_id}"},
+        ]]}
+        try:
+            telegram_result = telegram_api(
+                "sendMessage",
+                {"chat_id": telegram["admin_chat_id"], "text": message_text, "reply_markup": keyboard},
+                bot_token=telegram["bot_token"],
+            )
+            message_id = telegram_result.get("message_id")
+            if not message_id:
+                raise RuntimeError("Telegram не вернул message_id.")
+            with engine.begin() as connection:
+                connection.execute(text("""
+                    UPDATE doma_login_challenges
+                    SET telegram_message_id = :message_id
+                    WHERE request_id = :request_id AND status = 'pending'
+                """), {"message_id": int(message_id), "request_id": request_id})
+        except Exception as exc:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("UPDATE doma_login_challenges SET status = 'failed' WHERE request_id = :request_id"),
+                    {"request_id": request_id},
+                )
+            print("Не удалось отправить Telegram-запрос на вход:", type(exc).__name__)
             raise HTTPException(
-                status_code=401,
-                detail="Неверный логин",
+                status_code=503,
+                detail="Не удалось отправить запрос подтверждения в Telegram. Вход не выполнен.",
             )
-
-        if not verify_password(
-            data.password,
-            user.password_hash,
-        ):
-
-            raise HTTPException(
-                status_code=401,
-                detail="Неверный пароль",
-            )
-
-        token = (
-            create_access_token(
-                {
-                    "sub":
-                        str(
-                            user.id
-                        ),
-
-                    "role":
-                        user.role,
-                }
-            )
-        )
 
         return {
-            "access_token":
-                token
+            "status": "pending",
+            "request_id": request_id,
+            "expires_in": 180,
+            "message": "Подтвердите вход в Telegram.",
         }
-
     finally:
         db.close()
+
+
+@app.get("/login/status/{request_id}")
+def login_status(request_id: str):
+    """Deliver the JWT only after Telegram approval; retry-safe during the 3-minute challenge."""
+    if not re.fullmatch(r"[0-9a-f]{48}", request_id):
+        raise HTTPException(status_code=404, detail="Запрос на вход не найден.")
+
+    now = datetime.utcnow()
+    with engine.begin() as connection:
+        row = connection.execute(text("""
+            SELECT user_id, status, expires_at
+            FROM doma_login_challenges
+            WHERE request_id = :request_id
+            FOR UPDATE
+        """), {"request_id": request_id}).mappings().first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Запрос на вход не найден.")
+
+        status = row["status"]
+        expires_at = row["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if getattr(expires_at, "tzinfo", None) is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+
+        if status == "pending" and expires_at <= now:
+            connection.execute(text("""
+                UPDATE doma_login_challenges SET status = 'expired'
+                WHERE request_id = :request_id AND status = 'pending'
+            """), {"request_id": request_id})
+            return {"status": "expired"}
+
+        if status == "pending":
+            return {"status": "pending", "expires_in": max(0, int((expires_at - now).total_seconds()))}
+
+        if status == "approved":
+            token = create_access_token({
+                "sub": str(row["user_id"]),
+                "role": "admin",
+                "telegram_2fa": True,
+                "auth_method": "password+telegram",
+            })
+            connection.execute(text("""
+                UPDATE doma_login_challenges
+                SET status = 'issued'
+                WHERE request_id = :request_id AND status = 'approved'
+            """), {"request_id": request_id})
+            return {"status": "approved", "access_token": token}
+
+        if status == "issued" and expires_at > now:
+            # Re-issue a fresh JWT during the short challenge window if the first
+            # polling response was lost. The random request_id is the temporary secret.
+            token = create_access_token({
+                "sub": str(row["user_id"]),
+                "role": "admin",
+                "telegram_2fa": True,
+                "auth_method": "password+telegram",
+            })
+            return {"status": "approved", "access_token": token}
+
+        if status in {"denied", "expired", "failed"}:
+            return {"status": status}
+        return {"status": "issued"}
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Accept signed webhook callbacks only from the configured administrator and chat."""
+    expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+    provided_secret = request.headers.get("x-telegram-bot-api-secret-token", "")
+    if not expected_secret or not secrets.compare_digest(provided_secret, expected_secret):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    telegram = get_telegram_config()
+    try:
+        update = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректное тело Telegram webhook.")
+
+    callback = update.get("callback_query") if isinstance(update, dict) else None
+    if not isinstance(callback, dict):
+        return {"ok": True}
+
+    callback_id = str(callback.get("id") or "")
+    sender_id = str((callback.get("from") or {}).get("id") or "")
+    message = callback.get("message") or {}
+    chat_id = str((message.get("chat") or {}).get("id") or "")
+    message_id = message.get("message_id")
+    callback_data = str(callback.get("data") or "")
+
+    def answer_callback(message_text: str, show_alert: bool = False) -> None:
+        if callback_id:
+            try:
+                telegram_api(
+                    "answerCallbackQuery",
+                    {"callback_query_id": callback_id, "text": message_text, "show_alert": show_alert},
+                    bot_token=telegram["bot_token"],
+                )
+            except Exception as exc:
+                print("Не удалось ответить Telegram callback:", type(exc).__name__)
+
+    if sender_id != telegram["admin_user_id"] or chat_id != telegram["admin_chat_id"]:
+        answer_callback("Подтверждать вход может только назначенный администратор.", True)
+        return {"ok": True}
+
+    try:
+        action, request_id = callback_data.split(":", 1)
+        if action not in {"approve", "deny"} or not re.fullmatch(r"[0-9a-f]{48}", request_id):
+            answer_callback("Некорректный запрос.", True)
+            return {"ok": True}
+        message_id = int(message_id)
+    except (ValueError, TypeError):
+        answer_callback("Некорректный запрос.", True)
+        return {"ok": True}
+
+    new_status = "approved" if action == "approve" else "denied"
+    with engine.begin() as connection:
+        result = connection.execute(text("""
+            UPDATE doma_login_challenges
+            SET status = :new_status
+            WHERE request_id = :request_id
+              AND status = 'pending'
+              AND expires_at > :now
+              AND telegram_chat_id = :chat_id
+              AND telegram_message_id = :message_id
+        """), {
+            "new_status": new_status,
+            "request_id": request_id,
+            "now": datetime.utcnow(),
+            "chat_id": chat_id,
+            "message_id": message_id,
+        })
+
+    if result.rowcount != 1:
+        answer_callback("Запрос уже обработан, не найден или срок его действия истёк.", True)
+        return {"ok": True}
+
+    answer_callback("Вход разрешён." if action == "approve" else "Вход отклонён.")
+    try:
+        telegram_api(
+            "editMessageText",
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "text": "✅ Вход в DOMA одобрен." if action == "approve" else "❌ Вход в DOMA отклонён.",
+                "reply_markup": {"inline_keyboard": []},
+            },
+            bot_token=telegram["bot_token"],
+        )
+    except Exception as exc:
+        print("Не удалось обновить Telegram-сообщение:", type(exc).__name__)
+    return {"ok": True}
 
 
 @app.get("/me")
@@ -4527,13 +4795,14 @@ def me(
 
     try:
 
-        return jwt.decode(
+        payload = jwt.decode(
             token,
             SECRET_KEY,
-            algorithms=[
-                ALGORITHM
-            ],
+            algorithms=[ALGORITHM],
         )
+        if payload.get("role") != "admin" or payload.get("telegram_2fa") is not True:
+            raise HTTPException(status_code=401, detail="Требуется подтверждение входа через Telegram.")
+        return payload
 
     except Exception:
 
@@ -4669,41 +4938,77 @@ def site_settings_to_dict(settings):
 
 
 def require_admin(authorization: str | None):
-    if not authorization:
+    if SECRET_KEY == "doma-development-secret-change-in-render":
         raise HTTPException(
-            status_code=401,
-            detail="Необходима авторизация администратора.",
+            status_code=503,
+            detail="На сервере не задан безопасный SECRET_KEY. Задайте его в Render.",
         )
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Необходима авторизация администратора.")
 
     scheme, _, token = authorization.partition(" ")
-
     if scheme.lower() != "bearer" or not token:
-        raise HTTPException(
-            status_code=401,
-            detail="Некорректный Authorization header.",
-        )
+        raise HTTPException(status_code=401, detail="Некорректный Authorization header.")
 
     try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except Exception:
+        raise HTTPException(status_code=401, detail="Недействительный или просроченный токен.")
+
+    if payload.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Недостаточно прав для доступа к админ-панели.")
+    if payload.get("telegram_2fa") is not True:
         raise HTTPException(
             status_code=401,
-            detail="Недействительный токен.",
+            detail="Требуется повторный вход с подтверждением через Telegram.",
         )
-
-    role = payload.get("role")
-
-    if role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Недостаточно прав для изменения настроек сайта.",
-        )
-
     return payload
+
+
+def request_requires_admin(method: str, path: str) -> bool:
+    """Default-deny all API routes except the explicitly public website and auth routes."""
+    method = method.upper()
+    if method == "OPTIONS":
+        return False
+
+    if method == "POST" and path in {"/login", "/telegram/webhook", "/leads"}:
+        return False
+    if method == "GET" and path.startswith("/login/status/"):
+        return False
+    if path.startswith("/images/") and method in {"GET", "HEAD"}:
+        return False
+
+    if method == "GET":
+        public_exact = {
+            "/", "/health",
+            "/property-types", "/property-subtypes", "/deal-types",
+            "/properties",
+            "/geocode", "/reverse-geocode",
+            "/geo/settlements", "/geo/city-districts",
+            "/site-settings",
+        }
+        if path in public_exact:
+            return False
+        if re.fullmatch(r"/properties/\d+", path):
+            return False
+        if re.fullmatch(r"/properties/\d+/images", path):
+            return False  # Drafts are additionally checked inside the gallery endpoint.
+
+    return True
+
+
+@app.middleware("http")
+async def enforce_admin_api_auth(request: Request, call_next):
+    if request_requires_admin(request.method, request.url.path):
+        try:
+            require_admin(request.headers.get("authorization"))
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+    return await call_next(request)
 
 
 @app.put("/admin/change-password")
