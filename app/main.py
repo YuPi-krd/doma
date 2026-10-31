@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta
+import asyncio
 import json
+import re
 import hashlib
 import os
-import shutil
-import uuid
 import time
 from threading import Lock
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, unquote, urlsplit
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
@@ -25,6 +25,8 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import cloudinary
+import cloudinary.uploader
 from jose import jwt
 from passlib.context import CryptContext
 from sqlalchemy import func, inspect, or_, text
@@ -308,10 +310,31 @@ BASE_DIR = (
 
 IMAGE_DIR = BASE_DIR / "images"
 
+# Render Free has an ephemeral filesystem. New image files are stored in
+# Cloudinary; this local folder and /images route remain only for legacy URLs.
 IMAGE_DIR.mkdir(
     parents=True,
     exist_ok=True,
 )
+
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY", "").strip()
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+CLOUDINARY_CONFIGURED = all((
+    CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET,
+))
+
+if CLOUDINARY_CONFIGURED:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
+else:
+    print("Cloudinary не настроен: добавьте CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY и CLOUDINARY_API_SECRET в Environment.")
 
 app.mount(
     "/images",
@@ -611,32 +634,106 @@ def local_image_filename(image_url: str | None) -> str | None:
     return filename
 
 
+def cloudinary_public_id_from_url(image_url: str | None) -> str | None:
+    """Extract a Cloudinary image public_id from a canonical secure delivery URL."""
+    if not image_url:
+        return None
+    try:
+        parsed = urlsplit(str(image_url).strip())
+    except ValueError:
+        return None
+
+    if parsed.hostname != "res.cloudinary.com":
+        return None
+
+    marker = "/image/upload/"
+    if marker not in parsed.path:
+        return None
+
+    asset_path = parsed.path.split(marker, 1)[1].lstrip("/")
+    if not asset_path:
+        return None
+
+    parts = asset_path.split("/")
+    # Cloudinary's canonical secure_url includes a version segment (v123...).
+    if parts and re.fullmatch(r"v\d+", parts[0]):
+        parts = parts[1:]
+    if not parts:
+        return None
+
+    public_id = "/".join(parts)
+    # For image assets, the delivery URL has an extension, while destroy() expects
+    # the public_id without it.
+    public_id = re.sub(r"\.[A-Za-z0-9]+$", "", public_id)
+    public_id = unquote(public_id).strip("/")
+    return public_id or None
+
+
+def _same_image_url(first: str | None, second: str | None) -> bool:
+    if not first or not second:
+        return False
+    try:
+        a = urlsplit(str(first).strip())
+        b = urlsplit(str(second).strip())
+        return (a.scheme.lower(), a.netloc.lower(), a.path) == (
+            b.scheme.lower(), b.netloc.lower(), b.path
+        )
+    except ValueError:
+        return str(first).strip() == str(second).strip()
+
+
+def delete_cloudinary_image(image_url: str | None) -> None:
+    """Best-effort deletion for a Cloudinary image URL; legacy/local URLs are ignored."""
+    public_id = cloudinary_public_id_from_url(image_url)
+    if not public_id:
+        return
+    if not CLOUDINARY_CONFIGURED:
+        print(f"Не удалось удалить Cloudinary-файл {public_id}: Cloudinary не настроен.")
+        return
+    try:
+        result = cloudinary.uploader.destroy(
+            public_id,
+            resource_type="image",
+            invalidate=True,
+        )
+        if result.get("result") not in {"ok", "not found"}:
+            print(f"Cloudinary не подтвердил удаление {public_id}: {result}")
+    except Exception as exc:
+        # DB changes should not be rolled back after they have committed only
+        # because the external media provider is temporarily unavailable.
+        print(f"Ошибка удаления изображения из Cloudinary ({public_id}): {exc}")
+
+
 def delete_local_file_if_unreferenced(db: Session, image_url: str | None) -> None:
-    """Delete a local image only when no property or gallery row refers to it."""
-    filename = local_image_filename(image_url)
-    if not filename:
+    """Delete a Cloudinary or legacy local image only after its last DB reference is gone."""
+    if not image_url or _same_image_url(image_url, DEFAULT_IMAGE):
         return
 
     try:
         property_urls = db.query(Property.image_url).filter(Property.image_url.isnot(None)).all()
-        for row in property_urls:
-            if local_image_filename(row[0]) == filename:
-                return
+        if any(_same_image_url(row[0], image_url) for row in property_urls):
+            return
 
         gallery_urls = db.query(PropertyImage.image_url).filter(PropertyImage.image_url.isnot(None)).all()
-        for row in gallery_urls:
-            if local_image_filename(row[0]) == filename:
-                return
+        if any(_same_image_url(row[0], image_url) for row in gallery_urls):
+            return
 
-        delete_local_file(image_url)
+        cloudinary_public_id = cloudinary_public_id_from_url(image_url)
+        if cloudinary_public_id:
+            delete_cloudinary_image(image_url)
+            return
+
+        # Backwards compatibility for images uploaded by older versions to /images/.
+        if local_image_filename(image_url):
+            delete_local_file(image_url)
     except Exception as exc:
         # A cleanup failure must not break saving/deleting the database row.
-        print(f"Не удалось безопасно удалить файл изображения {filename}: {exc}")
+        print(f"Не удалось безопасно удалить изображение {image_url!r}: {exc}")
 
 
 def image_content_digest(image_url: str | None) -> str | None:
-    """Return SHA-256 of a locally stored image, if its file exists."""
-    if not image_url:
+    """Return SHA-256 for a legacy image still present on the local filesystem."""
+    if not image_url or cloudinary_public_id_from_url(image_url):
         return None
     filename = Path(image_url.split("?", 1)[0].split("#", 1)[0]).name
     if not filename:
@@ -653,49 +750,53 @@ def image_content_digest(image_url: str | None) -> str | None:
     except OSError:
         return None
 
+
 async def save_upload(
     file: UploadFile,
+    folder: str = "doma",
 ) -> str:
-
-    extension = Path(
-        file.filename or "image"
-    ).suffix.lower()
-
-    allowed_extensions = {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-        ".gif",
-    }
-
+    """Upload an image to Cloudinary and return its permanent HTTPS delivery URL."""
+    extension = Path(file.filename or "image").suffix.lower()
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
     if extension not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Поддерживаются только "
-                "JPG, JPEG, PNG, WEBP и GIF."
-            ),
+            detail="Поддерживаются только JPG, JPEG, PNG, WEBP и GIF.",
         )
 
-    filename = (
-        f"{uuid.uuid4().hex}"
-        f"{extension}"
-    )
+    if file.content_type and not file.content_type.lower().startswith("image/"):
+        raise HTTPException(status_code=400, detail="Загружаемый файл должен быть изображением.")
 
-    path = (
-        IMAGE_DIR / filename
-    )
+    if not CLOUDINARY_CONFIGURED:
+        raise HTTPException(
+            status_code=503,
+            detail="Хранилище Cloudinary не настроено. Проверьте CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY и CLOUDINARY_API_SECRET в Render.",
+        )
 
-    with path.open("wb") as buffer:
-        shutil.copyfileobj(
+    try:
+        await file.seek(0)
+        result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
             file.file,
-            buffer,
+            folder=folder,
+            resource_type="image",
+            unique_filename=True,
+            overwrite=False,
+            use_filename=False,
+            timeout=60,
         )
-
-    return (
-        f"/images/{filename}"
-    )
+        secure_url = result.get("secure_url") if isinstance(result, dict) else None
+        if not secure_url or not str(secure_url).startswith("https://"):
+            raise RuntimeError("Cloudinary не вернул безопасный HTTPS URL изображения.")
+        return str(secure_url)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"Ошибка загрузки изображения в Cloudinary: {exc}")
+        raise HTTPException(
+            status_code=502,
+            detail="Не удалось загрузить фотографию в Cloudinary. Проверьте настройки хранилища и повторите попытку.",
+        ) from exc
 
 
 # ============================================================
@@ -1807,7 +1908,7 @@ async def create_property(
 
         image_url = (
             await save_upload(
-                image
+                image, folder="doma/properties"
             )
             if image
             else data["image_url"]
@@ -2071,7 +2172,7 @@ async def update_property(
             )
 
         if image:
-            property_obj.image_url = await save_upload(image)
+            property_obj.image_url = await save_upload(image, folder="doma/properties")
         elif "image_url" in payload:
             # Explicit null/empty means the CRM removed the cover photo.
             property_obj.image_url = data["image_url"] or None
@@ -2203,7 +2304,7 @@ def delete_property(property_id: int):
         # frontend believe the database deletion failed after it committed.
         for image_url in image_urls:
             try:
-                delete_local_file(image_url)
+                delete_local_file_if_unreferenced(db, image_url)
             except Exception as cleanup_error:
                 print(
                     f"Не удалось удалить файл изображения {image_url!r}: "
@@ -4008,22 +4109,10 @@ def get_stats():
 def test_images():
 
     return {
-        "cwd":
-            os.getcwd(),
-
-        "images_exists":
-            IMAGE_DIR.exists(),
-
-        "images_dir":
-            str(IMAGE_DIR),
-
-        "files":
-            sorted(
-                item.name
-                for item
-                in IMAGE_DIR.iterdir()
-                if item.is_file()
-            ),
+        "storage_provider": "cloudinary" if CLOUDINARY_CONFIGURED else "not_configured",
+        "cloudinary_configured": CLOUDINARY_CONFIGURED,
+        "legacy_local_images_directory_exists": IMAGE_DIR.exists(),
+        "legacy_local_files_count": sum(1 for item in IMAGE_DIR.iterdir() if item.is_file()),
     }
 
 
@@ -4037,7 +4126,7 @@ async def upload_image(
     return {
         "image_url":
             await save_upload(
-                file
+                file, folder="doma/site"
             )
     }
 
@@ -4074,7 +4163,7 @@ async def upload_property_image(
 
         image_url = (
             await save_upload(
-                file
+                file, folder="doma/properties"
             )
         )
 
@@ -4320,7 +4409,7 @@ async def set_property_image(
 
         property_obj.image_url = (
             await save_upload(
-                file
+                file, folder="doma/properties"
             )
         )
 
