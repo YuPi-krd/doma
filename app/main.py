@@ -780,10 +780,16 @@ async def save_upload(
         )
 
     try:
+        # UploadFile.file is a SpooledTemporaryFile. Give the Cloudinary SDK
+        # the original filename explicitly: some in-memory/spooled streams do
+        # not expose a usable .name attribute, which can cause upload failures.
         await file.seek(0)
+        upload_filename = Path(file.filename or "image").name or "image"
+
         result = await asyncio.to_thread(
             cloudinary.uploader.upload,
             file.file,
+            filename=upload_filename,
             folder=folder,
             resource_type="image",
             unique_filename=True,
@@ -791,17 +797,35 @@ async def save_upload(
             use_filename=False,
             timeout=60,
         )
+
         secure_url = result.get("secure_url") if isinstance(result, dict) else None
         if not secure_url or not str(secure_url).startswith("https://"):
             raise RuntimeError("Cloudinary не вернул безопасный HTTPS URL изображения.")
+
         return str(secure_url)
+
     except HTTPException:
         raise
     except Exception as exc:
-        print(f"Ошибка загрузки изображения в Cloudinary: {exc}")
+        # Keep useful diagnostics in Render logs but never print Cloudinary secrets.
+        error_message = str(exc)
+        for secret_value in (CLOUDINARY_API_SECRET, CLOUDINARY_API_KEY):
+            if secret_value:
+                error_message = error_message.replace(secret_value, "[REDACTED]")
+        error_message = error_message[:1500]
+
+        status_code = getattr(exc, "http_code", None)
+        print(
+            "Ошибка загрузки изображения в Cloudinary: "
+            f"type={type(exc).__name__}; http_code={status_code}; "
+            f"message={error_message}"
+        )
         raise HTTPException(
             status_code=502,
-            detail="Не удалось загрузить фотографию в Cloudinary. Проверьте настройки хранилища и повторите попытку.",
+            detail=(
+                "Не удалось загрузить фотографию в Cloudinary. "
+                "Проверьте настройки хранилища и повторите попытку."
+            ),
         ) from exc
 
 
