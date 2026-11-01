@@ -926,6 +926,10 @@ def property_to_dict(
             item.status
             or DEFAULT_STATUS,
 
+        # CRM uses this field to separate drafts from published listings.
+        # Legacy NULL values are treated as published, matching GET /properties.
+        "is_draft": bool(getattr(item, "is_draft", False)),
+
         "floor": getattr(item, "floor", None),
         "total_floors": getattr(item, "total_floors", None),
         "bathroom": getattr(item, "bathroom", None),
@@ -2372,29 +2376,45 @@ def delete_property(property_id: int):
 @app.put("/properties/{property_id}/publish")
 def publish_property(
     property_id: int,
-    db: Session = Depends(get_db)
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
 ):
-    property_obj = (
-        db.query(Property)
-        .filter(Property.id == property_id)
-        .first()
-    )
+    """Publish a property only for an authenticated, Telegram-verified admin."""
+    require_admin(authorization)
 
-    if not property_obj:
-        raise HTTPException(
-            status_code=404,
-            detail="Property not found"
+    try:
+        property_obj = (
+            db.query(Property)
+            .filter(Property.id == property_id)
+            .first()
         )
 
-    property_obj.is_draft = False
+        if property_obj is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Объект недвижимости не найден.",
+            )
 
-    db.commit()
-    db.refresh(property_obj)
+        property_obj.is_draft = False
+        db.commit()
+        db.refresh(property_obj)
 
-    return {
-        "status": "published",
-        "id": property_obj.id
-    }
+        return {
+            "status": "published",
+            "id": property_obj.id,
+            "is_draft": False,
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        print(f"Ошибка БД при публикации объекта {property_id}: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail="Не удалось опубликовать объект из-за ошибки базы данных.",
+        ) from exc
 
 # ============================================================
 # YANDEX GEOCODER
