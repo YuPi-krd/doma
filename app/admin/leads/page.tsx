@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Lead {
   id: number;
@@ -8,25 +12,9 @@ interface Lead {
   status: string;
 }
 
-async function getLeads(): Promise<Lead[]> {
-  try {
-    const res = await fetch(
-      "https://doma-nq4u.onrender.com/leads",
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) {
-      return [];
-    }
-
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
-
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://doma-nq4u.onrender.com"
+).replace(/\/+$/, "");
 function getStatusColor(status: string) {
   switch (status) {
     case "Новая":
@@ -55,8 +43,77 @@ function getStatusColor(status: string) {
   }
 }
 
-export default async function LeadsPage() {
-  const leads = await getLeads();
+export default function LeadsPage() {
+  const router = useRouter();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadLeads = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    const storedToken =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token") ||
+      "";
+    const token = storedToken.trim().replace(/^Bearer\s+/i, "");
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/leads`, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      const data: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
+
+      if (!response.ok) {
+        const detail =
+          data &&
+          typeof data === "object" &&
+          "detail" in data &&
+          typeof data.detail === "string"
+            ? data.detail
+            : `Сервер вернул ошибку ${response.status}.`;
+        throw new Error(detail);
+      }
+
+      if (!Array.isArray(data)) {
+        throw new Error("Сервер вернул некорректный список заявок.");
+      }
+
+      setLeads(data as Lead[]);
+    } catch (loadError) {
+      console.error("DOMA: ошибка загрузки заявок:", loadError);
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Не удалось загрузить заявки. Попробуйте ещё раз."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    void loadLeads();
+  }, [loadLeads]);
 
   return (
     <main
@@ -89,17 +146,34 @@ export default async function LeadsPage() {
             📞 Заявки клиентов
           </h1>
 
-          <div
-            style={{
-              background: "white",
-              padding: "12px 20px",
-              borderRadius: "14px",
-              boxShadow:
-                "0 5px 15px rgba(0,0,0,.05)",
-              fontWeight: 600,
-            }}
-          >
-            Всего заявок: {leads.length}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => void loadLeads()}
+              disabled={loading}
+              style={{
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                padding: "12px 16px",
+                borderRadius: "14px",
+                fontWeight: 600,
+                cursor: loading ? "wait" : "pointer",
+                color: "#334155",
+              }}
+            >
+              {loading ? "Обновляем…" : "↻ Обновить"}
+            </button>
+            <div
+              style={{
+                background: "white",
+                padding: "12px 20px",
+                borderRadius: "14px",
+                boxShadow: "0 5px 15px rgba(0,0,0,.05)",
+                fontWeight: 600,
+              }}
+            >
+              Всего заявок: {loading ? "…" : error ? "—" : leads.length}
+            </div>
           </div>
         </div>
 
@@ -182,7 +256,48 @@ export default async function LeadsPage() {
             </thead>
 
             <tbody>
-              {leads.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: "50px",
+                      textAlign: "center",
+                      color: "#64748b",
+                    }}
+                  >
+                    Загружаем заявки…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: "32px",
+                      textAlign: "center",
+                      color: "#b91c1c",
+                    }}
+                  >
+                    <div style={{ marginBottom: 14 }}>{error}</div>
+                    <button
+                      type="button"
+                      onClick={() => void loadLeads()}
+                      style={{
+                        border: 0,
+                        borderRadius: 10,
+                        padding: "10px 18px",
+                        background: "#2563eb",
+                        color: "#fff",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Повторить загрузку
+                    </button>
+                  </td>
+                </tr>
+              ) : leads.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}

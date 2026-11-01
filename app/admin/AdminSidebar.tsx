@@ -8,15 +8,12 @@ export default function AdminSidebar() {
 
   function logout() {
     localStorage.removeItem("token");
+    localStorage.removeItem("access_token");
 
     window.location.href = "/login";
   }
 
   const menu = [
-    {
-      href: "/admin",
-      label: "📊 Dashboard",
-    },
     {
       href: "/admin/properties",
       label: "🏠 Объекты",
@@ -24,14 +21,6 @@ export default function AdminSidebar() {
     {
       href: "/admin/leads",
       label: "📞 Заявки",
-    },
-    {
-      href: "/admin/clients",
-      label: "👥 Клиенты",
-    },
-    {
-      href: "/admin/sales",
-      label: "💰 Продажи",
     },
     {
       href: "/admin/settings",
