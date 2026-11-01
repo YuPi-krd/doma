@@ -195,7 +195,10 @@ function normalizeSettings(data: Partial<SiteSettings> | null | undefined): Site
   };
 }
 
-async function imageToDataUrl(file: File): Promise<string> {
+async function imageToDataUrl(
+  file: File,
+  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {},
+): Promise<string> {
   const reader = new FileReader();
 
   const source = await new Promise<string>((resolve, reject) => {
@@ -212,8 +215,9 @@ async function imageToDataUrl(file: File): Promise<string> {
     image.src = source;
   });
 
-  const maxWidth = 2200;
-  const maxHeight = 1200;
+  const maxWidth = options.maxWidth ?? 2200;
+  const maxHeight = options.maxHeight ?? 1200;
+  const quality = options.quality ?? 0.84;
   const ratio = Math.min(
     1,
     maxWidth / image.naturalWidth,
@@ -234,7 +238,7 @@ async function imageToDataUrl(file: File): Promise<string> {
 
   context.drawImage(image, 0, 0, width, height);
 
-  return canvas.toDataURL("image/jpeg", 0.84);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 function getToken() {
@@ -395,6 +399,60 @@ export default function SettingsPage() {
       setMessage("Фото сотрудника добавлено. Нажмите «Сохранить изменения».");
     } catch (photoError) {
       setError(photoError instanceof Error ? photoError.message : "Не удалось обработать фото сотрудника.");
+    }
+  }
+
+  type MenuSectionKey = "menu_services" | "menu_about";
+
+  function updateMenuCardImage(
+    section: MenuSectionKey,
+    index: number,
+    image: string,
+  ) {
+    setSettings((current) => ({
+      ...current,
+      [section]: current[section].map((item, itemIndex) =>
+        itemIndex === index ? { ...item, image } : item,
+      ),
+    }));
+  }
+
+  async function handleMenuCardImageChange(
+    event: ChangeEvent<HTMLInputElement>,
+    section: MenuSectionKey,
+    index: number,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Для карточки можно выбрать только изображение.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Изображение карточки больше 8 МБ. Выберите файл меньшего размера.");
+      return;
+    }
+
+    try {
+      setError("");
+      setMessage("");
+      // Меню использует широкие карточки; уменьшаем изображение,
+      // чтобы настройки не разрастались в базе данных.
+      const image = await imageToDataUrl(file, {
+        maxWidth: 1400,
+        maxHeight: 900,
+        quality: 0.78,
+      });
+      updateMenuCardImage(section, index, image);
+      setMessage("Изображение карточки загружено. Нажмите «Сохранить изменения».");
+    } catch (imageError) {
+      setError(
+        imageError instanceof Error
+          ? imageError.message
+          : "Не удалось обработать изображение карточки.",
+      );
     }
   }
 
@@ -734,7 +792,38 @@ export default function SettingsPage() {
                     <strong>Карточка {index + 1}</strong>
                     <InputField label="Название" value={item.title} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, title: value } : x))} />
                     <InputField label="Описание" value={item.description} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, description: value } : x))} />
-                    <InputField label="URL изображения" value={item.image} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, image: value } : x))} />
+<div style={{ display: "grid", gap: 8 }}>
+                      <span style={{ ...labelStyle, display: "block" }}>Изображение карточки</span>
+                      <label style={{ ...uploadZoneStyle, minHeight: 92, padding: 14, gap: 5 }}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => handleMenuCardImageChange(event, "menu_services", index)}
+                          style={{ display: "none" }}
+                        />
+                        <span style={{ fontSize: 24, color: "#ef4444", fontWeight: 700 }}>＋</span>
+                        <span style={{ fontWeight: 800, fontSize: 13 }}>Выбрать изображение с компьютера</span>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>JPG, PNG или WEBP · до 8 МБ</span>
+                      </label>
+                      {item.image ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <img
+                            src={item.image}
+                            alt={`Изображение карточки ${index + 1}`}
+                            style={{ width: 112, height: 70, objectFit: "cover", borderRadius: 10, border: "1px solid #e2e8f0" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateMenuCardImage("menu_services", index, "")}
+                            style={{ ...secondaryButtonStyle, padding: "9px 12px", fontSize: 12 }}
+                          >
+                            Удалить изображение
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontSize: 12 }}>Изображение не выбрано</span>
+                      )}
+                    </div>
                     <InputField label="Ссылка карточки" value={item.href} onChange={(value) => updateField("menu_services", settings.menu_services.map((x, i) => i === index ? { ...x, href: value } : x))} />
                   </div>
                 ))}
@@ -755,7 +844,38 @@ export default function SettingsPage() {
                     <strong>Карточка {index + 1}</strong>
                     <InputField label="Название" value={item.title} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, title: value } : x))} />
                     <InputField label="Описание" value={item.description} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, description: value } : x))} />
-                    <InputField label="URL изображения" value={item.image} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, image: value } : x))} />
+<div style={{ display: "grid", gap: 8 }}>
+                      <span style={{ ...labelStyle, display: "block" }}>Изображение карточки</span>
+                      <label style={{ ...uploadZoneStyle, minHeight: 92, padding: 14, gap: 5 }}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(event) => handleMenuCardImageChange(event, "menu_about", index)}
+                          style={{ display: "none" }}
+                        />
+                        <span style={{ fontSize: 24, color: "#ef4444", fontWeight: 700 }}>＋</span>
+                        <span style={{ fontWeight: 800, fontSize: 13 }}>Выбрать изображение с компьютера</span>
+                        <span style={{ fontSize: 11, color: "#64748b" }}>JPG, PNG или WEBP · до 8 МБ</span>
+                      </label>
+                      {item.image ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <img
+                            src={item.image}
+                            alt={`Изображение карточки ${index + 1}`}
+                            style={{ width: 112, height: 70, objectFit: "cover", borderRadius: 10, border: "1px solid #e2e8f0" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateMenuCardImage("menu_about", index, "")}
+                            style={{ ...secondaryButtonStyle, padding: "9px 12px", fontSize: 12 }}
+                          >
+                            Удалить изображение
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontSize: 12 }}>Изображение не выбрано</span>
+                      )}
+                    </div>
                     <InputField label="Ссылка карточки" value={item.href} onChange={(value) => updateField("menu_about", settings.menu_about.map((x, i) => i === index ? { ...x, href: value } : x))} />
                   </div>
                 ))}

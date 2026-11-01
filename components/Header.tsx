@@ -27,6 +27,18 @@ const DEFAULT_ABOUT: MenuCard[] = [
   { title: "Служба заботы", description: "Помогаем клиентам", image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80", href: "/contacts" },
 ];
 
+function buildCampaignHref(href: string, title: string, section: "services" | "about") {
+  try {
+    const url = new URL(href || (section === "services" ? "/services" : "/about"), "https://doma.local");
+    url.searchParams.set("promo", title);
+    url.searchParams.set("source", section);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    const fallback = section === "services" ? "/services" : "/about";
+    return buildCampaignHref(fallback, title, section);
+  }
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<"property" | "services" | "about" | null>(null);
@@ -107,9 +119,18 @@ export default function Header() {
             </div>
             <div className="doma-mega-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 14 }}>
               {menuItems.map((item, index) => (
-                <Link key={`${item.title}-${index}`} href={item.href || (openMenu === "services" ? "/services" : "/about")} onClick={() => setOpenMenu(null)} style={{ position: "relative", height: 160, borderRadius: 16, overflow: "hidden", textDecoration: "none", color: "#202328", background: "#eef0f4", display: "block" }}>
-                  <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${item.image}")`, backgroundSize: "cover", backgroundPosition: "center", filter: "grayscale(100%)", opacity: .72 }} />
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(239,241,245,.97) 0%, rgba(239,241,245,.82) 35%, rgba(239,241,245,.18) 100%)" }} />
+                <Link
+                  key={`${item.title}-${index}`}
+                  href={
+                    openMenu === "services" || openMenu === "about"
+                      ? buildCampaignHref(item.href, item.title, openMenu)
+                      : item.href || "/catalog"
+                  }
+                  onClick={() => setOpenMenu(null)}
+                  style={{ position: "relative", height: 160, borderRadius: 16, overflow: "hidden", textDecoration: "none", color: "#202328", background: "#eef0f4", display: "block" }}
+                >
+                  <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${item.image}")`, backgroundSize: "cover", backgroundPosition: "center", filter: "none", opacity: 1 }} />
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(239,241,245,.82) 0%, rgba(239,241,245,.48) 35%, rgba(239,241,245,.08) 100%)" }} />
                   <div style={{ position: "absolute", top: 24, left: 24, right: 18, fontSize: 15, fontWeight: 700, zIndex: 2 }}>{item.title}</div>
                   <div style={{ position: "absolute", left: 24, bottom: 22, width: 34, height: 34, borderRadius: "50%", border: "1px solid #d5dbe2", display: "flex", alignItems: "center", justifyContent: "center", color: "#66707c", fontSize: 18, zIndex: 2, background: "rgba(255,255,255,.3)" }}>→</div>
                 </Link>
