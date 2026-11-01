@@ -1739,7 +1739,19 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div
+      style={{ position: "relative", width: "100%" }}
+      onMouseLeave={() => {
+        setOpen(false);
+        setSearch("");
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          setSearch("");
+        }
+      }}
+    >
       <button
         type="button"
         onClick={() => { setOpen((current) => !current); setSearch(""); }}
@@ -1880,7 +1892,21 @@ function CityPicker({ value, onChange, style }: {
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div
+      style={{ position: "relative", width: "100%" }}
+      onMouseLeave={() => {
+        setOpen(false);
+        setSearch("");
+        setItems([]);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          setSearch("");
+          setItems([]);
+        }
+      }}
+    >
       <button
         type="button"
         aria-expanded={open}
