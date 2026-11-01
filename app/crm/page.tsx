@@ -629,17 +629,25 @@ export default function CRMPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data.detail || "Не удалось сохранить объект.");
-        return;
+        throw new Error(
+          typeof data?.detail === "string"
+            ? data.detail
+            : `Не удалось сохранить объект. Сервер вернул код ${res.status}.`
+        );
       }
 
       const propertyId = Number(data.id ?? data.property?.id ?? editingPropertyId);
       if (!propertyId) {
         throw new Error("Сервер сохранил объект, но не вернул его ID. Обновите список объектов перед повторным созданием.");
       }
+
+      // Если запись объекта создалась, а загрузка фото упала, следующая попытка
+      // должна обновить этот же объект, а не создать дубликат.
+      setEditingPropertyId(propertyId);
+      setSavedId(propertyId);
 
       // The cover photo is stored in Property.image_url. Additional photos are stored
       // in PropertyImage. Keep existing gallery IDs, upload new files, then sync the
@@ -658,8 +666,14 @@ export default function CRMPage() {
           body: coverForm,
         });
         if (!coverResponse.ok) {
-          const detail = await coverResponse.text();
-          throw new Error(`Объект №${propertyId} сохранён, но главное фото не загрузилось: ${detail}`);
+          const payload = await coverResponse.json().catch(async () => {
+            const text = await coverResponse.text().catch(() => "");
+            return { detail: text };
+          });
+          const detail = typeof payload?.detail === "string"
+            ? payload.detail
+            : `сервер вернул код ${coverResponse.status}`;
+          throw new Error(`Объект №${propertyId} сохранён, но главное фото «${primaryPhoto.file.name}» не загрузилось: ${detail}`);
         }
       }
 
@@ -701,8 +715,10 @@ export default function CRMPage() {
       setEditingPropertyId(null);
       alert(`${wasEditing ? "Изменения сохранены" : "Объект сохранён"}. ID: ${propertyId}. Фотографий в форме: ${photos.length}`);
     } catch (error) {
-      console.error(error);
-      alert("Не удалось подключиться к серверу CRM. Проверьте доступность API: https://doma-nq4u.onrender.com/");
+      console.error("DOMA CRM save/upload error:", error);
+      alert(error instanceof Error
+        ? error.message
+        : "Не удалось сохранить объект или загрузить фотографии. Проверьте логи backend.");
     } finally {
       setIsSaving(false);
     }
@@ -1951,7 +1967,22 @@ function SearchableSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) 
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div
+      style={{ position: "relative", width: "100%" }}
+      onMouseLeave={() => {
+        // Закрываем список, когда курсор покидает всю область селекта.
+        // Обёртка включает и кнопку, и выпадающее меню, поэтому переход
+        // курсора с кнопки в меню не закрывает список преждевременно.
+        setOpen(false);
+        setSearch("");
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          setSearch("");
+        }
+      }}
+    >
       <button
         type="button"
         disabled={disabled}
