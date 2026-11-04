@@ -4684,6 +4684,35 @@ def ensure_login_challenges_table() -> None:
 ensure_login_challenges_table()
 
 
+def ensure_admin_sessions_table() -> None:
+    """Create the persistent session registry used for immediate admin revocation."""
+    with engine.begin() as connection:
+        connection.execute(text("""
+            ALTER TABLE doma_login_challenges
+            ADD COLUMN IF NOT EXISTS session_id VARCHAR(64)
+        """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS doma_admin_sessions (
+                session_id VARCHAR(64) PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                revoked_at TIMESTAMP
+            )
+        """))
+        connection.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_doma_admin_sessions_user_id
+            ON doma_admin_sessions (user_id)
+        """))
+        connection.execute(text("""
+            CREATE INDEX IF NOT EXISTS ix_doma_admin_sessions_expires_at
+            ON doma_admin_sessions (expires_at)
+        """))
+
+
+ensure_admin_sessions_table()
+
+
 def get_telegram_config() -> dict[str, str]:
     config = {
         "bot_token": os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
@@ -4787,10 +4816,177 @@ def register_telegram_webhook() -> None:
         )
 
 
+def get_developer_bot_config() -> dict[str, str] | None:
+    """Return developer bot settings; the feature stays disabled if not configured."""
+    token = os.getenv("DEVELOPER_BOT_TOKEN", "").strip()
+    developer_id = os.getenv("DEVELOPER_TELEGRAM_ID", "").strip()
+    webhook_secret = os.getenv("DEVELOPER_BOT_SECRET", "").strip()
+
+    if not any((token, developer_id, webhook_secret)):
+        return None
+    if not token or not developer_id.isdigit() or not 32 <= len(webhook_secret) <= 256:
+        print("Developer bot disabled: check DEVELOPER_BOT_TOKEN, DEVELOPER_TELEGRAM_ID and DEVELOPER_BOT_SECRET.")
+        return None
+    return {
+        "bot_token": token,
+        "developer_id": developer_id,
+        "webhook_secret": webhook_secret,
+    }
+
+
+def register_developer_bot_webhook() -> None:
+    """Register a separate webhook for the developer bot."""
+    config = get_developer_bot_config()
+    if not config:
+        return
+
+    public_base_url = (
+        os.getenv("RENDER_EXTERNAL_URL", "").strip()
+        or "https://doma-nq4u.onrender.com"
+    ).rstrip("/")
+    parsed_url = urlsplit(public_base_url)
+    if parsed_url.scheme != "https" or not parsed_url.netloc:
+        raise RuntimeError("RENDER_EXTERNAL_URL must be a valid HTTPS URL.")
+
+    result = telegram_api(
+        "setWebhook",
+        {
+            "url": f"{public_base_url}/developer-bot/webhook",
+            "secret_token": config["webhook_secret"],
+            "allowed_updates": ["message", "callback_query"],
+            "drop_pending_updates": False,
+        },
+        bot_token=config["bot_token"],
+    )
+    if result is not True:
+        raise RuntimeError("Developer bot setWebhook did not return true.")
+    print("Developer bot webhook configured.")
+
+
+@app.post("/developer-bot/webhook")
+async def developer_bot_webhook(request: Request):
+    """Allow only the configured developer Telegram account to manage sessions."""
+    config = get_developer_bot_config()
+    if not config:
+        raise HTTPException(status_code=503, detail="Developer bot is not configured.")
+
+    provided_secret = request.headers.get("x-telegram-bot-api-secret-token", "")
+    if not secrets.compare_digest(provided_secret, config["webhook_secret"]):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        update = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректное тело Telegram webhook.")
+
+    message = update.get("message") if isinstance(update, dict) else None
+    callback = update.get("callback_query") if isinstance(update, dict) else None
+
+    def send_message(chat_id: str, message_text: str, reply_markup: dict | None = None):
+        payload = {"chat_id": chat_id, "text": message_text}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        telegram_api("sendMessage", payload, bot_token=config["bot_token"])
+
+    if isinstance(message, dict):
+        sender_id = str((message.get("from") or {}).get("id") or "")
+        chat_id = str((message.get("chat") or {}).get("id") or "")
+        message_text = str(message.get("text") or "").strip()
+        command = message_text.split()[0].lower() if message_text else ""
+
+        if sender_id != config["developer_id"] or chat_id != config["developer_id"]:
+            return {"ok": True}
+
+        if command in {"/start", "/help"}:
+            send_message(
+                chat_id,
+                "DOMA Developer Bot\n\n"
+                "/sessions — показать активные сессии администратора.\n"
+                "Выберите сессию и нажмите «Завершить», чтобы отозвать доступ.",
+            )
+            return {"ok": True}
+
+        if command == "/sessions":
+            now = datetime.utcnow()
+            with engine.connect() as connection:
+                sessions = connection.execute(text("""
+                    SELECT session_id, user_id, created_at, expires_at
+                    FROM doma_admin_sessions
+                    WHERE revoked_at IS NULL AND expires_at > :now
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                """), {"now": now}).mappings().all()
+
+            if not sessions:
+                send_message(chat_id, "Активных сессий нет.")
+                return {"ok": True}
+
+            for session in sessions:
+                sid = str(session["session_id"])
+                created = session["created_at"]
+                expires = session["expires_at"]
+                text_value = (
+                    "Активная сессия DOMA\n"
+                    f"Создана: {created:%d.%m.%Y %H:%M} UTC\n"
+                    f"Истекает: {expires:%d.%m.%Y %H:%M} UTC\n"
+                    f"ID: {sid[:8]}…"
+                )
+                keyboard = {"inline_keyboard": [[{
+                    "text": "Завершить сессию",
+                    "callback_data": f"revoke:{sid}",
+                }]]}
+                send_message(chat_id, text_value, keyboard)
+            return {"ok": True}
+
+        send_message(chat_id, "Неизвестная команда. Используйте /sessions.")
+        return {"ok": True}
+
+    if isinstance(callback, dict):
+        callback_id = str(callback.get("id") or "")
+        sender_id = str((callback.get("from") or {}).get("id") or "")
+        chat_id = str((((callback.get("message") or {}).get("chat") or {}).get("id")) or "")
+        callback_data = str(callback.get("data") or "")
+
+        if sender_id != config["developer_id"] or chat_id != config["developer_id"]:
+            return {"ok": True}
+
+        match = re.fullmatch(r"revoke:([A-Za-z0-9_-]{30,64})", callback_data)
+        if match:
+            session_id = match.group(1)
+            with engine.begin() as connection:
+                result = connection.execute(text("""
+                    UPDATE doma_admin_sessions
+                    SET revoked_at = :now
+                    WHERE session_id = :session_id
+                      AND revoked_at IS NULL
+                      AND expires_at > :now
+                """), {"session_id": session_id, "now": datetime.utcnow()})
+                revoked = result.rowcount == 1
+
+            telegram_api(
+                "answerCallbackQuery",
+                {
+                    "callback_query_id": callback_id,
+                    "text": "Сессия завершена." if revoked else "Сессия уже завершена или истекла.",
+                    "show_alert": True,
+                },
+                bot_token=config["bot_token"],
+            )
+            if revoked:
+                send_message(chat_id, f"Доступ сессии {session_id[:8]}… отозван.")
+        return {"ok": True}
+
+    return {"ok": True}
+
+
 @app.on_event("startup")
 async def startup_register_telegram_webhook() -> None:
     # The Telegram API call is blocking; keep it off the event loop.
     await asyncio.to_thread(register_telegram_webhook)
+    try:
+        await asyncio.to_thread(register_developer_bot_webhook)
+    except Exception as exc:
+        print(f"Developer bot webhook registration failed: {type(exc).__name__}")
 
 
 
@@ -4874,18 +5070,19 @@ def login(data: LoginSchema):
 
 @app.get("/login/status/{request_id}")
 def login_status(request_id: str):
-    """Deliver the JWT only after Telegram approval; retry-safe during the 3-minute challenge."""
+    """Deliver a stable JWT backed by one persistent, revocable session."""
     if not re.fullmatch(r"[0-9a-f]{48}", request_id):
         raise HTTPException(status_code=404, detail="Запрос на вход не найден.")
 
     now = datetime.utcnow()
     with engine.begin() as connection:
         row = connection.execute(text("""
-            SELECT user_id, status, expires_at
+            SELECT user_id, status, expires_at, session_id
             FROM doma_login_challenges
             WHERE request_id = :request_id
             FOR UPDATE
         """), {"request_id": request_id}).mappings().first()
+
         if row is None:
             raise HTTPException(status_code=404, detail="Запрос на вход не найден.")
 
@@ -4896,39 +5093,67 @@ def login_status(request_id: str):
         if getattr(expires_at, "tzinfo", None) is not None:
             expires_at = expires_at.replace(tzinfo=None)
 
-        if status in {"pending", "issued", "approved"} and expires_at <= now:
+        if status in {"pending", "approved", "issued"} and expires_at <= now:
             connection.execute(text("""
-                UPDATE doma_login_challenges SET status = 'expired'
+                UPDATE doma_login_challenges
+                SET status = 'expired'
                 WHERE request_id = :request_id
-                  AND status IN ('pending', 'issued', 'approved')
+                  AND status IN ('pending', 'approved', 'issued')
             """), {"request_id": request_id})
             return {"status": "expired"}
 
         if status == "pending":
-            return {"status": "pending", "expires_in": max(0, int((expires_at - now).total_seconds()))}
+            return {
+                "status": "pending",
+                "expires_in": max(0, int((expires_at - now).total_seconds())),
+            }
 
-        if status == "approved":
+        if status in {"approved", "issued"}:
+            session_id = row["session_id"]
+
+            # Create the session exactly once while the challenge row is locked.
+            if not session_id:
+                session_id = secrets.token_urlsafe(32)
+                session_expires_at = now + timedelta(days=7)
+
+                connection.execute(text("""
+                    INSERT INTO doma_admin_sessions
+                        (session_id, user_id, created_at, expires_at, revoked_at)
+                    VALUES
+                        (:session_id, :user_id, :created_at, :expires_at, NULL)
+                """), {
+                    "session_id": session_id,
+                    "user_id": int(row["user_id"]),
+                    "created_at": now,
+                    "expires_at": session_expires_at,
+                })
+
+                connection.execute(text("""
+                    UPDATE doma_login_challenges
+                    SET status = 'issued', session_id = :session_id
+                    WHERE request_id = :request_id
+                """), {
+                    "session_id": session_id,
+                    "request_id": request_id,
+                })
+            else:
+                active_session = connection.execute(text("""
+                    SELECT session_id
+                    FROM doma_admin_sessions
+                    WHERE session_id = :session_id
+                      AND revoked_at IS NULL
+                      AND expires_at > :now
+                """), {"session_id": session_id, "now": now}).first()
+
+                if active_session is None:
+                    return {"status": "expired"}
+
             token = create_access_token({
                 "sub": str(row["user_id"]),
                 "role": "admin",
                 "telegram_2fa": True,
                 "auth_method": "password+telegram",
-            })
-            connection.execute(text("""
-                UPDATE doma_login_challenges
-                SET status = 'issued'
-                WHERE request_id = :request_id AND status = 'approved'
-            """), {"request_id": request_id})
-            return {"status": "approved", "access_token": token}
-
-        if status == "issued" and expires_at > now:
-            # Re-issue a fresh JWT during the short challenge window if the first
-            # polling response was lost. The random request_id is the temporary secret.
-            token = create_access_token({
-                "sub": str(row["user_id"]),
-                "role": "admin",
-                "telegram_2fa": True,
-                "auth_method": "password+telegram",
+                "jti": session_id,
             })
             return {"status": "approved", "access_token": token}
 
@@ -5185,6 +5410,32 @@ def require_admin(authorization: str | None):
             status_code=401,
             detail="Требуется повторный вход с подтверждением через Telegram.",
         )
+
+    session_id = payload.get("jti")
+    if not isinstance(session_id, str) or not session_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Сессия не зарегистрирована. Выполните повторный вход.",
+        )
+
+    with engine.connect() as connection:
+        active_session = connection.execute(text("""
+            SELECT session_id
+            FROM doma_admin_sessions
+            WHERE session_id = :session_id
+              AND revoked_at IS NULL
+              AND expires_at > :now
+        """), {
+            "session_id": session_id,
+            "now": datetime.utcnow(),
+        }).first()
+
+    if active_session is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Сессия завершена или истекла. Выполните повторный вход.",
+        )
+
     return payload
 
 
@@ -5194,7 +5445,7 @@ def request_requires_admin(method: str, path: str) -> bool:
     if method == "OPTIONS":
         return False
 
-    if method == "POST" and path in {"/login", "/telegram/webhook", "/leads"}:
+    if method == "POST" and path in {"/login", "/telegram/webhook", "/developer-bot/webhook", "/leads"}:
         return False
     if method == "GET" and path.startswith("/login/status/"):
         return False
