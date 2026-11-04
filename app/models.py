@@ -226,6 +226,31 @@ class Property(Base):
     pool = Column(Boolean, nullable=False, default=False)
     garage = Column(Boolean, nullable=False, default=False)
 
+    # Дополнительные поля формы CRM.
+    hot_water = Column(String(120), nullable=True)
+    sewerage_type = Column(String(120), nullable=True)
+    water_supply = Column(String(120), nullable=True)
+    gas_supply = Column(String(120), nullable=True)
+    amenities = Column(String(120), nullable=True)
+    appliances = Column(String(120), nullable=True)
+    roof_material = Column(String(120), nullable=True)
+    plot_coverage = Column(String(120), nullable=True)
+    fence_material = Column(String(120), nullable=True)
+    ownership_certificate = Column(String(120), nullable=True)  # Только CRM.
+
+    source = Column(String(120), nullable=True)
+    deal_date = Column(String(20), nullable=True)
+    monthly_payment = Column(BigInteger, nullable=False, default=0)
+    has_maternal_capital = Column(Boolean, nullable=False, default=False)
+    show_price_per_sqm = Column(Boolean, nullable=False, default=False)
+    residential_complex = Column(String(255), nullable=True)
+    cadastral_number = Column(String(120), nullable=True)
+    land_cadastral_number = Column(String(120), nullable=True)
+    metro = Column(String(120), nullable=True)
+    condition = Column(String(120), nullable=True)
+    ceiling_height = Column(Float, nullable=True)
+    furniture = Column(String(120), nullable=True)
+
 
 # =========================================================
 # Clients

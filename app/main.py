@@ -286,6 +286,28 @@ def ensure_property_characteristics() -> None:
         "sauna": "BOOLEAN NOT NULL DEFAULT FALSE",
         "pool": "BOOLEAN NOT NULL DEFAULT FALSE",
         "garage": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "hot_water": "VARCHAR(120)",
+        "sewerage_type": "VARCHAR(120)",
+        "water_supply": "VARCHAR(120)",
+        "gas_supply": "VARCHAR(120)",
+        "amenities": "VARCHAR(120)",
+        "appliances": "VARCHAR(120)",
+        "roof_material": "VARCHAR(120)",
+        "plot_coverage": "VARCHAR(120)",
+        "fence_material": "VARCHAR(120)",
+        "ownership_certificate": "VARCHAR(120)",
+        "source": "VARCHAR(120)",
+        "deal_date": "VARCHAR(20)",
+        "monthly_payment": "BIGINT NOT NULL DEFAULT 0",
+        "has_maternal_capital": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "show_price_per_sqm": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "residential_complex": "VARCHAR(255)",
+        "cadastral_number": "VARCHAR(120)",
+        "land_cadastral_number": "VARCHAR(120)",
+        "metro": "VARCHAR(120)",
+        "condition": "VARCHAR(120)",
+        "ceiling_height": "DOUBLE PRECISION",
+        "furniture": "VARCHAR(120)",
     }
     try:
         with engine.begin() as connection:
@@ -956,6 +978,18 @@ def property_to_dict(
         "sauna": bool(getattr(item, "sauna", False)),
         "pool": bool(getattr(item, "pool", False)),
         "garage": bool(getattr(item, "garage", False)),
+        "hot_water": getattr(item, "hot_water", None),
+        "sewerage_type": getattr(item, "sewerage_type", None),
+        "water_supply": getattr(item, "water_supply", None),
+        "gas_supply": getattr(item, "gas_supply", None),
+        "amenities": getattr(item, "amenities", None),
+        "appliances": getattr(item, "appliances", None),
+        "roof_material": getattr(item, "roof_material", None),
+        "plot_coverage": getattr(item, "plot_coverage", None),
+        "fence_material": getattr(item, "fence_material", None),
+        "furniture": getattr(item, "furniture", None),
+        "ceiling_height": getattr(item, "ceiling_height", None),
+        "condition": getattr(item, "condition", None),
 
         "image_url":
             item.image_url
@@ -1110,6 +1144,54 @@ async def read_property_request(
                 form.get(
                     "image_url"
                 ),
+            "floor": form.get("floor"),
+            "total_floors": form.get("total_floors"),
+            "bathroom": form.get("bathroom"),
+            "balcony": form.get("balcony"),
+            "renovation": form.get("renovation"),
+            "building_material": form.get("building_material"),
+            "year_built": form.get("year_built"),
+            "room_layout": form.get("room_layout"),
+            "living_area": form.get("living_area"),
+            "kitchen_area": form.get("kitchen_area"),
+            "plot_area": form.get("plot_area"),
+            "plot_length": form.get("plot_length"),
+            "plot_width": form.get("plot_width"),
+            "frontage": form.get("frontage"),
+            "land_purpose": form.get("land_purpose"),
+            "heating": form.get("heating"),
+            "hot_water": form.get("hot_water"),
+            "sewerage_type": form.get("sewerage_type"),
+            "water_supply": form.get("water_supply"),
+            "gas_supply": form.get("gas_supply"),
+            "amenities": form.get("amenities"),
+            "appliances": form.get("appliances"),
+            "roof_material": form.get("roof_material"),
+            "plot_coverage": form.get("plot_coverage"),
+            "fence_material": form.get("fence_material"),
+            "ownership_certificate": form.get("ownership_certificate"),
+            "furniture": form.get("furniture"),
+            "ceiling_height": form.get("ceiling_height"),
+            "condition": form.get("condition"),
+            "source": form.get("source"),
+            "deal_date": form.get("deal_date"),
+            "monthly_payment": form.get("monthly_payment"),
+            "has_maternal_capital": form.get("has_maternal_capital"),
+            "show_price_per_sqm": form.get("show_price_per_sqm"),
+            "residential_complex": form.get("residential_complex"),
+            "cadastral_number": form.get("cadastral_number"),
+            "land_cadastral_number": form.get("land_cadastral_number"),
+            "metro": form.get("metro"),
+            "gas": form.get("gas"),
+            "water": form.get("water"),
+            "electricity": form.get("electricity"),
+            "sewerage": form.get("sewerage"),
+            "fenced": form.get("fenced"),
+            "terrace": form.get("terrace"),
+            "bathhouse": form.get("bathhouse"),
+            "sauna": form.get("sauna"),
+            "pool": form.get("pool"),
+            "garage": form.get("garage"),
         }
 
         image = form.get(
@@ -1553,6 +1635,28 @@ def validate_property_payload(
         "sauna": to_bool(payload.get("sauna", getattr(existing, "sauna", False) if existing else False), False),
         "pool": to_bool(payload.get("pool", getattr(existing, "pool", False) if existing else False), False),
         "garage": to_bool(payload.get("garage", getattr(existing, "garage", False) if existing else False), False),
+        "hot_water": text_value(payload.get("hot_water", getattr(existing, "hot_water", None) if existing else None)) or None,
+        "sewerage_type": text_value(payload.get("sewerage_type", getattr(existing, "sewerage_type", None) if existing else None)) or None,
+        "water_supply": text_value(payload.get("water_supply", getattr(existing, "water_supply", None) if existing else None)) or None,
+        "gas_supply": text_value(payload.get("gas_supply", getattr(existing, "gas_supply", None) if existing else None)) or None,
+        "amenities": text_value(payload.get("amenities", getattr(existing, "amenities", None) if existing else None)) or None,
+        "appliances": text_value(payload.get("appliances", getattr(existing, "appliances", None) if existing else None)) or None,
+        "roof_material": text_value(payload.get("roof_material", getattr(existing, "roof_material", None) if existing else None)) or None,
+        "plot_coverage": text_value(payload.get("plot_coverage", getattr(existing, "plot_coverage", None) if existing else None)) or None,
+        "fence_material": text_value(payload.get("fence_material", getattr(existing, "fence_material", None) if existing else None)) or None,
+        "ownership_certificate": text_value(payload.get("ownership_certificate", getattr(existing, "ownership_certificate", None) if existing else None)) or None,
+        "source": text_value(payload.get("source", getattr(existing, "source", None) if existing else None)) or None,
+        "deal_date": text_value(payload.get("deal_date", getattr(existing, "deal_date", None) if existing else None)) or None,
+        "monthly_payment": to_int(payload.get("monthly_payment", getattr(existing, "monthly_payment", 0) if existing else 0), "monthly_payment", 0),
+        "has_maternal_capital": to_bool(payload.get("has_maternal_capital", getattr(existing, "has_maternal_capital", False) if existing else False), False),
+        "show_price_per_sqm": to_bool(payload.get("show_price_per_sqm", getattr(existing, "show_price_per_sqm", False) if existing else False), False),
+        "residential_complex": text_value(payload.get("residential_complex", getattr(existing, "residential_complex", None) if existing else None)) or None,
+        "cadastral_number": text_value(payload.get("cadastral_number", getattr(existing, "cadastral_number", None) if existing else None)) or None,
+        "land_cadastral_number": text_value(payload.get("land_cadastral_number", getattr(existing, "land_cadastral_number", None) if existing else None)) or None,
+        "metro": text_value(payload.get("metro", getattr(existing, "metro", None) if existing else None)) or None,
+        "condition": text_value(payload.get("condition", getattr(existing, "condition", None) if existing else None)) or None,
+        "ceiling_height": optional_float(payload.get("ceiling_height", getattr(existing, "ceiling_height", None) if existing else None), "ceiling_height"),
+        "furniture": text_value(payload.get("furniture", getattr(existing, "furniture", None) if existing else None)) or None,
     }
 
 
@@ -1927,6 +2031,17 @@ def get_crm_property(
             "condition": getattr(property_obj, "condition", "") or "",
             "ceiling_height": getattr(property_obj, "ceiling_height", 0) or 0,
             "furniture": getattr(property_obj, "furniture", "") or "",
+            # Sensitive ownership-tenure information is CRM-only.
+            "ownership_certificate": getattr(property_obj, "ownership_certificate", "") or "",
+            "hot_water": getattr(property_obj, "hot_water", "") or "",
+            "sewerage_type": getattr(property_obj, "sewerage_type", "") or "",
+            "water_supply": getattr(property_obj, "water_supply", "") or "",
+            "gas_supply": getattr(property_obj, "gas_supply", "") or "",
+            "amenities": getattr(property_obj, "amenities", "") or "",
+            "appliances": getattr(property_obj, "appliances", "") or "",
+            "roof_material": getattr(property_obj, "roof_material", "") or "",
+            "plot_coverage": getattr(property_obj, "plot_coverage", "") or "",
+            "fence_material": getattr(property_obj, "fence_material", "") or "",
         })
         return result
     finally:
@@ -2020,6 +2135,28 @@ async def create_property(
             sauna=data["sauna"],
             pool=data["pool"],
             garage=data["garage"],
+            hot_water=data["hot_water"],
+            sewerage_type=data["sewerage_type"],
+            water_supply=data["water_supply"],
+            gas_supply=data["gas_supply"],
+            amenities=data["amenities"],
+            appliances=data["appliances"],
+            roof_material=data["roof_material"],
+            plot_coverage=data["plot_coverage"],
+            fence_material=data["fence_material"],
+            ownership_certificate=data["ownership_certificate"],
+            source=data["source"],
+            deal_date=data["deal_date"],
+            monthly_payment=data["monthly_payment"],
+            has_maternal_capital=data["has_maternal_capital"],
+            show_price_per_sqm=data["show_price_per_sqm"],
+            residential_complex=data["residential_complex"],
+            cadastral_number=data["cadastral_number"],
+            land_cadastral_number=data["land_cadastral_number"],
+            metro=data["metro"],
+            condition=data["condition"],
+            ceiling_height=data["ceiling_height"],
+            furniture=data["furniture"],
 
             is_draft=data.get("is_draft", True),
         )
@@ -2203,6 +2340,28 @@ async def update_property(
         property_obj.sauna = data["sauna"]
         property_obj.pool = data["pool"]
         property_obj.garage = data["garage"]
+        property_obj.hot_water = data["hot_water"]
+        property_obj.sewerage_type = data["sewerage_type"]
+        property_obj.water_supply = data["water_supply"]
+        property_obj.gas_supply = data["gas_supply"]
+        property_obj.amenities = data["amenities"]
+        property_obj.appliances = data["appliances"]
+        property_obj.roof_material = data["roof_material"]
+        property_obj.plot_coverage = data["plot_coverage"]
+        property_obj.fence_material = data["fence_material"]
+        property_obj.ownership_certificate = data["ownership_certificate"]
+        property_obj.source = data["source"]
+        property_obj.deal_date = data["deal_date"]
+        property_obj.monthly_payment = data["monthly_payment"]
+        property_obj.has_maternal_capital = data["has_maternal_capital"]
+        property_obj.show_price_per_sqm = data["show_price_per_sqm"]
+        property_obj.residential_complex = data["residential_complex"]
+        property_obj.cadastral_number = data["cadastral_number"]
+        property_obj.land_cadastral_number = data["land_cadastral_number"]
+        property_obj.metro = data["metro"]
+        property_obj.condition = data["condition"]
+        property_obj.ceiling_height = data["ceiling_height"]
+        property_obj.furniture = data["furniture"]
 
         if hasattr(
             property_obj,
