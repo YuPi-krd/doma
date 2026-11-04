@@ -683,22 +683,37 @@ export default function PropertyPage() {
           position: relative;
           width: 100%;
           overflow: hidden;
-          border: 2px solid #ef4444;
-          border-bottom: 0;
-          border-radius: 23px 23px 0 0;
-          background: #e9edf2;
+          padding: 14px;
+          border: 0;
+          border-radius: 26px;
+          background: #f7f8fa;
+          box-shadow: 0 10px 30px rgba(25, 34, 48, .065);
           box-sizing: border-box;
         }
         .gallery-frame :global(.gallery-card) {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 14px;
           width: 100%;
+          height: auto;
+          border: 0;
           border-radius: 0;
-          overflow: hidden;
+          overflow: visible;
+          background: transparent;
         }
         .gallery-frame :global(.gallery-card .image-stage) {
-          height: clamp(240px, 15vw, 270px) !important;
-          min-height: 240px !important;
-          border-radius: 19px 19px 0 0 !important;
-          background: #e7ebf0;
+          position: relative;
+          flex: 0 0 auto;
+          width: 100%;
+          height: auto !important;
+          aspect-ratio: 16 / 9;
+          min-height: 0 !important;
+          max-height: 570px;
+          border: 0;
+          border-radius: 20px !important;
+          background: #e9edf2;
+          box-shadow: 0 5px 18px rgba(20, 28, 40, .055);
         }
         .gallery-frame :global(.gallery-card .gallery-image) {
           display: block;
@@ -707,7 +722,44 @@ export default function PropertyPage() {
           object-fit: cover !important;
           object-position: center;
           opacity: 1 !important;
-          filter: brightness(1.06) contrast(1.025) saturate(1.025);
+          filter: none;
+        }
+
+        .gallery-frame :global(.gallery-card .thumbnails) {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          margin: 0;
+          padding: 3px 2px 9px;
+        }
+        .gallery-frame :global(.gallery-card .thumbnail) {
+          flex: 0 0 124px;
+          height: 86px;
+          padding: 0;
+          overflow: hidden;
+          border: 2px solid transparent;
+          border-radius: 15px;
+          background: #e8edf3;
+          opacity: .76;
+          box-shadow: 0 3px 10px rgba(24, 34, 48, .08);
+          transition: transform .18s ease, opacity .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .gallery-frame :global(.gallery-card .thumbnail:hover) {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+        .gallery-frame :global(.gallery-card .thumbnail.active) {
+          border-color: #344255;
+          opacity: 1;
+          box-shadow: 0 0 0 2px rgba(52, 66, 85, .10), 0 6px 16px rgba(24, 34, 48, .13);
+        }
+        .gallery-frame :global(.gallery-card .thumbnail img) {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 11px;
         }
         .gallery-frame :global(.gallery-card .gallery-arrow) {
           width: 48px;
@@ -1005,7 +1057,7 @@ export default function PropertyPage() {
           .page { padding: 16px 14px 48px; }
           .detail-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
           .detail-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
-          .gallery-frame :global(.gallery-card .image-stage) { height: clamp(250px, 52vw, 360px) !important; min-height: 250px !important; }
+          .gallery-frame :global(.gallery-card .image-stage) { aspect-ratio: 4 / 3; height: auto !important; min-height: 0 !important; }
           .summary-block { padding: 20px 20px 16px; }
           .detail-section { margin-left: 20px; margin-right: 20px; }
           .content-panel { padding: 20px; }
@@ -1015,7 +1067,9 @@ export default function PropertyPage() {
           .page { padding: 12px 10px 36px; }
           .detail-sidebar { grid-template-columns: minmax(0, 1fr); }
           .agency-card, .share-card { height: auto; padding: 18px; }
-          .gallery-frame :global(.gallery-card .image-stage) { height: clamp(220px, 67vw, 310px) !important; min-height: 220px !important; }
+          .gallery-frame :global(.gallery-card .image-stage) { aspect-ratio: 4 / 3; height: auto !important; min-height: 0 !important; }
+          .gallery-frame :global(.gallery-card .thumbnail) { flex-basis: 94px; height: 68px; }
+          .gallery-frame :global(.gallery-card .thumbnails) { gap: 9px; }
           .gallery-frame :global(.gallery-card .gallery-arrow) { width: 40px; height: 40px; font-size: 26px; }
           .gallery-frame :global(.gallery-card .gallery-arrow.left) { left: 10px; }
           .gallery-frame :global(.gallery-card .gallery-arrow.right) { right: 10px; }

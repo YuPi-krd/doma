@@ -21,52 +21,83 @@ interface PhotoPreview {
   serverId?: number;
 }
 
-const subtypeOptions: Record<string, { value: string; label: string }[]> = {
-  apartment: [
-    { value: "secondary", label: "Вторичка" },
-    { value: "new_building", label: "Новостройка" },
-    { value: "1_room", label: "1-комнатная" },
-    { value: "2_room", label: "2-комнатная" },
-    { value: "3_room", label: "3-комнатная" },
-    { value: "4_room", label: "4-комнатная" },
-    { value: "5_room", label: "5-комнатная" },
-  ],
-  house: [
-    { value: "house", label: "Дом" },
-    { value: "part_of_house", label: "Часть дома" },
-    { value: "townhouse", label: "Таунхаус" },
-    { value: "duplex", label: "Дуплекс" },
-    { value: "cottage", label: "Коттедж" },
-    { value: "dacha", label: "Дача" },
-  ],
-  land: [
-    { value: "izhs", label: "ИЖС" },
-    { value: "gardening", label: "Садоводство" },
-    { value: "commercial_land", label: "Коммерческое" },
-    { value: "lph", label: "ЛПХ" },
-    { value: "dnp", label: "ДНП" },
-  ],
-  commercial: [
-    { value: "office", label: "Офис" },
-    { value: "business", label: "Бизнес" },
-    { value: "separate_building", label: "Отдельное здание" },
-    { value: "production", label: "Производство" },
-    { value: "warehouse", label: "Склад" },
-    { value: "retail", label: "Торговое помещение" },
-    { value: "sto", label: "СТО" },
-    { value: "hotel", label: "Гостиница" },
-    { value: "car_wash", label: "Автомойка" },
-    { value: "cafe", label: "Кафе" },
-    { value: "shop", label: "Магазин" },
-  ],
-  garage: [
-    { value: "garage_box", label: "Гараж-бокс" },
-    { value: "residential_complex", label: "Паркинг ЖК" },
-    { value: "covered_parking", label: "Крытый паркинг" },
-    { value: "separate_garage", label: "Отдельный гараж" },
-    { value: "parking", label: "Машино-место" },
-  ],
+type PropertyCatalogItem = {
+  value: string;
+  label: string;
+  category: "apartment" | "house" | "land" | "commercial" | "garage";
+  subtype: string;
+  rooms?: string;
+  heading?: boolean;
 };
+
+const propertyCatalog: PropertyCatalogItem[] = [
+  { value: "group-apartments", label: "КВАРТИРЫ", category: "apartment", subtype: "", heading: true },
+  { value: "studio-secondary", label: "Студия втор", category: "apartment", subtype: "studio_secondary", rooms: "0" },
+  { value: "studio-primary", label: "Студия перв", category: "apartment", subtype: "studio_primary", rooms: "0" },
+  { value: "1-secondary", label: "1-к втор", category: "apartment", subtype: "1_room_secondary", rooms: "1" },
+  { value: "1-primary", label: "1-к перв", category: "apartment", subtype: "1_room_primary", rooms: "1" },
+  { value: "2-secondary", label: "2-к втор", category: "apartment", subtype: "2_room_secondary", rooms: "2" },
+  { value: "2-primary", label: "2-к перв", category: "apartment", subtype: "2_room_primary", rooms: "2" },
+  { value: "3-secondary", label: "3-к втор", category: "apartment", subtype: "3_room_secondary", rooms: "3" },
+  { value: "3-primary", label: "3-к перв", category: "apartment", subtype: "3_room_primary", rooms: "3" },
+  { value: "4-secondary", label: "4-к втор", category: "apartment", subtype: "4_room_secondary", rooms: "4" },
+  { value: "4-primary", label: "4-к перв", category: "apartment", subtype: "4_room_primary", rooms: "4" },
+  { value: "5plus-secondary", label: "5-к и более втор", category: "apartment", subtype: "5_room_secondary", rooms: "5" },
+  { value: "5plus-primary", label: "5-к и более перв", category: "apartment", subtype: "5_room_primary", rooms: "5" },
+  { value: "penthouse-secondary", label: "Пентхаус втор", category: "apartment", subtype: "penthouse_secondary" },
+  { value: "penthouse-primary", label: "Пентхаус перв", category: "apartment", subtype: "penthouse_primary" },
+  { value: "apartments-secondary", label: "Апартаменты втор", category: "apartment", subtype: "apartments_secondary" },
+  { value: "apartments-primary", label: "Апартаменты перв", category: "apartment", subtype: "apartments_primary" },
+  { value: "room", label: "Комната", category: "apartment", subtype: "room" },
+  { value: "nonresidential-secondary", label: "Нежилое помещение", category: "commercial", subtype: "nonresidential_secondary" },
+  { value: "nonresidential-primary", label: "Нежилое помещение перв", category: "commercial", subtype: "nonresidential_primary" },
+  { value: "storage-secondary", label: "Кладовка втор", category: "commercial", subtype: "storage_secondary" },
+  { value: "storage-primary", label: "Кладовка перв", category: "commercial", subtype: "storage_primary" },
+
+  { value: "group-houses", label: "ДОМОВЛАДЕНИЕ", category: "house", subtype: "", heading: true },
+  { value: "group-showing", label: "— ДЛЯ ПОКАЗА —", category: "house", subtype: "", heading: true },
+  { value: "group-kp", label: "КП", category: "house", subtype: "", heading: true },
+  { value: "residential-house", label: "Жилой дом", category: "house", subtype: "residential_house" },
+  { value: "townhouse", label: "Таунхаус", category: "house", subtype: "townhouse" },
+  { value: "duplex", label: "Дуплекс", category: "house", subtype: "duplex" },
+  { value: "part-house", label: "Часть дома/частичка", category: "house", subtype: "part_of_house" },
+  { value: "villa-secondary", label: "Вилла втор", category: "house", subtype: "villa_secondary" },
+  { value: "dacha", label: "Дача", category: "house", subtype: "dacha" },
+  { value: "nonresidential-building", label: "Нежилое строение", category: "commercial", subtype: "nonresidential_building" },
+  { value: "residential-building", label: "Жилое строение", category: "house", subtype: "residential_building" },
+  { value: "nonresidential-structure", label: "Нежилое строение", category: "commercial", subtype: "nonresidential_structure" },
+  { value: "residential-structure", label: "Жилое строение", category: "house", subtype: "residential_structure" },
+
+  { value: "group-land", label: "ЗЕМЕЛЬНЫЕ УЧАСТКИ", category: "land", subtype: "", heading: true },
+  { value: "land-izhs", label: "Участок под ИЖС", category: "land", subtype: "izhs" },
+  { value: "land-nst", label: "Участок под НСТ", category: "land", subtype: "nst" },
+  { value: "land-commercial", label: "Участок под коммерцию", category: "land", subtype: "commercial_land" },
+  { value: "land-production", label: "Участок под производство", category: "land", subtype: "production_land" },
+  { value: "land-agricultural", label: "Земля с/х назначения", category: "land", subtype: "agricultural" },
+  { value: "land-lph", label: "Земля ЛПХ", category: "land", subtype: "lph" },
+
+  { value: "group-parking", label: "МАШИНОМЕСТА И ГАРАЖИ", category: "garage", subtype: "", heading: true },
+  { value: "open-parking", label: "Открытый паркинг", category: "garage", subtype: "open_parking" },
+  { value: "garage", label: "Гараж", category: "garage", subtype: "garage" },
+  { value: "closed-parking", label: "Закрытый паркинг", category: "garage", subtype: "closed_parking" },
+  { value: "parking-primary", label: "Паркоместо перв", category: "garage", subtype: "parking_primary" },
+
+  { value: "group-commercial", label: "КОММЕРЧЕСКАЯ НЕДВИЖИМОСТЬ", category: "commercial", subtype: "", heading: true },
+  { value: "office", label: "Офис", category: "commercial", subtype: "office" },
+  { value: "catering", label: "Общепит", category: "commercial", subtype: "catering" },
+  { value: "sauna", label: "Сауна/баня", category: "commercial", subtype: "sauna_bath" },
+  { value: "hotel", label: "Гостиница", category: "commercial", subtype: "hotel" },
+  { value: "sto", label: "СТО", category: "commercial", subtype: "sto" },
+  { value: "production", label: "Производство", category: "commercial", subtype: "production" },
+  { value: "warehouse", label: "Склад", category: "commercial", subtype: "warehouse" },
+  { value: "retail", label: "Торговое", category: "commercial", subtype: "retail" },
+  { value: "recreation-center", label: "База отдыха", category: "commercial", subtype: "recreation_center" },
+  { value: "building", label: "Здание", category: "commercial", subtype: "building" },
+  { value: "ready-business", label: "Готовый бизнес", category: "commercial", subtype: "ready_business" },
+  { value: "car-wash", label: "Автомойка", category: "commercial", subtype: "car_wash" },
+  { value: "pavilion", label: "Павильон", category: "commercial", subtype: "pavilion" },
+  { value: "gas-station", label: "АЗС", category: "commercial", subtype: "gas_station" },
+];
 
 const propertyTypeLabels: Record<string, string> = {
   apartment: "Квартира",
@@ -89,6 +120,7 @@ export default function CRMPage() {
   }, []);
   const [propertyType, setPropertyType] = useState("apartment");
   const [propertySubtype, setPropertySubtype] = useState("secondary");
+  const [selectedObjectType, setSelectedObjectType] = useState("studio-secondary");
   const [city, setCity] = useState("Краснодар");
   const [district, setDistrict] = useState("");
   const [realAddress, setRealAddress] = useState("");
@@ -130,6 +162,16 @@ export default function CRMPage() {
   const [frontage, setFrontage] = useState("");
   const [landPurpose, setLandPurpose] = useState("");
   const [heating, setHeating] = useState("");
+  const [hotWater, setHotWater] = useState("");
+  const [sewerageType, setSewerageType] = useState("");
+  const [waterSupply, setWaterSupply] = useState("");
+  const [gasSupply, setGasSupply] = useState("");
+  const [amenities, setAmenities] = useState("");
+  const [appliances, setAppliances] = useState("");
+  const [roofMaterial, setRoofMaterial] = useState("");
+  const [plotCoverage, setPlotCoverage] = useState("");
+  const [fenceMaterial, setFenceMaterial] = useState("");
+  const [ownershipCertificate, setOwnershipCertificate] = useState("");
   const [gas, setGas] = useState(false);
   const [water, setWater] = useState(false);
   const [electricity, setElectricity] = useState(false);
@@ -149,10 +191,8 @@ export default function CRMPage() {
   const [showCharacteristics, setShowCharacteristics] = useState(false);
   const [showReferenceSummary, setShowReferenceSummary] = useState(false);
 
-  const currentSubtypes = useMemo(
-    () => subtypeOptions[propertyType] ?? subtypeOptions.apartment,
-    [propertyType]
-  );
+  const selectedCatalogItem = propertyCatalog.find((item) => item.value === selectedObjectType && !item.heading);
+  const selectedObjectLabel = selectedCatalogItem?.label || "";
 
   const photosRef = useRef<PhotoPreview[]>([]);
   const gallerySyncReadyRef = useRef(true);
@@ -208,10 +248,14 @@ export default function CRMPage() {
     });
   }
 
-  function handlePropertyTypeChange(value: string) {
-    setPropertyType(value);
-    const firstSubtype = subtypeOptions[value]?.[0]?.value ?? "secondary";
-    setPropertySubtype(firstSubtype);
+  function handleObjectTypeChange(value: string) {
+    const item = propertyCatalog.find((option) => option.value === value && !option.heading);
+    if (!item) return;
+    setSelectedObjectType(value);
+    setPropertyType(item.category);
+    setPropertySubtype(item.subtype);
+    if (item.rooms !== undefined) setRooms(item.rooms);
+    if (item.category === "land") setLandPurpose(item.subtype);
   }
 
   function asFormString(value: unknown): string {
@@ -293,8 +337,37 @@ export default function CRMPage() {
       const p = (raw.property && typeof raw.property === "object" ? raw.property : raw) as Record<string, unknown>;
 
       setTitle(asFormString(p.title));
-      setPropertyType(asFormString(p.property_type));
-      setPropertySubtype(asFormString(p.property_subtype));
+      const loadedType = asFormString(p.property_type);
+      const loadedSubtype = asFormString(p.property_subtype);
+      setPropertyType(loadedType);
+      setPropertySubtype(loadedSubtype);
+      const legacySubtypeAliases: Record<string, string> = {
+        "1_room": "1_room_secondary",
+        "2_room": "2_room_secondary",
+        "3_room": "3_room_secondary",
+        "4_room": "4_room_secondary",
+        "5_room": "5_room_secondary",
+        secondary: "studio_secondary",
+        new_building: "studio_primary",
+        house: "residential_house",
+        cottage: "residential_house",
+        izhs: "izhs",
+        gardening: "nst",
+        dnp: "nst",
+        commercial_land: "commercial_land",
+        lph: "lph",
+        garage_box: "garage",
+        separate_garage: "garage",
+        parking: "open_parking",
+        covered_parking: "closed_parking",
+        residential_complex: "closed_parking",
+      };
+      const normalizedLegacySubtype = legacySubtypeAliases[loadedSubtype] || loadedSubtype;
+      const matchingCatalogItem = propertyCatalog.find(
+        (item) => !item.heading && item.category === loadedType && item.subtype === normalizedLegacySubtype
+      );
+      const fallbackCatalogItem = propertyCatalog.find((item) => !item.heading && item.category === loadedType);
+      setSelectedObjectType((matchingCatalogItem || fallbackCatalogItem)?.value || "studio-secondary");
       setCity(asFormString(p.city) || "Краснодар");
       setDistrict(asFormString(p.district));
       const loadedRealAddress = asFormString(p.real_address);
@@ -337,6 +410,16 @@ export default function CRMPage() {
       setFrontage(asFormString(p.frontage));
       setLandPurpose(asFormString(p.land_purpose));
       setHeating(asFormString(p.heating));
+      setHotWater(asFormString(p.hot_water));
+      setSewerageType(asFormString(p.sewerage_type));
+      setWaterSupply(asFormString(p.water_supply));
+      setGasSupply(asFormString(p.gas_supply));
+      setAmenities(asFormString(p.amenities));
+      setAppliances(asFormString(p.appliances));
+      setRoofMaterial(asFormString(p.roof_material));
+      setPlotCoverage(asFormString(p.plot_coverage));
+      setFenceMaterial(asFormString(p.fence_material));
+      setOwnershipCertificate(asFormString(p.ownership_certificate));
       setFenced(asFormString(p.fenced));
       setHasMaternalCapital(Boolean(p.has_maternal_capital));
       setShowPricePerSqm(Boolean(p.show_price_per_sqm));
@@ -401,8 +484,9 @@ export default function CRMPage() {
     }
     if (!window.confirm("Начать создание нового объекта? Несохранённые изменения будут потеряны.")) return;
     setTitle("");
-    setPropertyType("");
-    setPropertySubtype("");
+    setPropertyType("apartment");
+    setPropertySubtype("studio_secondary");
+    setSelectedObjectType("studio-secondary");
     setCity("Краснодар");
     setDistrict("");
     setRealAddress("");
@@ -442,6 +526,16 @@ export default function CRMPage() {
     setFrontage("");
     setLandPurpose("");
     setHeating("");
+    setHotWater("");
+    setSewerageType("");
+    setWaterSupply("");
+    setGasSupply("");
+    setAmenities("");
+    setAppliances("");
+    setRoofMaterial("");
+    setPlotCoverage("");
+    setFenceMaterial("");
+    setOwnershipCertificate("");
     setFenced("");
     setHasMaternalCapital(false);
     setShowPricePerSqm(false);
@@ -455,7 +549,8 @@ export default function CRMPage() {
     setPool(false);
     setGarage(false);
     setPropertyType("apartment");
-    setPropertySubtype("secondary");
+    setPropertySubtype("studio_secondary");
+    setSelectedObjectType("studio-secondary");
     setPhotos([]);
     gallerySyncReadyRef.current = true;
     setEditingPropertyId(null);
@@ -471,6 +566,7 @@ export default function CRMPage() {
       dealType,
       propertyType,
       propertySubtype,
+      selectedObjectType,
       district,
       realAddress,
       publicAddress,
@@ -510,6 +606,16 @@ export default function CRMPage() {
       frontage,
       landPurpose,
       heating,
+      hotWater,
+      sewerageType,
+      waterSupply,
+      gasSupply,
+      amenities,
+      appliances,
+      roofMaterial,
+      plotCoverage,
+      fenceMaterial,
+      ownershipCertificate,
       gas,
       water,
       electricity,
@@ -616,6 +722,16 @@ export default function CRMPage() {
           frontage: Number(frontage) || 0,
           land_purpose: landPurpose,
           heating,
+          hot_water: hotWater,
+          sewerage_type: sewerageType,
+          water_supply: waterSupply,
+          gas_supply: gasSupply,
+          amenities,
+          appliances,
+          roof_material: roofMaterial,
+          plot_coverage: plotCoverage,
+          fence_material: fenceMaterial,
+          ownership_certificate: ownershipCertificate,
           gas,
           water,
           electricity,
@@ -782,28 +898,15 @@ export default function CRMPage() {
                   />
                 </Field>
 
-                <Field label="Тип недвижимости" required>
+                <Field label="Тип объекта" required>
                   <SearchableSelect
-                    value={propertyType}
-                    onChange={(e) => handlePropertyTypeChange(e.target.value)}
+                    value={selectedObjectType}
+                    onChange={(e) => handleObjectTypeChange(e.target.value)}
                     style={inputStyle}
                   >
-                    {Object.entries(propertyTypeLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </SearchableSelect>
-                </Field>
-
-                <Field label="Подтип недвижимости">
-                  <SearchableSelect
-                    value={propertySubtype}
-                    onChange={(e) => setPropertySubtype(e.target.value)}
-                    style={inputStyle}
-                  >
-                    {currentSubtypes.map((item) => (
-                      <option key={item.value} value={item.value}>
+                    <option value="" disabled>Выберите объект</option>
+                    {propertyCatalog.map((item) => (
+                      <option key={item.value} value={item.value} disabled={item.heading}>
                         {item.label}
                       </option>
                     ))}
@@ -925,7 +1028,7 @@ export default function CRMPage() {
                 </Field>
                 <Field label="Мебель">
                   <SearchableSelect value={furniture} onChange={(e) => setFurniture(e.target.value)} style={inputStyle}>
-                    <option value="">Не указано</option><option value="С мебелью">С мебелью</option><option value="Частично меблирована">Частично меблирована</option><option value="Без мебели">Без мебели</option>
+                    <option value="">Не указано</option><option value="Только кухня">Только кухня</option><option value="Полностью меблирован">Полностью меблирован</option><option value="Частично">Частично</option><option value="Без мебели">Без мебели</option>
                   </SearchableSelect>
                 </Field>
                 {propertyType === "apartment" && (
@@ -959,11 +1062,13 @@ export default function CRMPage() {
                     <Field label="Санузел">
                       <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
-                        <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="2 санузла">2 санузла</option>
+                        <option value="На улице">На улице</option>
+                        <option value="Отсутствует">Отсутствует</option>
+                        <option value="Общий">Общий</option>
+                        <option value="На этаже">На этаже</option>
                       </SearchableSelect>
                     </Field>
                     <Field label="Балкон / лоджия">
@@ -1087,19 +1192,16 @@ export default function CRMPage() {
                         <option value="Каркасно-панельный">Каркасно-панельный</option>
                       </SearchableSelect>
                     </Field>
-                    <Field label="Отопление">
-                      <SearchableSelect value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
-                        <option value="">Не указано</option><option value="gas">Газовое</option><option value="electric">Электрическое</option><option value="solid_fuel">Твердотопливное</option><option value="central">Центральное</option>
-                      </SearchableSelect>
-                    </Field>
                     <Field label="Санузел">
                       <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
-                        <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="2 санузла">2 санузла</option>
+                        <option value="На улице">На улице</option>
+                        <option value="Отсутствует">Отсутствует</option>
+                        <option value="Общий">Общий</option>
+                        <option value="На этаже">На этаже</option>
                       </SearchableSelect>
                     </Field>
                     <Field label="Коммуникации" full>
@@ -1141,11 +1243,6 @@ export default function CRMPage() {
                     <Field label="Площадь участка, соток">
                       <input type="number" min="0" step="0.1" value={plotArea} onChange={(e) => setPlotArea(e.target.value)} placeholder="Например: 6" style={inputStyle} />
                     </Field>
-                    <Field label="Назначение земли">
-                      <SearchableSelect value={landPurpose || propertySubtype} onChange={(e) => { setLandPurpose(e.target.value); setPropertySubtype(e.target.value); }} style={inputStyle}>
-                        <option value="izhs">ИЖС</option><option value="lph">ЛПХ</option><option value="gardening">Садоводство</option><option value="dnp">ДНП</option><option value="commercial_land">Коммерческое</option>
-                      </SearchableSelect>
-                    </Field>
                     <Field label="Длина, м">
                       <input type="number" min="0" step="0.1" value={plotLength} onChange={(e) => setPlotLength(e.target.value)} placeholder="Например: 30" style={inputStyle} />
                     </Field>
@@ -1154,6 +1251,16 @@ export default function CRMPage() {
                     </Field>
                     <Field label="Ширина фасада, м">
                       <input type="number" min="0" step="0.1" value={frontage} onChange={(e) => setFrontage(e.target.value)} placeholder="Например: 20" style={inputStyle} />
+                    </Field>
+                    <Field label="Назначение земли">
+                      <SearchableSelect value={landPurpose} onChange={(e) => setLandPurpose(e.target.value)} style={inputStyle}>
+                        <option value="">Не указано</option>
+                        <option value="Малоэтажная жилая застройка (ИЖС)">Малоэтажная жилая застройка (ИЖС)</option>
+                        <option value="Дачные дома (земли СНТ)">Дачные дома (земли СНТ)</option>
+                        <option value="Приусадебный участок ЛПХ">Приусадебный участок ЛПХ</option>
+                        <option value="Блокированная жилая застройка (таунхаус)">Блокированная жилая застройка (таунхаус)</option>
+                        <option value="Огородный участок (земли ОНТ)">Огородный участок (земли ОНТ)</option>
+                      </SearchableSelect>
                     </Field>
                     <Field label="Ограждение">
                       <SearchableSelect value={fenced} onChange={(e) => setFenced(e.target.value)} style={inputStyle}>
@@ -1235,11 +1342,13 @@ export default function CRMPage() {
                     <Field label="Санузел">
                       <SearchableSelect value={bathroom} onChange={(e) => setBathroom(e.target.value)} style={inputStyle}>
                         <option value="">Не указано</option>
-                        <option value="Совмещенный">Совмещенный</option>
                         <option value="Раздельный">Раздельный</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
+                        <option value="Совмещенный">Совмещенный</option>
+                        <option value="2 санузла">2 санузла</option>
+                        <option value="На улице">На улице</option>
+                        <option value="Отсутствует">Отсутствует</option>
+                        <option value="Общий">Общий</option>
+                        <option value="На этаже">На этаже</option>
                       </SearchableSelect>
                     </Field>
                   </>
@@ -1247,11 +1356,6 @@ export default function CRMPage() {
 
                 {propertyType === "garage" && (
                   <>
-                    <Field label="Тип гаража">
-                      <SearchableSelect value={propertySubtype} onChange={(e) => setPropertySubtype(e.target.value)} style={inputStyle}>
-                        {currentSubtypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                      </SearchableSelect>
-                    </Field>
                     <Field label="Электричество">
                       <SearchableSelect value={electricity ? "yes" : "no"} onChange={(e) => setElectricity(e.target.value === "yes")} style={inputStyle}>
                         <option value="no">Нет / не указано</option><option value="yes">Есть</option>
@@ -1288,6 +1392,118 @@ export default function CRMPage() {
                     </Field>
                   </>
                 )}
+
+                <Field label="Отопление">
+                  <SearchableSelect value={heating} onChange={(e) => setHeating(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Централизованное">Централизованное</option>
+                    <option value="АГВ">АГВ</option>
+                    <option value="Котел">Котел</option>
+                    <option value="Форсунка">Форсунка</option>
+                    <option value="Печное">Печное</option>
+                    <option value="Конвектор">Конвектор</option>
+                    <option value="Отсутствует">Отсутствует</option>
+                    <option value="Электрическое">Электрическое</option>
+                    <option value="Газовое">Газовое</option>
+                    <option value="Фанкойл">Фанкойл</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Горячая вода">
+                  <SearchableSelect value={hotWater} onChange={(e) => setHotWater(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Централизованное">Централизованное</option>
+                    <option value="Газ.колонка">Газ.колонка</option>
+                    <option value="АГВ">АГВ</option>
+                    <option value="Электронагрев">Электронагрев</option>
+                    <option value="Отсутствует">Отсутствует</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Водоснабжение">
+                  <SearchableSelect value={waterSupply} onChange={(e) => setWaterSupply(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Централизованное">Централизованное</option>
+                    <option value="Колодец">Колодец</option>
+                    <option value="Скважина">Скважина</option>
+                    <option value="Отсутствует">Отсутствует</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Газоснабжение">
+                  <SearchableSelect value={gasSupply} onChange={(e) => setGasSupply(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Централизованное">Централизованное</option>
+                    <option value="Нет">Нет</option>
+                    <option value="По границе участка">По границе участка</option>
+                    <option value="В баллонах">В баллонах</option>
+                    <option value="Газгольдер">Газгольдер</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Канализация">
+                  <SearchableSelect value={sewerageType} onChange={(e) => setSewerageType(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Централизованная">Централизованная</option>
+                    <option value="Септик">Септик</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Удобства">
+                  <SearchableSelect value={amenities} onChange={(e) => setAmenities(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Все">Все</option>
+                    <option value="Частично">Частично</option>
+                    <option value="Отсутствуют">Отсутствуют</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Бытовая техника">
+                  <SearchableSelect value={appliances} onChange={(e) => setAppliances(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Полностью">Полностью</option>
+                    <option value="Только кухня">Только кухня</option>
+                    <option value="Без техники">Без техники</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Материал крыши">
+                  <SearchableSelect value={roofMaterial} onChange={(e) => setRoofMaterial(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Кровельное железо">Кровельное железо</option>
+                    <option value="Металлопрофиль">Металлопрофиль</option>
+                    <option value="Металлочерепица">Металлочерепица</option>
+                    <option value="Мягкая кровля">Мягкая кровля</option>
+                    <option value="Рубероид">Рубероид</option>
+                    <option value="Черепица">Черепица</option>
+                    <option value="Шифер">Шифер</option>
+                    <option value="Другой материал">Другой материал</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Покрытие участка">
+                  <SearchableSelect value={plotCoverage} onChange={(e) => setPlotCoverage(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Асфальт">Асфальт</option>
+                    <option value="Гравий">Гравий</option>
+                    <option value="Плитка">Плитка</option>
+                    <option value="Отсутствует">Отсутствует</option>
+                    <option value="Бетон">Бетон</option>
+                    <option value="Щебень">Щебень</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Тип забора">
+                  <SearchableSelect value={fenceMaterial} onChange={(e) => setFenceMaterial(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="Деревянный">Деревянный</option>
+                    <option value="Металлический">Металлический</option>
+                    <option value="Кирпичный">Кирпичный</option>
+                    <option value="Сетка-рабица">Сетка-рабица</option>
+                    <option value="Отсутствует">Отсутствует</option>
+                  </SearchableSelect>
+                </Field>
+                <Field label="Свидетельство о собственности (только CRM)">
+                  <SearchableSelect value={ownershipCertificate} onChange={(e) => setOwnershipCertificate(e.target.value)} style={inputStyle}>
+                    <option value="">Не указано</option>
+                    <option value="нет">нет</option>
+                    <option value="менее 3 лет">менее 3 лет</option>
+                    <option value="более 3 лет">более 3 лет</option>
+                    <option value="менее 5 лет">менее 5 лет</option>
+                    <option value="более 5 лет">более 5 лет</option>
+                  </SearchableSelect>
+                </Field>
               </div>
               )}
             </section>
@@ -1521,7 +1737,7 @@ export default function CRMPage() {
             <table style={referenceTableStyle}>
               <tbody>
                 {[
-                  ["Тип объекта", `${propertyTypeLabels[propertyType] ?? "Недвижимость"} — ${currentSubtypes.find((item) => item.value === propertySubtype)?.label ?? propertySubtype}`],
+                  ["Тип объекта", selectedObjectLabel || propertyCatalog.find((item) => !item.heading && item.category === propertyType && item.subtype === propertySubtype)?.label || propertyTypeLabels[propertyType] || "Недвижимость"],
                   ["Цена", price ? `${Number(price).toLocaleString("ru-RU")} ₽` : "—"],
                   ["Цена за м²", price && area && Number(area) > 0 ? `${Math.round(Number(price) / Number(area)).toLocaleString("ru-RU")} ₽` : "—"],
                   ["Общая площадь", area ? `${area} м²` : "—"],
@@ -2217,16 +2433,9 @@ function AddressMap({
             const longitude = Number(data?.longitude);
             const latitude = Number(data?.latitude);
             if (response.ok && data?.found === true && Number.isFinite(longitude) && Number.isFinite(latitude)) {
-              // Keep the two initial points visible rather than exactly on top of each other.
-              const sameEnteredAddress = Boolean(realAddress.trim()) &&
-                realAddress.trim().toLocaleLowerCase("ru-RU") === publicAddress.trim().toLocaleLowerCase("ru-RU");
-              coordinates = address
-                ? (kind === "public" && sameEnteredAddress
-                    ? [longitude + 0.002, latitude + 0.001]
-                    : [longitude, latitude])
-                : kind === "public"
-                  ? [longitude + 0.002, latitude + 0.001]
-                  : [longitude, latitude];
+              // Один и тот же адрес должен давать одну и ту же точку на карте.
+              // Не смещаем рекламную метку: даже небольшое смещение переносит её на соседнее здание.
+              coordinates = [longitude, latitude];
               resolved = true;
             }
           } catch (error) {
@@ -2316,8 +2525,16 @@ function AddressMap({
             centerEntries.reduce((sum, entry) => sum + entry.coordinates[1], 0) / centerEntries.length,
           ]
         : [38.9769, 45.0355];
-      const zoom = resolvedEntries.length > 1 ? 12 : resolvedEntries.length === 1 ? 16 : 12;
-      mapRef.current?.update({ location: { center, zoom, duration: 300 } });
+      // Если две метки попали практически в одну точку (один дом),
+      // показываем здание крупно. Для разных адресов оставляем более широкий обзор.
+      const sameBuilding = resolvedEntries.length >= 2 && resolvedEntries.every((entry) => {
+        const first = resolvedEntries[0].coordinates;
+        const dx = (entry.coordinates[0] - first[0]) * 111320 * Math.cos(first[1] * Math.PI / 180);
+        const dy = (entry.coordinates[1] - first[1]) * 110540;
+        return Math.hypot(dx, dy) <= 20;
+      });
+      const zoom = sameBuilding || resolvedEntries.length === 1 ? 18 : resolvedEntries.length > 1 ? 14 : 12;
+      mapRef.current?.update({ location: { center, zoom, duration: 450 } });
     }, 450);
 
     return () => {

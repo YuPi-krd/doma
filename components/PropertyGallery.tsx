@@ -533,9 +533,7 @@ export default function PropertyGallery({
           border-radius: 28px;
         }
 
-        .gallery-detail .gallery-image {
-          cursor: zoom-in;
-        }
+        .gallery-detail .gallery-image { cursor: zoom-in; object-fit: cover !important; background: transparent !important; }
 
         .gallery-lightbox {
           position: fixed;
@@ -681,16 +679,8 @@ export default function PropertyGallery({
           }
         }
 
-        /*
-         * На странице объекта не растягиваем
-         * изображение. Оно занимает весь блок
-         * с аккуратным обрезанием по краям.
-         */
-        .gallery-detail
-          .gallery-image {
-          object-fit: contain;
-          background: #eef1f4;
-        }
+        /* Detail photos fill the frame edge-to-edge without letterboxing. */
+        .gallery-detail .gallery-image { object-fit: cover !important; background: transparent !important; }
 
         .gallery-arrow {
           position: absolute;

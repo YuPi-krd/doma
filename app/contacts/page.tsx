@@ -51,7 +51,7 @@ export default function ContactsPage() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#f3f4f6", color: "#111827" }}>
-      <section style={{ background: "linear-gradient(110deg, #2d9ed0 0%, #7b70b5 45%, #f04e49 100%)", color: "#fff", padding: "54px 24px 82px", borderRadius: "0 0 28px 28px" }}>
+      <section style={{ background: "radial-gradient(circle at 92% 18%, rgba(239,68,68,.20), transparent 34%), linear-gradient(110deg, #17243a 0%, #263b59 58%, #34445d 100%)", color: "#fff", padding: "54px 24px 82px", borderRadius: "0 0 28px 28px" }}>
         <div style={{ maxWidth: 1240, margin: "0 auto" }}>
           <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".12em", opacity: .9 }}>DOMA · АГЕНТСТВО НЕДВИЖИМОСТИ</div>
           <h1 style={{ fontSize: "clamp(36px, 5vw, 56px)", lineHeight: 1.05, margin: "18px 0 12px", fontWeight: 800 }}>Контакты</h1>
