@@ -257,6 +257,46 @@ def ensure_site_settings_card_columns() -> None:
 ensure_site_settings_card_columns()
 
 
+def ensure_site_settings_hero_image_text() -> None:
+    """Ensure the persisted Hero image column can store an optimized Data URL.
+
+    SQLAlchemy create_all() does not change columns in an existing database.
+    Widening VARCHAR to TEXT is non-destructive on PostgreSQL.
+    """
+    try:
+        if "site_settings" not in inspect(engine).get_table_names():
+            return
+
+        columns = {
+            column["name"]: column
+            for column in inspect(engine).get_columns("site_settings")
+        }
+        if "hero_image" not in columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE site_settings ADD COLUMN hero_image TEXT")
+                )
+            return
+
+        # PostgreSQL can safely widen VARCHAR/CHAR to TEXT without losing data.
+        if engine.dialect.name == "postgresql":
+            column_type = str(columns["hero_image"]["type"]).upper()
+            if "TEXT" not in column_type:
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE site_settings "
+                            "ALTER COLUMN hero_image TYPE TEXT "
+                            "USING hero_image::TEXT"
+                        )
+                    )
+    except Exception as exc:
+        print("Не удалось проверить тип site_settings.hero_image:", exc)
+
+
+ensure_site_settings_hero_image_text()
+
+
 def ensure_property_characteristics() -> None:
     """Добавляет новые поля в существующую таблицу без удаления данных."""
     columns = {
@@ -5355,9 +5395,13 @@ def get_or_create_site_settings(db):
 
 
 def _site_setting_text(settings, field: str) -> str:
-    """Return non-empty saved text, falling back for older/partially blank rows."""
+    """Return the saved text verbatim, including an intentionally empty string.
+
+    Use defaults only for NULL or missing legacy values. An empty string is a
+    valid value because the administrator may intentionally hide Hero text.
+    """
     value = getattr(settings, field, None)
-    if isinstance(value, str) and value.strip():
+    if isinstance(value, str):
         return value
     return DEFAULT_SITE_SETTINGS[field]
 
@@ -5620,14 +5664,49 @@ def update_site_settings(
                 if value is None:
                     continue
                 value = json.dumps(value, ensure_ascii=False)
+            elif field.startswith("hero_") or field.startswith("stat"):
+                # Пустая строка допустима: она означает, что поле намеренно очищено.
+                # None не должен случайно превращаться в строку "None".
+                if field != "hero_image" and value is None:
+                    value = ""
             setattr(settings, field, value)
 
         db.commit()
         db.refresh(settings)
 
+        saved = site_settings_to_dict(settings)
+        # Не возвращаем успешный статус, если БД не отдала записанные значения.
+        for field in (
+            "hero_eyebrow",
+            "hero_title_line1",
+            "hero_title_line2",
+            "hero_title_line3",
+            "hero_description",
+            "hero_image",
+            "stat1_value",
+            "stat1_label",
+            "stat2_value",
+            "stat2_label",
+            "stat3_value",
+            "stat3_label",
+        ):
+            expected_value = payload.get(field)
+            if field == "hero_image":
+                # API serializes an empty image as null.
+                expected_value = expected_value or None
+            elif not isinstance(expected_value, str):
+                # Text fields are always persisted as strings; blank is intentional.
+                expected_value = ""
+
+            if saved.get(field) != expected_value:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Не удалось подтвердить сохранение поля {field}.",
+                )
+
         return {
             "status": "success",
-            "settings": site_settings_to_dict(settings),
+            "settings": saved,
         }
 
     except Exception:
