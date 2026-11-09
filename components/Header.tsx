@@ -85,7 +85,7 @@ export default function Header() {
       <header style={{ height: 80, background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 1000 }}>
         <div className="doma-header-inner" style={{ maxWidth: 1400, margin: "0 auto", height: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 30px", gap: 30 }}>
           <Link href="/" onClick={() => setOpenMenu(null)} style={{ fontSize: 40, fontWeight: 800, textDecoration: "none", color: "#111827", letterSpacing: "-2px", flexShrink: 0 }}>
-            DO<span style={{ color: "#ef4444" }}>MA</span>
+            As<span style={{ color: "#ef4444" }}>Adres</span>
           </Link>
           <nav className="doma-nav" style={{ display: "flex", gap: 32, alignItems: "center", height: "100%", flex: 1 }}>
             {([

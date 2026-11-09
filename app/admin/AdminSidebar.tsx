@@ -48,7 +48,7 @@ export default function AdminSidebar() {
           fontWeight: 700,
         }}
       >
-        🏠 DOMA CRM
+        🏠 AsAdres CRM
       </h2>
 
       <nav

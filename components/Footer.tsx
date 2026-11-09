@@ -19,7 +19,7 @@ export default function Footer() {
             marginBottom: "20px",
           }}
         >
-          DOMA
+          AsAdres
         </h2>
 
         <p>Агентство недвижимости</p>
@@ -38,7 +38,7 @@ export default function Footer() {
             opacity: 0.7,
           }}
         >
-          © 2026 DOMA. Все права защищены.
+          © 2026 AsAdres. Все права защищены.
         </p>
       </div>
     </footer>

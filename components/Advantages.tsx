@@ -41,7 +41,7 @@ export default function Advantages() {
             marginBottom: "40px",
           }}
         >
-          Почему выбирают DOMA
+          Почему выбирают AsAdres
         </h2>
 
         <div
