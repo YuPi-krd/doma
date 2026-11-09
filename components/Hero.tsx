@@ -4,7 +4,10 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
-const API_URL = "https://doma-nq4u.onrender.com";
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://doma-nq4u.onrender.com"
+).replace(/\/+$/, "");
 
 /* ============================================================
    ТИПЫ
@@ -1717,9 +1720,24 @@ export default function Hero() {
         const data = (await response.json()) as Partial<SiteSettings>;
 
         if (mounted) {
+          const textField = (value: unknown, fallback: string) =>
+            typeof value === "string" ? value : fallback;
+
           setSiteSettings({
-            ...DEFAULT_SITE_SETTINGS,
-            ...data,
+            hero_eyebrow: textField(data.hero_eyebrow, DEFAULT_SITE_SETTINGS.hero_eyebrow),
+            hero_title_line1: textField(data.hero_title_line1, DEFAULT_SITE_SETTINGS.hero_title_line1),
+            hero_title_line2: textField(data.hero_title_line2, DEFAULT_SITE_SETTINGS.hero_title_line2),
+            hero_title_line3: textField(data.hero_title_line3, DEFAULT_SITE_SETTINGS.hero_title_line3),
+            hero_description: textField(data.hero_description, DEFAULT_SITE_SETTINGS.hero_description),
+            hero_image: typeof data.hero_image === "string" && data.hero_image.length > 0
+              ? data.hero_image
+              : null,
+            stat1_value: textField(data.stat1_value, DEFAULT_SITE_SETTINGS.stat1_value),
+            stat1_label: textField(data.stat1_label, DEFAULT_SITE_SETTINGS.stat1_label),
+            stat2_value: textField(data.stat2_value, DEFAULT_SITE_SETTINGS.stat2_value),
+            stat2_label: textField(data.stat2_label, DEFAULT_SITE_SETTINGS.stat2_label),
+            stat3_value: textField(data.stat3_value, DEFAULT_SITE_SETTINGS.stat3_value),
+            stat3_label: textField(data.stat3_label, DEFAULT_SITE_SETTINGS.stat3_label),
           });
         }
       } catch (error) {
@@ -2052,6 +2070,9 @@ export default function Hero() {
         backgroundImage: siteSettings.hero_image
           ? `linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)), url("${siteSettings.hero_image}")`
           : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       <style jsx global>{`

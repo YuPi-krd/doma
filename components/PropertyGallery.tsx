@@ -542,17 +542,20 @@ export default function PropertyGallery({
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 56px 76px;
-          background: rgba(10, 12, 16, 0.94);
+          box-sizing: border-box;
+          padding: 58px 76px;
+          background: rgba(10, 12, 16, 0.96);
           cursor: zoom-out;
         }
 
         .lightbox-image {
           display: block;
+          /* Задаём размер области просмотра, а не только max-размер:
+             это позволяет увеличивать небольшие исходные фотографии. */
+          width: min(92vw, 1600px);
+          height: min(84vh, 1000px);
           max-width: 100%;
           max-height: 100%;
-          width: auto;
-          height: auto;
           object-fit: contain;
           cursor: default;
           user-select: none;
@@ -819,7 +822,12 @@ export default function PropertyGallery({
 
         @media (max-width: 700px) {
           .gallery-lightbox {
-            padding: 56px 48px;
+            padding: 58px 42px;
+          }
+
+          .lightbox-image {
+            width: 92vw;
+            height: 78vh;
           }
 
           .lightbox-arrow {

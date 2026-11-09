@@ -173,8 +173,11 @@ const DEFAULT_SETTINGS: SiteSettings = {
 
 function normalizeSettings(data: Partial<SiteSettings> | null | undefined): SiteSettings {
   const input = data ?? {};
+  // Пустая строка является осознанным значением: если администратор
+  // удалил текст Hero, не подменяем его текстом по умолчанию.
+  // Значение по умолчанию используем только для отсутствующих/неверных полей.
   const textOrDefault = (value: unknown, fallback: string) =>
-    typeof value === "string" && value.trim() ? value : fallback;
+    typeof value === "string" ? value : fallback;
 
   return {
     hero_eyebrow: textOrDefault(input.hero_eyebrow, DEFAULT_SETTINGS.hero_eyebrow),
@@ -485,11 +488,57 @@ export default function SettingsPage() {
         );
       }
 
-      if (data?.settings) {
-        setSettings(normalizeSettings(data.settings));
+      // Не показываем «сохранено» только на основании успешного PUT.
+      // Повторно читаем настройки из БД через публичный GET и сверяем
+      // критичные поля Hero, включая пустые строки и фотографию.
+      const verifyResponse = await fetch(`${API_URL}/site-settings`, {
+        cache: "no-store",
+      });
+
+      if (!verifyResponse.ok) {
+        throw new Error(
+          "Сервер принял изменения, но не удалось проверить сохранённые настройки. Проверьте GET /site-settings.",
+        );
       }
 
-      setMessage("Изменения сохранены. Обновите главную страницу, чтобы увидеть результат.");
+      const verifyPayload = await verifyResponse.json();
+      const savedSettings = normalizeSettings(verifyPayload);
+      const fieldsToVerify: (keyof SiteSettings)[] = [
+        "hero_eyebrow",
+        "hero_title_line1",
+        "hero_title_line2",
+        "hero_title_line3",
+        "hero_description",
+        "hero_image",
+        "stat1_value",
+        "stat1_label",
+        "stat2_value",
+        "stat2_label",
+        "stat3_value",
+        "stat3_label",
+      ];
+
+      const mismatchedField = fieldsToVerify.find(
+        (field) => savedSettings[field] !== settings[field],
+      );
+
+      if (mismatchedField) {
+        const expected = settings[mismatchedField];
+        const received = savedSettings[mismatchedField];
+        const formatValue = (value: unknown) => {
+          if (value === null) return "null";
+          if (typeof value === "string") return JSON.stringify(value.slice(0, 180));
+          return JSON.stringify(value);
+        };
+        throw new Error(
+          `Проверка GET /site-settings не прошла для поля «${mismatchedField}». ` +
+          `Отправлено: ${formatValue(expected)}; сервер вернул: ${formatValue(received)}. ` +
+          `Проверьте адрес NEXT_PUBLIC_API_URL и актуальность Backend на Render.`,
+        );
+      }
+
+      setSettings(savedSettings);
+      setMessage("Изменения сохранены и повторно проверены на сервере.");
     } catch (saveError) {
       setError(
         saveError instanceof Error
