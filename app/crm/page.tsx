@@ -1831,7 +1831,7 @@ const krasnodarDistricts: DistrictNode[] = [
     { label: "микрорайон Центр Аврора" },
     { label: "микрорайон Центр Исторический" },
     { label: "мкр Кожзавод" },
-    { label: "мкр Город Городов" },
+    { label: "мкр Горогороды" },
     { label: "СНТ Урожай" },
   ]},
   { label: "Фестивальный", children: [
@@ -1846,34 +1846,168 @@ const krasnodarDistricts: DistrictNode[] = [
     { label: "ЖК Виктория" },
     { label: "ЖК Новый Город" },
   ]},
-  { label: "Западный" },
-  { label: "Прикубанский" },
-  { label: "Карасунский" },
-  { label: "Славянский" },
-  { label: "Немецкая деревня" },
-  { label: "ЭНКА" },
-  { label: "Северный" },
-  { label: "Витаминкомбинат" },
-  { label: "Ростовское шоссе дачи" },
-  { label: "п. Российский" },
-  { label: "п. Индустриальный" },
+  { label: "Славянский", children: [
+    { label: "мкр Славянский" },
+    { label: "микрорайон Западный Обход" },
+    { label: "Микрохирургии глаза" },
+    { label: "Западная промышленная зона" },
+    { label: "жилой массив Учхоз Кубань" },
+    { label: "мкр имени Н.И. Вавилова" },
+  ]},
+  { label: "Немецкая деревня", children: [
+    { label: "Сады Калинина" },
+    { label: "мкр Немецкая Деревня" },
+    { label: "ОПХК" },
+    { label: "Отделение полей" },
+  ]},
+  { label: "ЭНКА", children: [
+    { label: "мкр ЭНКА" },
+  ]},
+  { label: "Северный", children: [
+    { label: "мкр Северный" },
+    { label: "Новый мкр" },
+    { label: "КП Малиновка" },
+    { label: "СНТ Вишнёвый сад" },
+    { label: "СНТ Топольки № 4" },
+  ]},
+  { label: "Витаминкомбинат", children: [
+    { label: "мкр Молодёжный" },
+    { label: "п. Берёзовый" },
+    { label: "мкр Витаминкомбинат" },
+    { label: "посёлок Прогресс" },
+    { label: "СНТ Прогресс" },
+  ]},
+  { label: "Ростовское шоссе дачи", children: [
+    { label: "СНТ 50 лет Октября" },
+    { label: "СТ № 2 АО ЮГТЕКС" },
+    { label: "СТ № 7" },
+    { label: "СТ Авангард" },
+    { label: "СТ Авиатор" },
+    { label: "СТ Автомагистраль" },
+    { label: "СТ Аэропорт" },
+    { label: "СТ Ветеран" },
+    { label: "СТ Дорожник" },
+    { label: "СТ Заря" },
+    { label: "СТ Зиповчанка" },
+    { label: "СТ Ивушка" },
+    { label: "СТ Калина" },
+    { label: "СТ Калининец" },
+    { label: "СТ Компрессор" },
+    { label: "СТ Кубанские Зори" },
+    { label: "СТ Кубань-1" },
+    { label: "СТ Кубань-2" },
+    { label: "СТ Прикубанье" },
+    { label: "СТ Связист-2" },
+    { label: "СТ Стекольщик" },
+    { label: "СТ Солнечное" },
+    { label: "СТ Шоссейное" },
+    { label: "СТ Энергетик" },
+    { label: "СТ Юбилейное" },
+    { label: "СТ Заводское" },
+    { label: "СНТ Лазурное" },
+    { label: "СТ Лазурное" },
+    { label: "СТ Горизонт" },
+    { label: "СНТ Калининец" },
+    { label: "СНТ Кубань-2" },
+    { label: "СНТ Автомобилист-2" },
+    { label: "СТ АМ" },
+  ]},
+  { label: "п. Российский", children: [
+    { label: "п. Российский" },
+    { label: "п. Краснодарский" },
+    { label: "микрорайон Ипподром" },
+    { label: "микрорайон Южное Сияние" },
+    { label: "КП Крепость" },
+    { label: "СТ Урожай" },
+    { label: "КП Альпийская долина" },
+    { label: "СНТ Апрельское" },
+    { label: "СНТ Россинский" },
+    { label: "СНТ х. Южный" },
+    { label: "СНТ Надежда" },
+    { label: "СНТ Транспортник" },
+  ]},
+  { label: "п. Индустриальный", children: [
+    { label: "п. Индустриальный" },
+    { label: "территория Автодорога подъезд к п. Дружелюбный, 1-й километр" },
+    { label: "квартал Водный" },
+  ]},
   { label: "п. Победитель" },
-  { label: "п. Дружелюбный" },
+  { label: "п. Дружелюбный", children: [
+    { label: "территория Перспективная" },
+    { label: "коттеджный квартал Эфегит" },
+    { label: "КП Атмосфера" },
+    { label: "ЖК Лето" },
+    { label: "КП на Перспективной" },
+    { label: "КП Третьяковский" },
+    { label: "Полевой квартал" },
+    { label: "КП Вишня" },
+    { label: "квартал Куренный" },
+    { label: "территория Автодорога подъезд к посёлку Дружелюбный, 2-й километр" },
+    { label: "СТ Заводское" },
+    { label: "СНТ Лазурное" },
+  ]},
+  { label: "Восточно-Кругликовский", children: [
+    { label: "мкр Восточно-Кругликовский" },
+    { label: "мкр имени Писателя-бумажного комбината" },
+  ]},
+  { label: "Комсомольский", children: [
+    { label: "мкр Камвольно-суконный комбинат" },
+  ]},
+  { label: "Гидростроителей", children: [
+    { label: "мкр Гидростроителей" },
+  ]},
+  { label: "Пашковский", children: [
+    { label: "жилой массив Пашковский" },
+    { label: "п. Знаменский" },
+    { label: "территория Хуторская" },
+    { label: "СТ Юбилейное" },
+    { label: "КП Приморский" },
+    { label: "КП Радужный" },
+    { label: "СНТ Белая Чайка" },
+    { label: "СНТ Пашковское" },
+    { label: "СНТ Радуга" },
+    { label: "СНТ Рублёвский" },
+    { label: "СТ Восток" },
+    { label: "ДНТ Виктория" },
+    { label: "СТ Кубанское Яблоко" },
+    { label: "СТ Монтажник" },
+    { label: "СТ Сад Кубани" },
+    { label: "СТ ТЭЦ" },
+    { label: "СНТ Юбилейное" },
+    { label: "СНТ Заводское" },
+    { label: "мкр Ростовское шоссе" },
+  ]},
+  { label: "х. Ленина", children: [
+    { label: "х. Ленина" },
+    { label: "СТ ТИТУТ-3" },
+  ]},
+  { label: "ст. Елизаветинская", children: [
+    { label: "мкр Новая Елизаветка" },
+    { label: "п. Белозёрный" },
+    { label: "СТ Кубаночка" },
+    { label: "СНТ Слава Кубани" },
+    { label: "СНТ Росинка" },
+    { label: "СНТ Башмачок" },
+    { label: "СНТ Бригантина" },
+    { label: "СТ Горизонт" },
+  ]},
+  { label: "Музыкальный микрорайон", children: [
+    { label: "мкр имени Петра Метальникова" },
+    { label: "мкр Завод Радиоизмерительных Приборов" },
+    { label: "мкр Завод Измерительных Приборов" },
+    { label: "мкр Московский" },
+  ]},
+  { label: "40 лет Победы", children: [
+    { label: "мкр Табачная фабрика" },
+    { label: "Восточно-Кругликовский" },
+  ]},
+  { label: "Черёмушки" },
   { label: "РИП" },
   { label: "ЗИП" },
-  { label: "40 лет Победы" },
-  { label: "Восточно-Кругликовский" },
-  { label: "Черёмушки" },
-  { label: "Комсомольский" },
-  { label: "Гидростроителей" },
-  { label: "Пашковский" },
-  { label: "п. Знаменский" },
-  { label: "х. Ленина" },
-  { label: "ст. Елизаветинская" },
-  { label: "СТ Аргон" },
-  { label: "СТ Янтарь" },
   { label: "РМЗ" },
-  { label: "Музыкальный микрорайон" },
+  { label: "Прикубанский" },
+  { label: "Карасунский" },
+  { label: "Западный" },
   { label: "Другой район" },
 ];
 
@@ -1887,6 +2021,7 @@ function flattenDistrictOptions(nodes: DistrictNode[]): Array<{ label: string; d
 function DistrictPicker({ value, onChange, city }: { value: string; onChange: (value: string) => void; city: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [remoteDistricts, setRemoteDistricts] = useState<Array<{ label: string; description?: string; type?: string }>>([]);
   const [districtLoading, setDistrictLoading] = useState(false);
   const [districtError, setDistrictError] = useState("");
@@ -1897,6 +2032,7 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
   useEffect(() => {
     setSearch("");
     setOpen(false);
+    setExpanded(new Set());
   }, [city]);
 
   useEffect(() => {
@@ -1929,25 +2065,136 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
     return () => controller.abort();
   }, [city, open, districtRetry]);
 
-  const localOptions = isKrasnodar ? flattenDistrictOptions(krasnodarDistricts) : [];
-  const allOptions = [...localOptions, ...remoteDistricts];
-  const seen = new Set<string>();
-  const uniqueOptions = allOptions.filter((item) => {
-    const key = item.label.trim().toLocaleLowerCase("ru-RU");
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  const filteredOptions = uniqueOptions.filter((item) =>
-    !query || item.label.toLocaleLowerCase("ru-RU").includes(query) ||
-    (item.description || "").toLocaleLowerCase("ru-RU").includes(query) ||
-    (item.type || "").toLocaleLowerCase("ru-RU").includes(query)
-  );
+  const localTree: DistrictNode[] = isKrasnodar ? krasnodarDistricts : [];
+  const remoteTree: DistrictNode[] = remoteDistricts.map((item) => ({
+    label: item.label,
+    description: item.description,
+    type: item.type,
+  }));
+  const tree = [...localTree, ...remoteTree];
+
+  const normalize = (text: string) => text.trim().toLocaleLowerCase("ru-RU");
+
+  function nodeMatches(node: DistrictNode): boolean {
+    return normalize(node.label).includes(query) ||
+      normalize(node.description || "").includes(query) ||
+      normalize(node.type || "").includes(query);
+  }
+
+  function hasMatchingDescendant(node: DistrictNode): boolean {
+    return Boolean(node.children?.some((child) => nodeMatches(child) || hasMatchingDescendant(child)));
+  }
+
+  function toggleExpanded(label: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   function chooseDistrict(label: string) {
     onChange(label);
     setOpen(false);
     setSearch("");
+    setExpanded(new Set());
+  }
+
+  function renderNode(node: DistrictNode, depth = 0): React.ReactNode {
+    const hasChildren = Boolean(node.children?.length);
+    const expandedByUser = expanded.has(node.label);
+    const showChildren = query ? hasMatchingDescendant(node) : expandedByUser;
+    const visible = !query || nodeMatches(node) || hasMatchingDescendant(node);
+    if (!visible) return null;
+
+    return (
+      <div key={`${depth}-${node.label}`}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            minHeight: 36,
+            padding: "3px 10px 3px 8px",
+            paddingLeft: 8 + depth * 19,
+            borderBottom: "1px solid #f1f5f9",
+            background: node.label === value ? "#fff1f2" : "#fff",
+            gap: 8,
+          }}
+        >
+          {hasChildren ? (
+            <button
+              type="button"
+              aria-label={showChildren ? `Свернуть ${node.label}` : `Раскрыть ${node.label}`}
+              aria-expanded={showChildren}
+              onClick={() => toggleExpanded(node.label)}
+              style={{
+                width: 20,
+                height: 20,
+                flex: "0 0 20px",
+                border: "1px solid #cbd5e1",
+                borderRadius: 4,
+                background: "#fff",
+                color: "#475569",
+                fontSize: 14,
+                lineHeight: "18px",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {showChildren ? "−" : "+"}
+            </button>
+          ) : (
+            <span style={{ width: 20, flex: "0 0 20px" }} />
+          )}
+
+          <button
+            type="button"
+            role="radio"
+            aria-checked={node.label === value}
+            onClick={() => chooseDistrict(node.label)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              flex: 1,
+              minWidth: 0,
+              border: 0,
+              background: "transparent",
+              textAlign: "left",
+              cursor: "pointer",
+              padding: "4px 0",
+              color: "#1e293b",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: 16,
+                height: 16,
+                flex: "0 0 16px",
+                border: node.label === value ? "5px solid #dc2626" : "1px solid #94a3b8",
+                borderRadius: "50%",
+                background: "#fff",
+                boxSizing: "border-box",
+              }}
+            />
+            <span style={{ display: "block", minWidth: 0, fontSize: 13, fontWeight: hasChildren ? 600 : 400 }}>
+              {node.label}
+              {node.description && (
+                <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11, fontWeight: 400 }}>
+                  {node.description}
+                </span>
+              )}
+            </span>
+          </button>
+        </div>
+
+        {hasChildren && showChildren && (
+          <div>{node.children!.map((child) => renderNode(child, depth + 1))}</div>
+        )}
+      </div>
+    );
   }
 
   if (!city.trim()) {
@@ -1957,10 +2204,6 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
   return (
     <div
       style={{ position: "relative", width: "100%" }}
-      onMouseLeave={() => {
-        setOpen(false);
-        setSearch("");
-      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           setOpen(false);
@@ -1994,7 +2237,7 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
 
           {districtLoading && <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Загружаем районы...</div>}
 
-          {!districtLoading && districtError && uniqueOptions.length === 0 && (
+          {!districtLoading && districtError && remoteTree.length === 0 && !isKrasnodar && (
             <div style={{ padding: 12, fontSize: 12, color: "#b91c1c" }}>
               Не удалось загрузить список районов.
               <button type="button" onClick={() => setDistrictRetry((current) => current + 1)} style={{ display: "block", marginTop: 8, border: 0, background: "transparent", color: "#2563eb", padding: 0, cursor: "pointer" }}>
@@ -2003,37 +2246,18 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
             </div>
           )}
 
-          {!districtLoading && !districtError && uniqueOptions.length === 0 && (
+          {!districtLoading && tree.length === 0 && !districtError && (
             <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Для этого населённого пункта список районов не найден.</div>
           )}
 
-          {!districtLoading && uniqueOptions.length > 0 && filteredOptions.length === 0 && (
+          {!districtLoading && tree.length > 0 && query && !tree.some((node) => nodeMatches(node) || hasMatchingDescendant(node)) && (
             <div style={{ padding: 12, fontSize: 12, color: "#64748b" }}>Ничего не найдено.</div>
           )}
 
-          {!districtLoading && filteredOptions.map((item, index) => (
-            <button
-              key={`${item.label}-${index}`}
-              type="button"
-              onClick={() => chooseDistrict(item.label)}
-              style={{
-                ...districtTreeRowStyle,
-                width: "100%",
-                padding: "8px 10px",
-                background: item.label === value ? "#fff1f2" : "#fff",
-                border: 0,
-                borderBottom: "1px solid #f1f5f9",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: "block", color: "#1e293b", fontSize: 13 }}>{item.label}</span>
-                {item.description && <span style={{ display: "block", marginTop: 2, color: "#64748b", fontSize: 11 }}>{item.description}</span>}
-              </span>
-              {item.label === value && <span style={{ color: "#dc2626", fontWeight: 700 }}>✓</span>}
-            </button>
-          ))}
+          {!districtLoading && tree.map((node) => renderNode(node))}
+          <div style={{ padding: "8px 10px", borderTop: "1px solid #e2e8f0", color: "#64748b", fontSize: 11 }}>
+            Можно выбрать только один район.
+          </div>
         </div>
       )}
 
@@ -2041,7 +2265,6 @@ function DistrictPicker({ value, onChange, city }: { value: string; onChange: (v
     </div>
   );
 }
-
 
 type SettlementSuggestion = {
   name: string;
