@@ -19,7 +19,7 @@ export default function Footer() {
             marginBottom: "20px",
           }}
         >
-          AsAdres
+          АсАдрес
         </h2>
 
         <p>Агентство недвижимости</p>
@@ -38,7 +38,7 @@ export default function Footer() {
             opacity: 0.7,
           }}
         >
-          © 2026 AsAdres. Все права защищены.
+          © 2026 АсАдрес. Все права защищены.
         </p>
       </div>
     </footer>

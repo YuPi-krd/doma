@@ -41,7 +41,7 @@ export default function Advantages() {
             marginBottom: "40px",
           }}
         >
-          Почему выбирают AsAdres
+          Почему выбирают АсАдрес
         </h2>
 
         <div

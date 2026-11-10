@@ -48,7 +48,7 @@ export default function AdminSidebar() {
           fontWeight: 700,
         }}
       >
-        🏠 AsAdres CRM
+        🏠 АсАдрес CRM
       </h2>
 
       <nav
